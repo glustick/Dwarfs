@@ -1,0 +1,151 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0d0b08;
+  font-family: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
+  color: #e8dcc0;
+  user-select: none;
+}
+
+#game { position: fixed; inset: 0; }
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  cursor: crosshair;
+}
+
+/* ---- Top status bar ---- */
+#topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 16px 0 66px;
+  background: linear-gradient(#2a2118ee, #1a140dee);
+  border-bottom: 2px solid #4a3a26;
+  font-size: 16px;
+  z-index: 10;
+  backdrop-filter: blur(2px);
+}
+#topbar .stat b { color: #ffe9a8; font-variant-numeric: tabular-nums; }
+#topbar .clock { margin-left: auto; color: #cbb98f; }
+#stat-speed { cursor: default; color: #9fd08a; }
+
+/* ---- Left toolbar ---- */
+#toolbar {
+  position: absolute;
+  top: 52px; left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 10;
+}
+.tool {
+  width: 52px; height: 52px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 2px;
+  background: linear-gradient(#3a2e1e, #241b10);
+  border: 2px solid #5a4630;
+  border-radius: 8px;
+  color: #d8c8a0;
+  cursor: pointer;
+  transition: transform .05s, background .1s, border-color .1s;
+}
+.tool .ico { font-size: 20px; line-height: 1; }
+.tool .lbl { font-size: 9px; letter-spacing: .3px; text-transform: uppercase; }
+.tool:hover { border-color: #a9843e; background: linear-gradient(#4a3a26, #2c2113); }
+.tool.active {
+  border-color: #ffcf6b;
+  background: linear-gradient(#6b4f22, #3d2c12);
+  box-shadow: 0 0 10px #ffcf6b55;
+}
+.tool:active { transform: scale(0.94); }
+
+/* ---- Right panel ---- */
+#panel {
+  position: absolute;
+  top: 52px; right: 8px; bottom: 90px;
+  width: 246px;
+  background: linear-gradient(#241b10ee, #17110aee);
+  border: 2px solid #4a3a26;
+  border-radius: 10px;
+  padding: 10px 12px;
+  overflow-y: auto;
+  z-index: 10;
+  font-size: 13px;
+}
+#panel h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #c9a758;
+  margin-bottom: 6px;
+}
+#panel hr { border: none; border-top: 1px solid #4a3a26; margin: 12px 0; }
+
+.dwarf-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  margin-bottom: 3px;
+  background: #ffffff08;
+  cursor: pointer;
+}
+.dwarf-row:hover { background: #ffcf6b22; }
+.dwarf-row .swatch {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 1px solid #00000066; flex: none;
+}
+.dwarf-row .dname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dwarf-row .dtask { font-size: 11px; color: #9c8a64; }
+.bar { height: 4px; border-radius: 2px; background: #00000055; margin-top: 3px; overflow: hidden; }
+.bar > i { display: block; height: 100%; }
+
+#inspector { line-height: 1.5; color: #cbbd99; }
+#inspector b { color: #ffe9a8; }
+.tag { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 11px; background: #4a3a26; margin: 2px 2px 0 0; }
+
+/* ---- Log ---- */
+#log {
+  position: absolute;
+  left: 8px; bottom: 8px;
+  width: 380px; height: 74px;
+  background: #0f0b06cc;
+  border: 1px solid #3a2e1e;
+  border-radius: 8px;
+  padding: 6px 10px;
+  overflow-y: auto;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #b7a988;
+  z-index: 10;
+}
+#log .entry { opacity: 0; animation: fade .3s forwards; }
+#log .good { color: #a9d68a; }
+#log .warn { color: #e0b158; }
+#log .bad { color: #e08a6a; }
+@keyframes fade { to { opacity: 1; } }
+
+#hint {
+  position: absolute;
+  left: 50%; bottom: 8px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: #7a6e54;
+  background: #0f0b06aa;
+  padding: 4px 12px;
+  border-radius: 20px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #4a3a26; border-radius: 4px; }

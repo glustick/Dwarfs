@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dwarf Fortress — Graphical</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game">
+    <canvas id="canvas"></canvas>
+
+    <!-- Top status bar -->
+    <div id="topbar">
+      <span class="stat" title="Dwarves">🧔 <b id="stat-pop">0</b></span>
+      <span class="stat" title="Wood">🪵 <b id="stat-wood">0</b></span>
+      <span class="stat" title="Stone">🪨 <b id="stat-stone">0</b></span>
+      <span class="stat" title="Ore">⛏️ <b id="stat-ore">0</b></span>
+      <span class="stat" title="Food">🍄 <b id="stat-food">0</b></span>
+      <span class="stat clock" title="Time"><span id="stat-clock">Day 1 · 06:00</span></span>
+      <span class="stat" id="stat-speed" title="Speed (Space to pause, +/- to change)">▶ 1×</span>
+    </div>
+
+    <!-- Left toolbar -->
+    <div id="toolbar">
+      <button class="tool active" data-tool="select" title="Inspect (Q)"><span class="ico">🔍</span><span class="lbl">Inspect</span></button>
+      <button class="tool" data-tool="dig" title="Dig / Mine stone (D)"><span class="ico">⛏️</span><span class="lbl">Mine</span></button>
+      <button class="tool" data-tool="chop" title="Chop trees (C)"><span class="ico">🪓</span><span class="lbl">Chop</span></button>
+      <button class="tool" data-tool="gather" title="Gather plants (G)"><span class="ico">🌿</span><span class="lbl">Gather</span></button>
+      <button class="tool" data-tool="stockpile" title="Place stockpile (S)"><span class="ico">📦</span><span class="lbl">Stockpile</span></button>
+      <button class="tool" data-tool="build" title="Build stone wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
+      <button class="tool" data-tool="floor" title="Build stone floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
+      <button class="tool" data-tool="erase" title="Cancel designation (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
+    </div>
+
+    <!-- Right info panel -->
+    <div id="panel">
+      <h2>Colony</h2>
+      <div id="dwarf-list"></div>
+      <hr/>
+      <h2>Selection</h2>
+      <div id="inspector">Click a tile with the Inspect tool.</div>
+    </div>
+
+    <!-- Bottom log -->
+    <div id="log"></div>
+
+    <!-- Help hint -->
+    <div id="hint">
+      Drag to designate · Arrows or right-drag to pan · Scroll to zoom · Space to pause
+    </div>
+  </div>
+
+  <script src="js/utils.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/pathfinding.js"></script>
+  <script src="js/entities.js"></script>
+  <script src="js/jobs.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
