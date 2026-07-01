@@ -5,37 +5,144 @@ const HUNGER_RATE = 100 / 280; // reach 100 in ~280s of game time
 const SPEEDS = [0, 1, 2, 4];
 
 class Game {
-  constructor() {
-    this.world = new World(90, 70, (Math.floor(performance.now()) ^ 0x9e3779b9) >>> 0);
+  // `saveData` restores a saved game; otherwise a fresh world is generated.
+  constructor(saveData) {
     this.items = [];
     this.dwarves = [];
     this.stockpileTiles = [];
-    this.cam = { x: this.world.spawnX, y: this.world.spawnY, zoom: 1.1 };
-    this.time = 0.25 * DAY_LENGTH; // start at 06:00
-    this.speedIdx = 1;             // 1x
-    this.paused = false;
+    this._nextItemId = 1;
+    this.running = true;
 
     this.selectedDwarf = null;
     this.selectedTile = null;
     this.hoverTile = null;
 
-    this.jobs = new JobManager(this);
-    this.renderer = new Renderer(this, document.getElementById("canvas"));
-    this.input = new Input(this, document.getElementById("canvas"));
-
     this.reindexTimer = 0;
     this.growthTimer = 0;
-    this.hungerAccum = 0;
     this.statTimer = 0;
-    this.migrationTimer = 0;
+    this.migrationTimer = DAY_LENGTH * 1.5;
 
-    this.spawnStartingDwarves();
-    this.log("Your seven dwarves have arrived. Strike the earth!", "good");
+    this.jobs = new JobManager(this);
+
+    if (saveData) this.restore(saveData);
+    else this.generateNew();
+
+    // Renderer & Input are reused across games so listeners aren't duplicated.
+    const canvas = document.getElementById("canvas");
+    if (!window.__renderer) window.__renderer = new Renderer(this, canvas);
+    if (!window.__input) window.__input = new Input(this, canvas);
+    this.renderer = window.__renderer; this.renderer.game = this;
+    this.input = window.__input; this.input.game = this;
+
+    if (saveData) this.log(`Loaded save “${saveData.name || "game"}”.`, "good");
+    else this.log("Your seven dwarves have arrived. Strike the earth!", "good");
+
+    this.jobs.reindex();
     this.updatePanel();
     this.updateStats();
 
     this._last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
+  }
+
+  generateNew() {
+    this.world = new World(90, 70, (Math.floor(performance.now()) ^ 0x9e3779b9) >>> 0);
+    this.cam = { x: this.world.spawnX, y: this.world.spawnY, zoom: 1.1 };
+    this.time = 0.25 * DAY_LENGTH; // start at 06:00
+    this.speedIdx = 1;
+    this.paused = false;
+    this.spawnStartingDwarves();
+  }
+
+  // ---- serialization ----
+  serialize() {
+    const w = this.world;
+    const tiles = new Array(w.w * w.h);
+    let i = 0;
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        const t = w.tiles[y][x];
+        tiles[i++] = [
+          t.kind, t.feature, t.ore, Math.round(t.growth * 100) / 100,
+          t.designation, t.built,
+          t.buildJob ? 1 : 0, t.pendingFloor ? 1 : 0, t.stockpile ? 1 : 0,
+          t.reserved ? 1 : 0, t.item ? t.item.id : 0,
+        ];
+      }
+    }
+    return {
+      version: SAVE_VERSION,
+      savedAt: Date.now(),
+      day: Math.floor(this.time / DAY_LENGTH) + 1,
+      pop: this.dwarves.length,
+      world: { w: w.w, h: w.h, seed: w.seed, spawnX: w.spawnX, spawnY: w.spawnY, tiles },
+      items: this.items.map(it => ({
+        id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y,
+        hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
+      })),
+      dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
+      nextItemId: this._nextItemId,
+      cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
+      time: this.time, speedIdx: this.speedIdx, paused: this.paused,
+    };
+  }
+
+  serializeDwarf(d) {
+    return {
+      name: d.name, x: d.x, y: d.y, color: d.color,
+      hunger: d.hunger, mood: d.mood, facing: d.facing,
+      state: d.state, thought: d.thought, workTimer: d.workTimer,
+      idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0,
+      carrying: d.carrying ? d.carrying.id : 0,
+      path: d.path, pathIdx: d.pathIdx,
+      job: d.job ? {
+        type: d.job.type, x: d.job.x, y: d.job.y, phase: d.job.phase,
+        item: d.job.item ? d.job.item.id : 0,
+        dest: d.job.dest, buildKind: d.job.buildKind || null,
+      } : null,
+    };
+  }
+
+  restore(data) {
+    const wd = data.world;
+    this.world = new World(wd.w, wd.h, wd.seed, false);
+    this.world.spawnX = wd.spawnX; this.world.spawnY = wd.spawnY;
+
+    // rebuild items first so tiles/dwarves can reference them by id
+    const byId = new Map();
+    this.items = data.items.map(o => {
+      const it = new Item(o.kind, o.x, o.y, o.sub);
+      it.id = o.id; it.hauled = !!o.hauled; it.stored = !!o.stored;
+      byId.set(o.id, it);
+      return it;
+    });
+    this._nextItemId = data.nextItemId ||
+      (this.items.reduce((m, it) => Math.max(m, it.id), 0) + 1);
+
+    this.world.loadTiles(wd.tiles, byId);
+
+    this.dwarves = data.dwarves.map(o => {
+      const d = new Dwarf(o.name, o.x, o.y, o.color);
+      d.hunger = o.hunger; d.mood = o.mood; d.facing = o.facing;
+      d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
+      d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0;
+      d.carrying = o.carrying ? byId.get(o.carrying) : null;
+      d.path = o.path || null; d.pathIdx = o.pathIdx || 0;
+      if (o.job) {
+        const j = new Job(o.job.type, o.job.x, o.job.y);
+        j.phase = o.job.phase;
+        j.item = o.job.item ? byId.get(o.job.item) : null;
+        j.dest = o.job.dest; j.buildKind = o.job.buildKind;
+        d.job = j;
+      }
+      return d;
+    });
+
+    this.cam = { x: data.cam.x, y: data.cam.y, zoom: data.cam.zoom };
+    this.time = data.time;
+    this.speedIdx = data.speedIdx != null ? data.speedIdx : 1;
+    this.paused = !!data.paused;
+    this.rebuildStockpiles();
   }
 
   spawnStartingDwarves() {
@@ -79,6 +186,7 @@ class Game {
 
   // ---- main loop ----
   loop(now) {
+    if (!this.running) return; // superseded by a newer game
     let dt = (now - this._last) / 1000;
     this._last = now;
     dt = Math.min(dt, 0.1); // clamp huge frames
@@ -293,4 +401,4 @@ class Game {
   }
 }
 
-window.addEventListener("load", () => { window.game = new Game(); });
+// Game creation is driven by the main menu — see js/menu.js.

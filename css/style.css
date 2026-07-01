@@ -149,3 +149,130 @@ html, body {
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: #4a3a26; border-radius: 4px; }
+
+/* ---- Menu button in top bar ---- */
+#menu-btn {
+  margin-left: 12px;
+  background: linear-gradient(#3a2e1e, #241b10);
+  border: 2px solid #5a4630;
+  border-radius: 7px;
+  color: #e8dcc0;
+  font-size: 14px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+#menu-btn:hover { border-color: #ffcf6b; background: linear-gradient(#5a4426, #2c2113); }
+
+/* ---- Toast ---- */
+#toast {
+  position: absolute;
+  top: 54px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex; flex-direction: column; gap: 6px; align-items: center;
+  pointer-events: none;
+}
+.toast-msg {
+  background: #2a2118ee;
+  border: 1px solid #a9843e;
+  color: #ffe9a8;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 14px #000a;
+  animation: toastIn .25s ease, toastOut .4s ease 2.4s forwards;
+}
+@keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-8px); } }
+
+/* ---- Overlay / menus ---- */
+#overlay {
+  position: absolute; inset: 0;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(circle at 50% 30%, #2a2114ee, #0a0806f2 70%);
+}
+#overlay.hidden { display: none; }
+
+.menu-card {
+  width: 460px;
+  max-width: 92vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  background: linear-gradient(#241b10f5, #14100af5);
+  border: 2px solid #6b5230;
+  border-radius: 14px;
+  padding: 26px 28px;
+  box-shadow: 0 18px 60px #000c, inset 0 1px 0 #ffffff10;
+  text-align: center;
+}
+.menu-title {
+  font-size: 34px;
+  letter-spacing: 1px;
+  color: #ffcf6b;
+  text-shadow: 0 2px 0 #000, 0 0 22px #ffcf6b44;
+  margin-bottom: 2px;
+}
+.menu-title .pick { font-size: 34px; }
+.menu-sub {
+  color: #b7a988;
+  font-size: 13px;
+  font-style: italic;
+  margin-bottom: 22px;
+}
+.menu-btns { display: flex; flex-direction: column; gap: 10px; }
+.menu-btn {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  padding: 13px 18px;
+  font-size: 16px;
+  color: #e8dcc0;
+  background: linear-gradient(#3a2e1e, #241b10);
+  border: 2px solid #5a4630;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform .05s, border-color .1s, background .1s;
+  text-align: left;
+}
+.menu-btn .mi { font-size: 22px; width: 26px; text-align: center; }
+.menu-btn:hover { border-color: #ffcf6b; background: linear-gradient(#5a4426, #2c2113); }
+.menu-btn:active { transform: scale(0.98); }
+.menu-btn.primary { border-color: #a9843e; background: linear-gradient(#6b4f22, #3d2c12); }
+.menu-btn.danger:hover { border-color: #e08a6a; }
+.menu-btn.ghost { background: none; border-color: #4a3a26; font-size: 14px; padding: 10px 16px; }
+.menu-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+.menu-section-title {
+  text-align: left;
+  font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+  color: #c9a758; margin: 18px 0 8px;
+}
+.slot-list { display: flex; flex-direction: column; gap: 8px; text-align: left; }
+.slot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px;
+  background: #ffffff08;
+  border: 1px solid #4a3a26;
+  border-radius: 9px;
+}
+.slot .slot-main { flex: 1; cursor: pointer; overflow: hidden; }
+.slot .slot-name { color: #ffe9a8; font-size: 15px; }
+.slot .slot-meta { color: #9c8a64; font-size: 12px; margin-top: 2px; }
+.slot .slot-main:hover .slot-name { text-decoration: underline; }
+.slot .slot-del {
+  background: none; border: 1px solid #5a4630; color: #cbb98f;
+  border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 13px;
+}
+.slot .slot-del:hover { border-color: #e08a6a; color: #e08a6a; }
+.slot.auto { border-color: #6b5a30; background: #ffcf6b0f; }
+.slot .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  background: #6b4f22; color: #ffe9a8; padding: 2px 7px; border-radius: 8px; }
+.menu-empty { color: #7a6e54; font-style: italic; padding: 14px; text-align: center; }
+
+.name-row { display: flex; gap: 8px; margin-top: 6px; }
+.name-row input {
+  flex: 1; background: #0f0b06; border: 1px solid #5a4630; color: #ffe9a8;
+  border-radius: 8px; padding: 10px 12px; font-size: 15px; font-family: inherit;
+}
+.name-row input:focus { outline: none; border-color: #ffcf6b; }

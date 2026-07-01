@@ -27,7 +27,9 @@ class Input {
   }
 
   bind() {
-    const c = this.canvas, g = this.game;
+    // NOTE: handlers must read `this.game` freshly — the Input instance is
+    // reused across games, so a captured reference would go stale.
+    const c = this.canvas;
 
     // Toolbar buttons
     document.querySelectorAll(".tool").forEach(btn => {
@@ -37,6 +39,7 @@ class Input {
     c.addEventListener("contextmenu", e => e.preventDefault());
 
     c.addEventListener("pointerdown", (e) => {
+      if (window.appMenuOpen) return;
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.keys.has(" ")) {
         this.panning = true;
@@ -58,13 +61,13 @@ class Input {
         const dpr = this.game.renderer.dpr;
         const dx = (e.clientX - this.panLast.x) * dpr / ts;
         const dy = (e.clientY - this.panLast.y) * dpr / ts;
-        g.cam.x -= dx; g.cam.y -= dy;
+        this.game.cam.x -= dx; this.game.cam.y -= dy;
         this.panLast = { x: e.clientX, y: e.clientY };
         this.clampCam();
         return;
       }
       const t = this.tileAt(e);
-      g.hoverTile = t;
+      this.game.hoverTile = t;
       if (this.dragStart) this.dragCur = t;
     });
 
@@ -81,7 +84,9 @@ class Input {
 
     // Zoom
     c.addEventListener("wheel", (e) => {
+      if (window.appMenuOpen) return;
       e.preventDefault();
+      const g = this.game;
       const r = c.getBoundingClientRect();
       const before = g.renderer.screenToWorld(e.clientX - r.left, e.clientY - r.top);
       const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
@@ -94,6 +99,10 @@ class Input {
 
     // Keyboard
     window.addEventListener("keydown", (e) => {
+      const g = this.game;
+      // Escape always toggles the in-game menu.
+      if (e.key === "Escape") { if (window.App) window.App.onEscape(); return; }
+      if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
       const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", x: "erase" };

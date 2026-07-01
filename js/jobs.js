@@ -345,6 +345,7 @@ class JobManager {
       }
     }
     const it = new Item(kind, px, py, sub);
+    it.id = g._nextItemId++;
     it.stored = !!w.tiles[py][px].stockpile;
     w.tiles[py][px].item = it;
     g.items.push(it);

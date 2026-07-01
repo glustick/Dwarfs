@@ -43,13 +43,41 @@ class Tile {
 }
 
 class World {
-  constructor(w, h, seed) {
+  constructor(w, h, seed, gen = true) {
     this.w = w;
     this.h = h;
     this.seed = seed;
     this.rng = makeRNG(seed);
     this.tiles = [];
-    this.generate();
+    if (gen) this.generate();
+    else this.initEmpty();
+  }
+
+  // Build a blank grid (used before loading tiles from a save).
+  initEmpty() {
+    for (let y = 0; y < this.h; y++) {
+      const row = [];
+      for (let x = 0; x < this.w; x++) row.push(new Tile(K.SOIL));
+      this.tiles.push(row);
+    }
+    this.spawnX = Math.floor(this.w / 2);
+    this.spawnY = Math.floor(this.h / 2);
+  }
+
+  // Restore tile state from a serialized array; `itemsById` maps item ids.
+  loadTiles(data, itemsById) {
+    let i = 0;
+    for (let y = 0; y < this.h; y++) {
+      for (let x = 0; x < this.w; x++) {
+        const a = data[i++];
+        const t = this.tiles[y][x];
+        t.kind = a[0]; t.feature = a[1]; t.ore = a[2]; t.growth = a[3];
+        t.designation = a[4]; t.built = a[5];
+        t.buildJob = !!a[6]; t.pendingFloor = !!a[7]; t.stockpile = !!a[8];
+        t.reserved = !!a[9];
+        t.item = a[10] ? (itemsById.get(a[10]) || null) : null;
+      }
+    }
   }
 
   inBounds(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }

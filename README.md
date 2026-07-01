@@ -10,6 +10,19 @@ HTML5 Canvas, no image assets required.
 Just open **`index.html`** in any modern browser (double-click it). No build step,
 no server, no dependencies.
 
+You'll land on a **main menu** — start a *New Game*, *Continue* your most recent
+save, or *Load* any saved fortress.
+
+## Saving & loading
+
+- **In-game menu**: press **Esc** or click **☰ Menu** (top-right) to pause and open
+  the menu — *Resume*, *Save Game*, *Load Game*, *New Game*, or *Quit to Main Menu*.
+- **Save slots**: name your saves or overwrite existing ones. Delete them from the
+  load screen.
+- **Autosave**: the game saves automatically every 10 minutes to an *Autosave* slot.
+- Saves live in your browser's `localStorage`, so they persist between sessions on
+  the same browser.
+
 ## What to do
 
 Your seven dwarves have arrived in a procedurally-generated wilderness. *Strike the earth!*
