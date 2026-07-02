@@ -188,6 +188,8 @@ html, body {
 }
 .spd:hover { border-color: #a9843e; }
 .spd.on { border-color: #ffcf6b; background: linear-gradient(#6b4f22, #3d2c12); color: #ffe9a8; }
+#sound-btn { margin-left: 4px; }
+#sound-btn.off { opacity: 0.5; }
 #stat-research b { color: #8fd0ff; }
 
 /* ---- Research tab ---- */

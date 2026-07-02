@@ -596,6 +596,7 @@ class Game {
   dwarfHitEnemy(d, foe) {
     foe.hp -= d.attackDamage();
     this.addFx(foe.x, foe.y, false);
+    if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 5); this.awardXp(d, "fitness", 1);
     if (foe.hp <= 0) this.killEnemy(foe, d);
   }
@@ -603,6 +604,7 @@ class Game {
   enemyHitDwarf(e, d) {
     d.hp -= d.damageTaken(e.atk);
     this.addFx(d.x, d.y, true);
+    if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 2);
     if (d.hp <= 0) this.recordDeath(d, `slain by a ${e.name}`);
   }
@@ -760,6 +762,9 @@ class Game {
     const hh = String(Math.floor(f)).padStart(2, "0");
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");
     const hm = `${hh}:${mm}`;
+
+    // sound cue for the event (throttled inside the sound manager)
+    if (window.sound) window.sound.onLog(cat, cls, msg);
 
     // record in the chronicle
     this.events.push({ seq: this._eventSeq++, day, hm, cat, cls, text: msg });
