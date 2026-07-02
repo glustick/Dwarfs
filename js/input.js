@@ -70,6 +70,14 @@ class Input {
       btn.addEventListener("click", () => this.toggleFlyout(btn.dataset.cat, btn));
     });
 
+    // Speed control buttons
+    document.querySelectorAll("#speed-ctl .spd").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const v = btn.dataset.spd;
+        this.game.setSpeed(v === "pause" ? 0 : parseInt(v, 10));
+      });
+    });
+
     // Right-panel tabs
     document.querySelectorAll(".ptab").forEach(btn => {
       btn.addEventListener("click", () => this.game.setPanelTab(btn.dataset.tab));
@@ -225,6 +233,18 @@ class Input {
           case "dining":
             if (w.isWalkable(x, y) && t.zone !== ZONE.DINING) { t.zone = ZONE.DINING; count++; }
             break;
+          case "farm":
+            if (w.isWalkable(x, y) && t.zone !== ZONE.FARM) { t.zone = ZONE.FARM; count++; }
+            break;
+          case "study":
+            if (w.isWalkable(x, y) && t.zone !== ZONE.STUDY) { t.zone = ZONE.STUDY; count++; }
+            break;
+          case "hospital":
+            if (w.isWalkable(x, y) && t.zone !== ZONE.HOSPITAL) { t.zone = ZONE.HOSPITAL; count++; }
+            break;
+          case "table":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
+            break;
           case "erase":
             if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop) {
               t.designation = null; t.buildJob = false; t.buildKind = null;
@@ -239,14 +259,15 @@ class Input {
     }
 
     if (this.tool === "stockpile" || this.tool === "erase") g.rebuildStockpiles();
-    if (this.tool === "bedroom" || this.tool === "dining" || this.tool === "erase" || this.tool === "bed") g.rebuildZones();
+    if (["bedroom", "dining", "farm", "study", "hospital", "erase", "bed"].includes(this.tool)) g.rebuildZones();
     g.jobs.reindex();
     if (count) {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued",
-        bedroom: "Bedroom zoned", dining: "Dining hall zoned", erase: "Cleared",
+        table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned",
+        farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
     }

@@ -31,15 +31,16 @@ const B = { NONE: null, WALL: "wall", FLOOR: "floor" };
 const FURN = { NONE: null, BED: "bed", TABLE: "table" };
 
 // Zones a tile can belong to (in addition to stockpile).
-const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining" };
+// farm/study/hospital are unlocked through research.
+const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital" };
 
 // Workshops that can be built on a tile.
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge" };
 
 // What a queued construction will produce.
-const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", SMELTER: "smelter", FORGE: "forge" };
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", smelter: "stone", forge: "stone" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone" };
 
 class Tile {
   constructor(kind) {

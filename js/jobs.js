@@ -187,7 +187,11 @@ class JobManager {
   workDuration(dwarf, type) {
     const base = WORK_TIME[type] || 1.2;
     const skill = JOB_SKILL[type];
-    const mult = skill ? dwarf.workSpeedMult(skill) : 1;
+    let mult = skill ? dwarf.workSpeedMult(skill) : 1;
+    const g = this.game;
+    if ((type === "dig" || type === "build") && g.hasTech("tools")) mult *= 1.25;
+    if (type === "chop" && g.hasTech("axes")) mult *= 1.25;
+    if (type === "craft" && g.hasTech("metallurgy")) mult *= 1.4;
     return base / mult;
   }
 
@@ -377,9 +381,10 @@ class JobManager {
       }
       case "sleep": {
         const inBed = !!dwarf.bed;
-        dwarf.energy = clamp(dwarf.energy + (inBed ? ENERGY_SLEEP_BED : ENERGY_SLEEP_GROUND) * dt, 0, 100);
+        const comfort = g.hasTech("comfort") ? 1.5 : 1;
+        dwarf.energy = clamp(dwarf.energy + (inBed ? ENERGY_SLEEP_BED : ENERGY_SLEEP_GROUND) * comfort * dt, 0, 100);
         if (inBed && w.tiles[dwarf.bed.y][dwarf.bed.x].zone === ZONE.BEDROOM)
-          dwarf.mood = clamp(dwarf.mood + dt * 0.6, 0, 100);
+          dwarf.mood = clamp(dwarf.mood + dt * 0.6 * (g.hasTech("comfort") ? 2 : 1), 0, 100);
         if (dwarf.energy >= 99 || (dwarf.activity !== "sleep" && dwarf.energy > 55))
           this.finishSleep(dwarf);
         break;
@@ -427,7 +432,9 @@ class JobManager {
         const wt = w.tiles[job.y][job.x];
         const rec = this.currentRecipe(wt);
         const base = rec ? rec.time : WORK_TIME.craft;
-        dwarf.state = "work"; dwarf.workTimer = base / dwarf.workSpeedMult("smithing");
+        let mult = dwarf.workSpeedMult("smithing");
+        if (g.hasTech("metallurgy")) mult *= 1.4;
+        dwarf.state = "work"; dwarf.workTimer = base / mult;
         break;
       }
       case "equip":
@@ -485,13 +492,13 @@ class JobManager {
     } else if (job.type === "chop" && t) {
       t.designation = null; t.reserved = false;
       t.feature = F.NONE; t.growth = 0;
-      const logs = randint(w.rng, 1, 3) + Math.floor(dwarf.skillLevel("woodcutting") / 6);
+      const logs = randint(w.rng, 1, 3) + Math.floor(dwarf.skillLevel("woodcutting") / 6) + (g.hasTech("axes") ? 1 : 0);
       for (let i = 0; i < logs; i++) this.spawnItem(ITEM.WOOD, job.x, job.y);
       g.log(`${dwarf.name} felled a tree (${logs} logs).`, "", "labor");
       g.awardXp(dwarf, "woodcutting", 12); g.awardXp(dwarf, "fitness", 2);
     } else if (job.type === "gather" && t) {
       t.designation = null; t.reserved = false;
-      let food = (t.feature === F.BUSH ? randint(w.rng, 1, 2) : 1) + Math.floor(dwarf.skillLevel("farming") / 8);
+      let food = (t.feature === F.BUSH ? randint(w.rng, 1, 2) : 1) + Math.floor(dwarf.skillLevel("farming") / 8) + (g.hasTech("rations") ? 1 : 0);
       t.feature = F.NONE; t.growth = 0;
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y);
       g.log(`${dwarf.name} gathered ${food} food.`, "", "labor");
@@ -502,6 +509,7 @@ class JobManager {
       const kind = job.buildKind || "wall";
       if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
       else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
+      else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a table.`, "good", "build"); }
       else if (kind === "smelter" || kind === "forge") {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
@@ -535,7 +543,8 @@ class JobManager {
       const here = w.tiles[dwarf.tileY] && w.tiles[dwarf.tileY][dwarf.tileX];
       const inDining = here && here.zone === ZONE.DINING;
       dwarf.hunger = clamp(dwarf.hunger - (60 + dwarf.skillLevel("cooking") * 2), 0, 100);
-      dwarf.mood = clamp(dwarf.mood + (inDining ? 9 : 5), 0, 100);
+      const diningBonus = inDining ? (g.hasTech("furniture") && g.tableCount > 0 ? 14 : 9) : 5;
+      dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
       g.awardXp(dwarf, "cooking", 5);
       if (inDining) g.awardXp(dwarf, "charisma", 4);
       dwarf.thought = inDining ? "Dined well in the hall" : "Ate a meal";

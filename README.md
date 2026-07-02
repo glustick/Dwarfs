@@ -78,6 +78,20 @@ across games as a hall of records.
   (mining/woodcutting/gathering/building/hauling) each dwarf will take. Set the
   whole colony to sleep at night, or run night shifts — your call.
 
+### 🔬 Research & 😀 Happiness
+
+- **Research tree** (Research tab): points accrue from your dwarves' *Intelligence*
+  and from **Study zones**. Spend them on a tree of techs that make dwarves more
+  efficient (faster mining/chopping/smithing, slower hunger, comfier beds) and
+  **unlock new build/zone options** — **Farm** (grows food), **Study** (more
+  research), **Hospital** (faster healing) and **Tables** (happier dining halls).
+- **Happiness** — each colonist has an overall happiness gauge combining health,
+  mood, and satisfied needs (food, rest). Shown as a face + bar in the roster.
+- **Growth** — migrants arrive at random; the odds rise when the colony is happy
+  and well-fed, but only if there's **space** (each bed adds room to grow).
+- **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
+  stop to make decisions or fast-forward the grind.
+
 ## Controls
 
 | Action | Control |
@@ -85,8 +99,8 @@ across games as a hall of records.
 | Designate / build | Left-drag with a tool selected |
 | Pan camera | Arrow keys, or right-drag |
 | Zoom | Mouse wheel |
-| Pause / resume | Space |
-| Game speed | `+` / `-` |
+| Pause / resume | Space, or the ⏸ button |
+| Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
 | Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `R` bedroom · `T` dining · `X` cancel |
 
 ## Under the hood

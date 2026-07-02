@@ -37,6 +37,16 @@ class Game {
     this.logFilter = "all";    // active category filter in the Log panel
     this._eventSeq = 1;
 
+    // research
+    this.research = 0;         // accumulated research points
+    this.tech = {};            // completed tech ids -> true
+    this.researchTimer = 0;
+    this.farmTimer = 0;
+    this.farmTiles = [];
+    this.studyTiles = [];
+    this.hospitalTiles = [];
+    this.tableCount = 0;
+
     this.selectedDwarf = null;
     this.selectedTile = null;
     this.hoverTile = null;
@@ -67,6 +77,7 @@ class Game {
     else this.log("Your seven dwarves have arrived. Strike the earth!", "good", "colony");
 
     this.jobs.reindex();
+    this.updateToolAvailability();
     this.updatePanel();
     this.updateStats();
 
@@ -116,6 +127,7 @@ class Game {
         kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
       })),
       raidTimer: this.raidTimer, raidCount: this.raidCount,
+      research: this.research, tech: this.tech,
       events: this.events.slice(-SAVED_EVENTS),
       nextItemId: this._nextItemId,
       cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
@@ -199,6 +211,8 @@ class Game {
     this.raidCount = data.raidCount || 0;
     this.events = Array.isArray(data.events) ? data.events : [];
     this._eventSeq = this.events.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
+    this.research = data.research || 0;
+    this.tech = data.tech || {};
 
     this.cam = { x: data.cam.x, y: data.cam.y, zoom: data.cam.zoom };
     this.time = data.time;
@@ -289,6 +303,25 @@ class Game {
     this.growthTimer -= dt;
     if (this.growthTimer <= 0) { this.world.tickGrowth(this.world.rng); this.growthTimer = 0.5; }
 
+    // research accrues over time
+    this.research += this.researchRate() * dt;
+
+    // farm zones grow food (once Agriculture is researched)
+    if (this.hasTech("agriculture") && this.farmTiles.length) {
+      this.farmTimer -= dt;
+      if (this.farmTimer <= 0) {
+        this.farmTimer = 3;
+        const yieldN = Math.max(1, Math.round(this.farmTiles.length * 0.15));
+        const foodCap = 30 + this.dwarves.length * 6;   // don't let food run away
+        if (this.countItems(ITEM.FOOD) < foodCap) {
+          for (let k = 0; k < yieldN; k++) {
+            const [fx, fy] = this.farmTiles[Math.floor(this.world.rng() * this.farmTiles.length)];
+            if (!this.world.tiles[fy][fx].item) this.jobs.spawnItem(ITEM.FOOD, fx, fy);
+          }
+        }
+      }
+    }
+
     // dwarves
     for (const d of this.dwarves) this.updateDwarf(d, dt);
     this.flushRemovals();
@@ -319,7 +352,7 @@ class Game {
     this.statTimer -= dt;
     if (this.statTimer <= 0) {
       this.updateStats();
-      if (this.panelTab === "colony") this.updatePanel(); // live bars; other tabs refresh on demand
+      if (this.panelTab === "colony" || this.panelTab === "research") this.updatePanel();
       this.statTimer = 0.5;
     }
   }
@@ -338,7 +371,7 @@ class Game {
     const night = this.shift() === "night";
 
     // needs
-    d.hunger = clamp(d.hunger + HUNGER_RATE * dt, 0, 100);
+    d.hunger = clamp(d.hunger + this.hungerRate() * dt, 0, 100);
     if (d.state !== "sleep") d.energy = clamp(d.energy - ENERGY_RATE * (night ? 1.4 : 1) * dt, 0, 100);
     d.activity = this.resolveActivity(d);
 
@@ -351,9 +384,17 @@ class Game {
     if (d.energy < 18) d.mood = clamp(d.mood - dt * 1.5, 0, 100);
     else if (d.hunger < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
 
-    // slow healing when no threat is present
-    if (!this.enemies.length && d.hp < d.maxhp && d.hunger < 85)
-      d.hp = clamp(d.hp + 3 * dt, 0, d.maxhp);
+    // slow healing when no threat is present (faster with Medicine / in a Hospital)
+    if (!this.enemies.length && d.hp < d.maxhp && (d.hunger < 85 || this.hasTech("medicine"))) {
+      let heal = 3;
+      if (this.hasTech("medicine")) heal *= 2.5;
+      const here = this.world.tiles[d.tileY] && this.world.tiles[d.tileY][d.tileX];
+      if (here && here.zone === ZONE.HOSPITAL) heal *= 2;
+      d.hp = clamp(d.hp + heal * dt, 0, d.maxhp);
+    }
+
+    // overall happiness gauge (health + mood + satisfied needs)
+    d.happiness = this.computeHappiness(d);
 
     // combat takes over whenever enemies are on the map
     if (this.enemies.length && this.handleCombat(d, dt)) return;
@@ -415,6 +456,62 @@ class Game {
       colonyDB.logEvent(`${d.name} ${cause}`, Math.floor(this.time / DAY_LENGTH) + 1);
     }
   }
+
+  // ---- research ----
+  hasTech(id) { return !!this.tech[id]; }
+
+  researchRate() {
+    let r = 0;
+    for (const d of this.dwarves) r += 0.12 * (1 + d.skillLevel("intelligence") * 0.08);
+    r += this.studyTiles.length * 0.3;               // dedicated study zones
+    if (this.hasTech("scholarship")) r *= 1.3;
+    if (this.hasTech("bookkeeping")) r *= 1.3;
+    return r;
+  }
+
+  techPrereqsMet(t) { return (t.requires || []).every(id => this.hasTech(id)); }
+  canResearch(t) { return !this.hasTech(t.id) && this.techPrereqsMet(t) && this.research >= t.cost; }
+
+  buyTech(t) {
+    if (!this.canResearch(t)) return false;
+    this.research -= t.cost;
+    this.tech[t.id] = true;
+    this.log(`Researched ${t.name}.`, "good", "skill");
+    if (colonyDB) colonyDB.logEvent(`Researched ${t.name}`, Math.floor(this.time / DAY_LENGTH) + 1);
+    this.updateToolAvailability();
+    this.updatePanel();
+    return true;
+  }
+
+  // Show/hide tools whose tech hasn't been researched yet.
+  updateToolAvailability() {
+    for (const tool in TOOL_TECH) {
+      const unlocked = this.hasTech(TOOL_TECH[tool]);
+      document.querySelectorAll(`.tool[data-tool="${tool}"]`).forEach(b => {
+        b.style.display = unlocked ? "" : "none";
+      });
+    }
+  }
+
+  // ---- happiness (derived gauge: health + mood + needs) ----
+  computeHappiness(d) {
+    const hpPct = (d.hp / d.maxhp) * 100;
+    return clamp(0.4 * d.mood + 0.25 * hpPct + 0.2 * (100 - d.hunger) + 0.15 * d.energy, 0, 100);
+  }
+  avgHappiness() {
+    if (!this.dwarves.length) return 0;
+    let s = 0; for (const d of this.dwarves) s += (d.happiness != null ? d.happiness : 60);
+    return s / this.dwarves.length;
+  }
+
+  // ---- speed controls ----
+  setSpeed(v) { // v === 0 pauses; otherwise a value from SPEEDS
+    if (v === 0) { this.paused = true; }
+    else { const i = SPEEDS.indexOf(v); if (i >= 0) this.speedIdx = i; this.paused = false; }
+    this.updateStats();
+  }
+
+  hungerRate() { return HUNGER_RATE * (this.hasTech("rations") ? 0.75 : 1); }
 
   flushRemovals() {
     if (!this._toRemove || !this._toRemove.length) return;
@@ -595,22 +692,42 @@ class Game {
 
   rebuildZones() {
     this.bedTiles = []; this.diningTiles = [];
+    this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = [];
+    this.tableCount = 0;
     for (let y = 0; y < this.world.h; y++)
       for (let x = 0; x < this.world.w; x++) {
         const t = this.world.tiles[y][x];
         if (t.furniture === FURN.BED) this.bedTiles.push([x, y]);
+        else if (t.furniture === FURN.TABLE) this.tableCount++;
         if (t.zone === ZONE.DINING) this.diningTiles.push([x, y]);
+        else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y]);
+        else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y]);
+        else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y]);
       }
   }
 
+  // Migrants arrive randomly — better odds when the colony is thriving, but
+  // only if there is room to house them (beds provide living space).
   tryMigration() {
+    const HARD_CAP = 40;
+    if (this.dwarves.length >= HARD_CAP) return;
+    const capacity = 8 + this.bedTiles.length; // free buffer + one slot per bed
+    const room = capacity - this.dwarves.length;
+    if (room <= 0) return; // no space — nowhere to house new arrivals
+
     const food = this.countItems(ITEM.FOOD);
-    if (this.dwarves.length >= 16) return;
-    if (food < this.dwarves.length) { return; } // need surplus to attract migrants
-    // A charismatic colony draws more migrants.
+    const wellFed = food >= this.dwarves.length;
+    const hap = this.avgHappiness();
     let cha = 0;
     for (const d of this.dwarves) cha = Math.max(cha, d.skillLevel("charisma"));
-    const n = randint(this.world.rng, 1, 3) + Math.floor(cha / 6);
+
+    // Base randomness improved by happiness, food security, charisma, bookkeeping.
+    let chance = 0.12 + (hap / 100) * 0.5 + (wellFed ? 0.15 : -0.12) + cha * 0.02;
+    if (this.hasTech("bookkeeping")) chance += 0.15;
+    chance = clamp(chance, 0.02, 0.92);
+    if (this.world.rng() >= chance) return; // no arrivals this season
+
+    const n = clamp(randint(this.world.rng, 1, 3), 1, room);
     let arrived = 0;
     for (let i = 0; i < n; i++) {
       for (let tries = 0; tries < 40; tries++) {
@@ -675,7 +792,14 @@ class Game {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const icon = this.shift() === "day" ? "☀️" : "🌙";
     document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm}`;
-    document.getElementById("stat-speed").textContent = this.paused ? "⏸ Paused" : `▶ ${this.speed}×`;
+    const rEl = document.getElementById("stat-research");
+    if (rEl) rEl.innerHTML = `🔬 <b>${Math.floor(this.research)}</b>`;
+    // highlight the active speed button
+    document.querySelectorAll("#speed-ctl .spd").forEach(b => {
+      const v = b.dataset.spd;
+      const on = v === "pause" ? this.paused : (!this.paused && String(this.speed) === v);
+      b.classList.toggle("on", on);
+    });
     const threat = document.getElementById("stat-threat");
     if (threat) {
       if (this.enemies.length) {
@@ -701,7 +825,40 @@ class Game {
     if (this.panelTab === "schedule") this.renderSchedule(c);
     else if (this.panelTab === "records") this.renderRecords(c);
     else if (this.panelTab === "log") this.renderLog(c);
+    else if (this.panelTab === "research") this.renderResearch(c);
     else this.renderColony(c);
+  }
+
+  renderResearch(c) {
+    const rate = this.researchRate();
+    let html = `<h2>Research</h2>
+      <div class="res-hdr">🔬 <b>${Math.floor(this.research)}</b> points
+        <span class="res-rate">+${rate.toFixed(1)}/s</span></div>
+      <div class="sched-note">Points accrue from your dwarves' intellect and Study zones. Spend them to unlock buildings, zones and efficiency bonuses.</div>
+      <div class="tech-list">`;
+    // group by tier
+    for (let tier = 1; tier <= 3; tier++) {
+      const inTier = TECHS.filter(t => t.tier === tier);
+      if (!inTier.length) continue;
+      html += `<div class="tech-tier">Tier ${tier}</div>`;
+      for (const t of inTier) {
+        const done = this.hasTech(t.id);
+        const met = this.techPrereqsMet(t);
+        const afford = this.research >= t.cost;
+        const state = done ? "done" : !met ? "locked" : afford ? "ready" : "poor";
+        const reqTxt = (t.requires || []).length
+          ? `<div class="tech-req">Requires: ${t.requires.map(r => TECH_BY_ID[r] ? TECH_BY_ID[r].name : r).join(", ")}</div>` : "";
+        html += `<div class="tech ${state}" data-tech="${t.id}">
+          <div class="tech-top"><span class="tech-name">${t.icon} ${t.name}</span>
+            <span class="tech-cost">${done ? "✓ done" : t.cost + " pts"}</span></div>
+          <div class="tech-desc">${t.desc}</div>${reqTxt}</div>`;
+      }
+    }
+    html += `</div>`;
+    c.innerHTML = html;
+    c.querySelectorAll(".tech.ready").forEach(el => {
+      el.onclick = () => { this.buyTech(TECH_BY_ID[el.dataset.tech]); };
+    });
   }
 
   // Full event chronicle with category filters.
@@ -751,16 +908,16 @@ class Game {
   renderColony(c) {
     let html = `<h2>Colony · ${this.dwarves.length}</h2><div id="dwarf-list">`;
     this.dwarves.forEach((d, i) => {
-      const hungerColor = d.hunger < 50 ? "#5cb85c" : d.hunger < 80 ? "#e0b158" : "#e08a6a";
-      const energyColor = d.energy > 50 ? "#5c9be0" : d.energy > 20 ? "#e0b158" : "#e08a6a";
+      const hap = d.happiness != null ? d.happiness : 60;
+      const hapColor = hap > 60 ? "#7ec86a" : hap > 35 ? "#e0b158" : "#e08a6a";
+      const face = hap > 70 ? "😀" : hap > 45 ? "🙂" : hap > 25 ? "😕" : "😣";
       const sel = this.selectedDwarf === d ? " sel" : "";
       html += `
         <div class="dwarf-row${sel}" data-idx="${i}">
           <span class="swatch" style="background:${d.color}"></span>
-          <span class="dname">${d.name}
+          <span class="dname">${d.name} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
             <div class="dtask">${professionOf(d)} · ${this.taskLabel(d)}</div>
-            <div class="bar" title="Hunger"><i style="width:${100 - d.hunger}%;background:${hungerColor}"></i></div>
-            <div class="bar" title="Energy"><i style="width:${d.energy}%;background:${energyColor}"></i></div>
+            <div class="bar" title="Happiness ${Math.round(hap)}"><i style="width:${hap}%;background:${hapColor}"></i></div>
           </span>
         </div>`;
     });
@@ -815,7 +972,7 @@ class Game {
       return `
         <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
-        <div class="mini">HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
+        <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
         ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>

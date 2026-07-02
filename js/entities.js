@@ -65,6 +65,7 @@ class Dwarf {
     this.hunger = 0;       // 0 fine .. 100 starving
     this.energy = 100;     // 100 rested .. 0 exhausted
     this.mood = 70;        // 0 miserable .. 100 ecstatic
+    this.happiness = 70;   // overall gauge: health + mood + needs (derived)
     this.facing = 1;       // 1 right, -1 left
     this.bob = Math.random() * Math.PI * 2; // walk animation phase
     this.idleWander = 0;

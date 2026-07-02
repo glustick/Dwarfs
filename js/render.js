@@ -2,6 +2,15 @@
 
 const BASE_TS = 22; // base tile size in px
 
+// Tint / border / glyph for each zone type.
+const ZONE_STYLE = {
+  bedroom:  { fill: "rgba(90,140,220,0.14)",  stroke: "rgba(120,170,240,0.45)", glyph: "" },
+  dining:   { fill: "rgba(220,150,60,0.13)",  stroke: "rgba(230,170,80,0.40)",  glyph: "" },
+  farm:     { fill: "rgba(120,190,70,0.16)",  stroke: "rgba(150,210,90,0.50)",  glyph: "🌾" },
+  study:    { fill: "rgba(150,110,220,0.15)", stroke: "rgba(180,150,240,0.50)", glyph: "📖" },
+  hospital: { fill: "rgba(220,80,80,0.13)",   stroke: "rgba(240,120,120,0.50)", glyph: "✚" },
+};
+
 class Renderer {
   constructor(game, canvas) {
     this.game = game;
@@ -320,17 +329,35 @@ class Renderer {
   }
 
   drawZone(ctx, t, sx, sy, ts) {
-    // soft tint + border; bedroom = blue, dining = amber
-    const dining = t.zone === ZONE.DINING;
-    ctx.fillStyle = dining ? "rgba(220,150,60,0.13)" : "rgba(90,140,220,0.14)";
+    const z = ZONE_STYLE[t.zone] || ZONE_STYLE.bedroom;
+    ctx.fillStyle = z.fill;
     ctx.fillRect(sx, sy, ts, ts);
-    ctx.strokeStyle = dining ? "rgba(230,170,80,0.4)" : "rgba(120,170,240,0.45)";
+    ctx.strokeStyle = z.stroke;
     ctx.lineWidth = 1;
     ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
+    if (z.glyph && ts > 14) {
+      ctx.globalAlpha = 0.5;
+      ctx.font = `${Math.floor(ts * 0.5)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(z.glyph, sx + ts / 2, sy + ts / 2 + 1);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+      ctx.globalAlpha = 1;
+    }
   }
 
   drawFurniture(ctx, t, sx, sy, ts) {
     if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.TABLE) this.drawTable(ctx, sx, sy, ts);
+  }
+
+  drawTable(ctx, sx, sy, ts) {
+    const pad = ts * 0.2;
+    ctx.fillStyle = "#6a4526";
+    ctx.fillRect(sx + pad, sy + pad, ts - pad * 2, ts - pad * 2);
+    ctx.fillStyle = "#8a5f34";
+    ctx.fillRect(sx + pad, sy + pad, ts - pad * 2, (ts - pad * 2) * 0.4);
+    ctx.strokeStyle = "#4a2f18"; ctx.lineWidth = 1;
+    ctx.strokeRect(sx + pad + 0.5, sy + pad + 0.5, ts - pad * 2 - 1, ts - pad * 2 - 1);
   }
 
   drawWorkshop(ctx, t, sx, sy, ts) {

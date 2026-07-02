@@ -127,10 +127,10 @@ html, body {
   flex: 1;
   background: none; border: none;
   color: #9c8a64;
-  font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
-  padding: 7px 4px; cursor: pointer;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .2px;
+  padding: 7px 2px; cursor: pointer;
   border-bottom: 2px solid transparent;
-  font-family: inherit;
+  font-family: inherit; white-space: nowrap;
 }
 .ptab:hover { color: #e8dcc0; }
 .ptab.active { color: #ffcf6b; border-bottom-color: #ffcf6b; }
@@ -178,6 +178,36 @@ html, body {
 }
 .recipe-btn:hover { border-color: #a9843e; }
 .recipe-btn.on { border-color: #ffcf6b; background: #6b4f22; color: #ffe9a8; }
+
+/* ---- Speed controls ---- */
+#speed-ctl { display: inline-flex; gap: 3px; margin-left: 4px; }
+.spd {
+  min-width: 26px; height: 25px; padding: 0 5px; font-size: 12px; cursor: pointer;
+  color: #d8c8a0; background: linear-gradient(#3a2e1e, #241b10);
+  border: 1px solid #5a4630; border-radius: 5px; font-family: inherit;
+}
+.spd:hover { border-color: #a9843e; }
+.spd.on { border-color: #ffcf6b; background: linear-gradient(#6b4f22, #3d2c12); color: #ffe9a8; }
+#stat-research b { color: #8fd0ff; }
+
+/* ---- Research tab ---- */
+.res-hdr { font-size: 16px; margin-bottom: 8px; }
+.res-hdr b { color: #8fd0ff; font-variant-numeric: tabular-nums; }
+.res-rate { font-size: 12px; color: #7fbf7f; margin-left: 8px; }
+.tech-list { display: flex; flex-direction: column; gap: 6px; }
+.tech-tier { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #9c8a64; margin-top: 10px; }
+.tech { border: 1px solid #4a3a26; border-radius: 8px; padding: 8px 10px; background: #ffffff08; }
+.tech-top { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.tech-name { color: #e8dcc0; font-size: 14px; }
+.tech-cost { font-size: 12px; color: #8fd0ff; white-space: nowrap; }
+.tech-desc { font-size: 12px; color: #b7a988; margin-top: 3px; line-height: 1.35; }
+.tech-req { font-size: 11px; color: #b0794f; margin-top: 3px; }
+.tech.done { border-color: #4d6b30; background: rgba(92, 184, 92, 0.08); }
+.tech.done .tech-cost { color: #7ec86a; }
+.tech.ready { border-color: #a9843e; cursor: pointer; box-shadow: 0 0 8px #ffcf6b22; }
+.tech.ready:hover { border-color: #ffcf6b; background: rgba(107, 79, 34, 0.25); }
+.tech.locked { opacity: .5; }
+.tech.poor .tech-cost { color: #e0b158; }
 
 /* ---- Event log / chronicle viewer ---- */
 .log-filters { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
