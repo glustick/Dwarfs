@@ -26,7 +26,7 @@ const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building",
 // Map a job type to the skill it trains.
 const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing" };
 
-// Dwarf Fortress-style proficiency titles.
+// Classic roguelike-style proficiency titles.
 const SKILL_TITLES = [
   [0, "Dabbling"], [1, "Novice"], [2, "Adequate"], [3, "Competent"], [4, "Skilled"],
   [5, "Proficient"], [6, "Talented"], [7, "Adept"], [8, "Expert"], [9, "Professional"],

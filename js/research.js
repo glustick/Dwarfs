@@ -14,7 +14,7 @@ const TECHS = [
   },
   {
     id: "rations", name: "Preserved Rations", icon: "🥫", tier: 1, cost: 70, requires: [],
-    desc: "Dwarves grow hungry 25% slower; foraging yields more food.",
+    desc: "Elves grow hungry 25% slower; foraging yields more food.",
   },
 
   // ---- Tier 2 ----

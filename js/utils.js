@@ -43,17 +43,17 @@ function makeNoise(rng) {
   };
 }
 
-// Dwarven name generator.
-const DWARF_FIRST = ["Urist", "Dodok", "Kadol", "Litast", "Zulban", "Mafol", "Sibrek",
-  "Tholtig", "Athel", "Bomrek", "Cog", "Deler", "Erush", "Feb", "Goden", "Ingish",
-  "Kib", "Logem", "Meng", "Nil", "Onol", "Rovod", "Solon", "Tosid", "Vabok"];
-const DWARF_LAST = ["Bandshield", "Ironbeard", "Goldbeard", "Stonefist", "Rockseeker",
-  "Anviltoe", "Deepdelver", "Gemcutter", "Coalheart", "Boulderborn", "Steelhelm",
-  "Copperbraid", "Mithrilvein", "Craghand", "Emberforge", "Granitewill"];
+// Elven name generator.
+const DWARF_FIRST = ["Aelar", "Caelynn", "Elenwe", "Faelar", "Galinn", "Ithil", "Laurel",
+  "Melian", "Nuvia", "Orophin", "Rumil", "Saelwin", "Thalind", "Vanya", "Aerin",
+  "Celeborn", "Nimrodel", "Silinde", "Eluvia", "Faenor", "Lorien", "Maethor", "Sylvaen"];
+const DWARF_LAST = ["Moonwhisper", "Silverleaf", "Nightbreeze", "Dawnstar", "Swiftarrow",
+  "Greenbough", "Starcaller", "Windrunner", "Everdusk", "Willowsong", "Thornwood",
+  "Brightwater", "Mistwalker", "Sunweaver", "Elmshade", "Dewpetal"];
 
 function dwarfName(rng) {
   return choice(rng, DWARF_FIRST) + " " + choice(rng, DWARF_LAST);
 }
 
-const DWARF_COLORS = ["#d84c3e", "#e0913a", "#4c9be0", "#5cb85c", "#b06ec9",
-  "#e0c34c", "#3ec9c0", "#e07ab0", "#8a9c3e", "#c98a4c"];
+const DWARF_COLORS = ["#4c9be0", "#5cb85c", "#3ec9c0", "#8a9c3e", "#b06ec9",
+  "#e0c34c", "#7ad0a0", "#e07ab0", "#5cae6e", "#c9b84c"];

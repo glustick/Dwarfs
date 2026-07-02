@@ -47,7 +47,7 @@ class App {
     window.game = new Game(saveData);
     this.inGame = true;
     this.hide();
-    this.toast(saveData ? "Game loaded" : "New fortress founded — strike the earth!");
+    this.toast(saveData ? "Game loaded" : "A new elven empire is founded!");
   }
 
   resumeGame() {
@@ -79,12 +79,12 @@ class App {
     const recent = saves[0];
     this.show(`
       <div class="menu-card">
-        <div class="menu-title">⛏️ <span class="pick">Dwarf Fortress</span></div>
-        <div class="menu-sub">Graphical edition — carve a home from the mountain</div>
+        <div class="menu-title">🍃 <span class="pick">Elven Empire</span></div>
+        <div class="menu-sub">Graphical edition — raise an empire in the greenwood</div>
         <div class="menu-btns">
           ${recent ? `<button class="menu-btn primary" id="mm-continue">
             <span class="mi">▶</span>
-            <span>Continue<br><span style="font-size:12px;color:#b7a988">${recent.name} · Day ${recent.day} · ${recent.pop} dwarves · ${SaveManager.timeAgo(recent.savedAt)}</span></span>
+            <span>Continue<br><span style="font-size:12px;color:#b7a988">${recent.name} · Day ${recent.day} · ${recent.pop} elves · ${SaveManager.timeAgo(recent.savedAt)}</span></span>
           </button>` : ``}
           <button class="menu-btn" id="mm-new"><span class="mi">✨</span><span>New Game</span></button>
           <button class="menu-btn ${saves.length ? "" : ""}" id="mm-load" ${saves.length ? "" : "disabled"}>
@@ -108,7 +108,7 @@ class App {
     this.show(`
       <div class="menu-card">
         <div class="menu-title" style="font-size:26px">⏸ Paused</div>
-        <div class="menu-sub">Day ${day} · ${g ? g.dwarves.length : 0} dwarves</div>
+        <div class="menu-sub">Day ${day} · ${g ? g.dwarves.length : 0} elves</div>
         <div class="menu-btns">
           <button class="menu-btn primary" id="pm-resume"><span class="mi">▶</span><span>Resume</span></button>
           <button class="menu-btn" id="pm-save"><span class="mi">💾</span><span>Save Game</span></button>
@@ -133,7 +133,7 @@ class App {
   openSaveDialog() {
     const g = window.game;
     const day = Math.floor(g.time / DAY_LENGTH) + 1;
-    const suggested = `Fortress Day ${day}`;
+    const suggested = `Empire Day ${day}`;
     const saves = SaveManager.list().filter(s => !s.auto);
     this.show(`
       <div class="menu-card">
@@ -166,7 +166,7 @@ class App {
         const row = document.createElement("div");
         row.className = "slot";
         row.innerHTML = `<div class="slot-main"><div class="slot-name">${s.name}</div>
-          <div class="slot-meta">Day ${s.day} · ${s.pop} dwarves · ${SaveManager.timeAgo(s.savedAt)}</div></div>`;
+          <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}</div></div>`;
         row.querySelector(".slot-main").onclick = () => {
           if (confirm(`Overwrite “${s.name}”?`)) this.doSave(s.name);
         };
@@ -212,7 +212,7 @@ class App {
         row.innerHTML = `
           <div class="slot-main">
             <div class="slot-name">${s.name} ${s.auto ? '<span class="badge">auto</span>' : ""}</div>
-            <div class="slot-meta">Day ${s.day} · ${s.pop} dwarves · ${SaveManager.timeAgo(s.savedAt)}</div>
+            <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}</div>
           </div>
           <button class="slot-del" title="Delete">🗑</button>`;
         row.querySelector(".slot-main").onclick = () => {

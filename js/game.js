@@ -14,7 +14,7 @@ const LOG_CATS = {
   build:  { name: "Building",  icon: "🏗️" },
   craft:  { name: "Crafting",  icon: "🔨" },
   combat: { name: "Combat",    icon: "⚔️" },
-  colony: { name: "Colony",    icon: "🧔" },
+  colony: { name: "Colony",    icon: "🧝" },
   skill:  { name: "Skills",    icon: "⭐" },
   system: { name: "System",    icon: "💾" },
 };
@@ -74,7 +74,7 @@ class Game {
     this.input = window.__input; this.input.game = this;
 
     if (saveData) this.log(`Loaded save “${saveData.name || "game"}”.`, "good", "system");
-    else this.log("Your seven dwarves have arrived. Strike the earth!", "good", "colony");
+    else this.log("Your seven elves have arrived. Raise the empire!", "good", "colony");
 
     this.jobs.reindex();
     this.updateToolAvailability();
@@ -834,7 +834,7 @@ class Game {
     let html = `<h2>Research</h2>
       <div class="res-hdr">🔬 <b>${Math.floor(this.research)}</b> points
         <span class="res-rate">+${rate.toFixed(1)}/s</span></div>
-      <div class="sched-note">Points accrue from your dwarves' intellect and Study zones. Spend them to unlock buildings, zones and efficiency bonuses.</div>
+      <div class="sched-note">Points accrue from your elves' intellect and Study zones. Spend them to unlock buildings, zones and efficiency bonuses.</div>
       <div class="tech-list">`;
     // group by tier
     for (let tier = 1; tier <= 3; tier++) {
@@ -1001,12 +1001,12 @@ class Game {
       if (tile.item) parts.push(`Item: <span class="tag">${ITEM_LABEL[tile.item.kind]}${tile.item.sub ? " (" + tile.item.sub + ")" : ""}</span>`);
       return parts.join("<br/>");
     }
-    return "Click a tile or dwarf with the Inspect tool.";
+    return "Click a tile or elf with the Inspect tool.";
   }
 
   renderSchedule(c) {
     let html = `<h2>Schedule &amp; Labors</h2>
-      <div class="sched-note">☀️ Day 06:00–18:00 · 🌙 Night 18:00–06:00. Set what each dwarf does per shift, and which labors they'll take.</div>`;
+      <div class="sched-note">☀️ Day 06:00–18:00 · 🌙 Night 18:00–06:00. Set what each elf does per shift, and which labors they'll take.</div>`;
     const opts = (sel) => ACTIVITIES.map(a =>
       `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${a.icon} ${a.name}</option>`).join("");
     this.dwarves.forEach((d, i) => {

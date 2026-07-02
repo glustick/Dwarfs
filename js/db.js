@@ -1,4 +1,4 @@
-// ---- ColonyDB: persistent dwarf/skill database ------------------------------
+// ---- ColonyDB: persistent elf/skill database --------------------------------
 // Real IndexedDB when available (a genuine client-side database), with a
 // transparent localStorage-backed fallback so it still works from file://.
 // All methods are async (return Promises). Game logic never awaits these —
