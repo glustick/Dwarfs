@@ -40,6 +40,31 @@ Your seven dwarves have arrived in a procedurally-generated wilderness. *Strike 
 Keep your dwarves fed — hungry dwarves eat from your food stores, and starving ones
 can die. A healthy, well-fed colony attracts **migrants** over time.
 
+## Dwarves, skills & the colony database
+
+Every dwarf is an individual with **skills** that improve through work:
+Mining, Woodcutting, Farming, Building, Hauling, Cooking, plus the attributes
+Fitness, Fighting, Charisma and Intelligence. Higher skill = faster work and
+better yields; Intelligence speeds all learning; Fitness speeds movement;
+Charisma draws more migrants. Dwarves start with random specialties fitting the
+mountain-forest world, and earn Dwarf-Fortress-style titles (Novice → Legendary).
+
+A persistent **database** (IndexedDB, with a localStorage fallback so it works
+from `file://`) records every dwarf, their skills and profession, and a running
+**chronicle** of colony events — view it in the **Records** tab. It survives
+across games as a hall of records.
+
+## Habitat & scheduling
+
+- **🛏️ Bed** — build beds (costs wood). Tired dwarves seek a free bed to sleep.
+- **🛌 Bedroom** / **🍽️ Dining** — paint zones. Sleeping in a bedroom and dining
+  in the hall lift mood (and dining trains Charisma).
+- **Energy** — dwarves tire out (faster at night) and must sleep to recover.
+- **Schedule tab** — set each dwarf's activity per shift (☀️ Day 06:00–18:00,
+  🌙 Night 18:00–06:00): Work, Sleep, Eat, Train, or Off. Toggle which **labors**
+  (mining/woodcutting/gathering/building/hauling) each dwarf will take. Set the
+  whole colony to sleep at night, or run night shifts — your call.
+
 ## Controls
 
 | Action | Control |
@@ -49,10 +74,13 @@ can die. A healthy, well-fed colony attracts **migrants** over time.
 | Zoom | Mouse wheel |
 | Pause / resume | Space |
 | Game speed | `+` / `-` |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `R` bedroom · `T` dining · `X` cancel |
 
 ## Under the hood
 
+- **Skills** (`js/skills.js`) — skill catalog, XP/level maths, titles, professions.
+- **Database** (`js/db.js`) — `ColonyDB`, an IndexedDB store (localStorage fallback)
+  for persistent dwarf/skill records and the event chronicle.
 - **World** (`js/world.js`) — value-noise terrain generation, tile model.
 - **Pathfinding** (`js/pathfinding.js`) — A* over the tile grid with a binary heap.
 - **Jobs & AI** (`js/jobs.js`) — designations become tasks; dwarves claim, path to,

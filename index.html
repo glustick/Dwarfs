@@ -31,16 +31,20 @@
       <button class="tool" data-tool="stockpile" title="Place stockpile (S)"><span class="ico">📦</span><span class="lbl">Stockpile</span></button>
       <button class="tool" data-tool="build" title="Build stone wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
       <button class="tool" data-tool="floor" title="Build stone floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
-      <button class="tool" data-tool="erase" title="Cancel designation (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
+      <button class="tool" data-tool="bed" title="Build bed — costs wood (E)"><span class="ico">🛏️</span><span class="lbl">Bed</span></button>
+      <button class="tool" data-tool="bedroom" title="Zone bedroom (R)"><span class="ico">🛌</span><span class="lbl">Bedroom</span></button>
+      <button class="tool" data-tool="dining" title="Zone dining hall (T)"><span class="ico">🍽️</span><span class="lbl">Dining</span></button>
+      <button class="tool" data-tool="erase" title="Cancel / deconstruct (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
     </div>
 
     <!-- Right info panel -->
     <div id="panel">
-      <h2>Colony</h2>
-      <div id="dwarf-list"></div>
-      <hr/>
-      <h2>Selection</h2>
-      <div id="inspector">Click a tile with the Inspect tool.</div>
+      <div id="panel-tabs">
+        <button class="ptab active" data-tab="colony">Colony</button>
+        <button class="ptab" data-tab="schedule">Schedule</button>
+        <button class="ptab" data-tab="records">Records</button>
+      </div>
+      <div id="panel-content"></div>
     </div>
 
     <!-- Bottom log -->
@@ -59,6 +63,8 @@
   </div>
 
   <script src="js/utils.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/db.js"></script>
   <script src="js/world.js"></script>
   <script src="js/pathfinding.js"></script>
   <script src="js/entities.js"></script>

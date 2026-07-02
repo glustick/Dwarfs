@@ -27,6 +27,17 @@ const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
 // Built structures
 const B = { NONE: null, WALL: "wall", FLOOR: "floor" };
 
+// Furniture placed on a tile.
+const FURN = { NONE: null, BED: "bed", TABLE: "table" };
+
+// Zones a tile can belong to (in addition to stockpile).
+const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining" };
+
+// What a queued construction will produce.
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed" };
+// Material each construction consumes.
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood" };
+
 class Tile {
   constructor(kind) {
     this.kind = kind;
@@ -35,8 +46,11 @@ class Tile {
     this.growth = 0;          // plant maturity 0..1
     this.designation = null;  // 'dig' | 'chop' | 'gather'
     this.built = B.NONE;      // constructed wall/floor
-    this.buildJob = false;    // wall/floor queued for construction
+    this.buildJob = false;    // construction queued here
+    this.buildKind = null;    // 'wall' | 'floor' | 'bed' when buildJob
     this.stockpile = false;   // part of a stockpile zone
+    this.zone = ZONE.NONE;    // 'bedroom' | 'dining'
+    this.furniture = FURN.NONE; // 'bed' | 'table'
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
   }
@@ -65,6 +79,8 @@ class World {
   }
 
   // Restore tile state from a serialized array; `itemsById` maps item ids.
+  // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
+  //                buildKind,stockpile,reserved,itemId,zone,furniture]
   loadTiles(data, itemsById) {
     let i = 0;
     for (let y = 0; y < this.h; y++) {
@@ -73,9 +89,10 @@ class World {
         const t = this.tiles[y][x];
         t.kind = a[0]; t.feature = a[1]; t.ore = a[2]; t.growth = a[3];
         t.designation = a[4]; t.built = a[5];
-        t.buildJob = !!a[6]; t.pendingFloor = !!a[7]; t.stockpile = !!a[8];
+        t.buildJob = !!a[6]; t.buildKind = a[7] || null; t.stockpile = !!a[8];
         t.reserved = !!a[9];
         t.item = a[10] ? (itemsById.get(a[10]) || null) : null;
+        t.zone = a[11] || null; t.furniture = a[12] || null;
       }
     }
   }

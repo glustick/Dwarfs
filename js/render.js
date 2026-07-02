@@ -61,7 +61,9 @@ class Renderer {
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const t = w.tiles[y][x];
+        if (t.zone) this.drawZone(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts);
+        if (t.furniture) this.drawFurniture(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.designation) this.drawDesignation(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.buildJob) this.drawBuildGhost(ctx, t, x * ts + ox, y * ts + oy, ts);
       }
@@ -291,6 +293,43 @@ class Renderer {
     ctx.setLineDash([Math.max(2, ts * 0.12), Math.max(2, ts * 0.1)]);
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
+    const glyph = { wall: "🧱", floor: "▦", bed: "🛏" }[t.buildKind] || "🧱";
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = `${Math.floor(ts * 0.45)}px serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(glyph, sx + ts / 2, sy + ts / 2 + 1);
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+
+  drawZone(ctx, t, sx, sy, ts) {
+    // soft tint + border; bedroom = blue, dining = amber
+    const dining = t.zone === ZONE.DINING;
+    ctx.fillStyle = dining ? "rgba(220,150,60,0.13)" : "rgba(90,140,220,0.14)";
+    ctx.fillRect(sx, sy, ts, ts);
+    ctx.strokeStyle = dining ? "rgba(230,170,80,0.4)" : "rgba(120,170,240,0.45)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx + 0.5, sy + 0.5, ts - 1, ts - 1);
+  }
+
+  drawFurniture(ctx, t, sx, sy, ts) {
+    if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts);
+  }
+
+  drawBed(ctx, sx, sy, ts) {
+    const pad = ts * 0.14;
+    const x = sx + pad, y = sy + pad, w = ts - pad * 2, h = ts - pad * 2;
+    // frame
+    ctx.fillStyle = "#7a4f2c";
+    ctx.fillRect(x, y, w, h);
+    // mattress
+    ctx.fillStyle = "#c9b8a0";
+    ctx.fillRect(x + w * 0.12, y + h * 0.28, w * 0.76, h * 0.6);
+    // pillow
+    ctx.fillStyle = "#eee4d2";
+    ctx.fillRect(x + w * 0.16, y + h * 0.12, w * 0.68, h * 0.2);
+    // blanket band
+    ctx.fillStyle = "#9a5b4a";
+    ctx.fillRect(x + w * 0.12, y + h * 0.62, w * 0.76, h * 0.26);
   }
 
   // -- items ---------------------------------------------------------------
@@ -382,13 +421,27 @@ class Renderer {
     // working spark
     if (d.state === "work") {
       const t = this.game.time;
-      ctx.strokeStyle = `rgba(255,220,120,${0.5 + Math.sin(t * 20) * 0.4})`;
+      const jt = d.job ? d.job.type : null;
+      const col = jt === "train" ? "180,200,255" : jt === "eat" ? "160,220,140" : jt === "socialize" ? "230,180,240" : "255,220,120";
+      ctx.strokeStyle = `rgba(${col},${0.5 + Math.sin(t * 20) * 0.4})`;
       ctx.lineWidth = Math.max(1, ts * 0.08);
       const a = t * 8;
       ctx.beginPath();
       ctx.moveTo(cx + Math.cos(a) * r, cy - r + Math.sin(a) * r * 0.4);
       ctx.lineTo(cx + Math.cos(a) * r * 1.6, cy - r + Math.sin(a) * r * 0.4 - r * 0.5);
       ctx.stroke();
+    }
+
+    // sleeping: Zzz
+    if (d.state === "sleep") {
+      const t = this.game.time;
+      ctx.fillStyle = `rgba(200,220,255,${0.6 + Math.sin(t * 2) * 0.3})`;
+      ctx.font = `${Math.floor(ts * 0.42)}px serif`;
+      ctx.textAlign = "center";
+      ctx.fillText("z", cx + r * 0.9, cy - r * 1.1 - (Math.sin(t * 2) * ts * 0.06));
+      ctx.font = `${Math.floor(ts * 0.3)}px serif`;
+      ctx.fillText("z", cx + r * 1.4, cy - r * 1.5);
+      ctx.textAlign = "start";
     }
 
     // selection ring

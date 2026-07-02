@@ -1,8 +1,11 @@
 // ---- Game: main loop, state, UI --------------------------------------------
 
-const DAY_LENGTH = 120;       // real seconds per in-game day at 1x
+const DAY_LENGTH = 120;        // real seconds per in-game day at 1x
 const HUNGER_RATE = 100 / 280; // reach 100 in ~280s of game time
+const ENERGY_RATE = 100 / 300; // drop to 0 in ~300s awake (faster at night)
 const SPEEDS = [0, 1, 2, 4];
+const DAY_START = 0.25;        // 06:00
+const DAY_END = 0.75;          // 18:00
 
 class Game {
   // `saveData` restores a saved game; otherwise a fresh world is generated.
@@ -10,8 +13,11 @@ class Game {
     this.items = [];
     this.dwarves = [];
     this.stockpileTiles = [];
+    this.bedTiles = [];
+    this.diningTiles = [];
     this._nextItemId = 1;
     this.running = true;
+    this.panelTab = "colony";  // colony | schedule | records
 
     this.selectedDwarf = null;
     this.selectedTile = null;
@@ -26,6 +32,8 @@ class Game {
 
     if (saveData) this.restore(saveData);
     else this.generateNew();
+
+    this.rebuildZones();
 
     // Renderer & Input are reused across games so listeners aren't duplicated.
     const canvas = document.getElementById("canvas");
@@ -65,8 +73,9 @@ class Game {
         tiles[i++] = [
           t.kind, t.feature, t.ore, Math.round(t.growth * 100) / 100,
           t.designation, t.built,
-          t.buildJob ? 1 : 0, t.pendingFloor ? 1 : 0, t.stockpile ? 1 : 0,
+          t.buildJob ? 1 : 0, t.buildKind || 0, t.stockpile ? 1 : 0,
           t.reserved ? 1 : 0, t.item ? t.item.id : 0,
+          t.zone || 0, t.furniture || 0,
         ];
       }
     }
@@ -90,15 +99,18 @@ class Game {
   serializeDwarf(d) {
     return {
       name: d.name, x: d.x, y: d.y, color: d.color,
-      hunger: d.hunger, mood: d.mood, facing: d.facing,
+      hunger: d.hunger, energy: d.energy, mood: d.mood, facing: d.facing,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0,
       carrying: d.carrying ? d.carrying.id : 0,
+      dbId: d.dbId, skills: d.skills,
+      labors: [...d.labors], schedule: d.schedule, activity: d.activity,
+      bed: d.bed,
       path: d.path, pathIdx: d.pathIdx,
       job: d.job ? {
         type: d.job.type, x: d.job.x, y: d.job.y, phase: d.job.phase,
         item: d.job.item ? d.job.item.id : 0,
-        dest: d.job.dest, buildKind: d.job.buildKind || null,
+        dest: d.job.dest, dining: d.job.dining, buildKind: d.job.buildKind || null,
       } : null,
     };
   }
@@ -122,17 +134,23 @@ class Game {
     this.world.loadTiles(wd.tiles, byId);
 
     this.dwarves = data.dwarves.map(o => {
-      const d = new Dwarf(o.name, o.x, o.y, o.color);
+      const d = new Dwarf(o.name, o.x, o.y, o.color, o.skills);
       d.hunger = o.hunger; d.mood = o.mood; d.facing = o.facing;
+      d.energy = o.energy != null ? o.energy : 100;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0;
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
+      if (o.dbId) d.dbId = o.dbId;
+      if (o.labors) d.labors = new Set(o.labors);
+      if (o.schedule) d.schedule = o.schedule;
+      d.activity = o.activity || "work";
+      d.bed = o.bed || null;
       d.path = o.path || null; d.pathIdx = o.pathIdx || 0;
       if (o.job) {
         const j = new Job(o.job.type, o.job.x, o.job.y);
         j.phase = o.job.phase;
         j.item = o.job.item ? byId.get(o.job.item) : null;
-        j.dest = o.job.dest; j.buildKind = o.job.buildKind;
+        j.dest = o.job.dest; j.dining = o.job.dining; j.buildKind = o.job.buildKind;
         d.job = j;
       }
       return d;
@@ -143,6 +161,7 @@ class Game {
     this.speedIdx = data.speedIdx != null ? data.speedIdx : 1;
     this.paused = !!data.paused;
     this.rebuildStockpiles();
+    for (const d of this.dwarves) this.flushDwarfToDB(d);
   }
 
   spawnStartingDwarves() {
@@ -153,8 +172,10 @@ class Game {
       const x = this.world.spawnX + randint(rng, -4, 4);
       const y = this.world.spawnY + randint(rng, -4, 4);
       if (w.isWalkable(x, y)) {
-        const d = new Dwarf(dwarfName(rng), x, y, DWARF_COLORS[placed % DWARF_COLORS.length]);
+        const d = new Dwarf(dwarfName(rng), x, y, DWARF_COLORS[placed % DWARF_COLORS.length], rollStartingSkills(rng));
         this.dwarves.push(d);
+        this.flushDwarfToDB(d);
+        if (colonyDB) colonyDB.logEvent(`${d.name} (${professionOf(d)}) founded the colony`, 1);
         placed++;
       }
     }
@@ -243,32 +264,44 @@ class Game {
 
     // UI
     this.statTimer -= dt;
-    if (this.statTimer <= 0) { this.updateStats(); this.updatePanel(); this.statTimer = 0.5; }
+    if (this.statTimer <= 0) {
+      this.updateStats();
+      if (this.panelTab === "colony") this.updatePanel(); // live bars; other tabs refresh on demand
+      this.statTimer = 0.5;
+    }
+  }
+
+  shift() { const f = this.dayFraction(); return (f >= DAY_START && f < DAY_END) ? "day" : "night"; }
+
+  // Resolve what a dwarf should be doing right now (critical needs override schedule).
+  resolveActivity(d) {
+    if (d.hunger > 85) return "eat";
+    if (d.energy < 15) return "sleep";
+    return d.schedule[this.shift()] || "work";
   }
 
   updateDwarf(d, dt) {
+    const night = this.shift() === "night";
+
     // needs
     d.hunger = clamp(d.hunger + HUNGER_RATE * dt, 0, 100);
+    if (d.state !== "sleep") d.energy = clamp(d.energy - ENERGY_RATE * (night ? 1.4 : 1) * dt, 0, 100);
+    d.activity = this.resolveActivity(d);
+
+    // mood
     if (d.hunger > 92) {
       d.mood = clamp(d.mood - dt * 4, 0, 100);
       d.starve = (d.starve || 0) + dt;
-      if (d.starve > 45) {
-        this.log(`${d.name} has starved to death.`, "bad");
-        (this._toRemove || (this._toRemove = [])).push(d);
-        return;
-      }
-    } else {
-      d.starve = 0;
-      if (d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
-    }
+      if (d.starve > 45) { this.recordDeath(d, "starved to death"); return; }
+    } else d.starve = 0;
+    if (d.energy < 18) d.mood = clamp(d.mood - dt * 1.5, 0, 100);
+    else if (d.hunger < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
 
     if (d.job) {
       this.jobs.execute(d, dt);
     } else {
       d.state = "idle";
-      // try to find work
       if (!this.jobs.assign(d)) {
-        // idle wander
         d.idleWander -= dt;
         if (d.idleWander <= 0) {
           d.idleWander = 2 + Math.random() * 3;
@@ -284,24 +317,72 @@ class Game {
       }
     }
 
-    if (d.state === "wander") {
-      if (d.move(dt)) { d.state = "idle"; }
+    if (d.state === "wander") { if (d.move(dt)) d.state = "idle"; }
+  }
+
+  // ---- skills / database ----
+  awardXp(d, skillId, amount) {
+    const leveled = grantXp(d, skillId, amount);
+    if (leveled) {
+      this.log(`${d.name} is now ${skillTitle(d.skills[leveled].level)} ${SKILLS[leveled].name}.`, "good");
+      this.flushDwarfToDB(d);
+      if (colonyDB) colonyDB.logEvent(`${d.name} became ${skillTitle(d.skills[leveled].level)} at ${SKILLS[leveled].name}`, Math.floor(this.time / DAY_LENGTH) + 1);
     }
+  }
+
+  flushDwarfToDB(d) {
+    if (!colonyDB) return;
+    const skills = {};
+    for (const id in d.skills) skills[id] = d.skills[id].level;
+    colonyDB.putDwarf({
+      id: d.dbId, name: d.name, color: d.color, alive: true, skills,
+      profession: professionOf(d), day: Math.floor(this.time / DAY_LENGTH) + 1,
+    }).catch(() => {});
+  }
+
+  recordDeath(d, cause) {
+    this.log(`${d.name} has ${cause}.`, "bad");
+    if (d.bed) { const bt = this.world.get(d.bed.x, d.bed.y); if (bt) bt.reserved = false; }
+    (this._toRemove || (this._toRemove = [])).push(d);
+    if (colonyDB) {
+      const skills = {};
+      for (const id in d.skills) skills[id] = d.skills[id].level;
+      colonyDB.putDwarf({
+        id: d.dbId, name: d.name, color: d.color, alive: false, cause, skills,
+        profession: professionOf(d), day: Math.floor(this.time / DAY_LENGTH) + 1,
+      }).catch(() => {});
+      colonyDB.logEvent(`${d.name} ${cause}`, Math.floor(this.time / DAY_LENGTH) + 1);
+    }
+  }
+
+  rebuildZones() {
+    this.bedTiles = []; this.diningTiles = [];
+    for (let y = 0; y < this.world.h; y++)
+      for (let x = 0; x < this.world.w; x++) {
+        const t = this.world.tiles[y][x];
+        if (t.furniture === FURN.BED) this.bedTiles.push([x, y]);
+        if (t.zone === ZONE.DINING) this.diningTiles.push([x, y]);
+      }
   }
 
   tryMigration() {
     const food = this.countItems(ITEM.FOOD);
     if (this.dwarves.length >= 16) return;
     if (food < this.dwarves.length) { return; } // need surplus to attract migrants
-    const n = randint(this.world.rng, 1, 3);
+    // A charismatic colony draws more migrants.
+    let cha = 0;
+    for (const d of this.dwarves) cha = Math.max(cha, d.skillLevel("charisma"));
+    const n = randint(this.world.rng, 1, 3) + Math.floor(cha / 6);
     let arrived = 0;
     for (let i = 0; i < n; i++) {
       for (let tries = 0; tries < 40; tries++) {
         const x = this.world.spawnX + randint(this.world.rng, -6, 6);
         const y = this.world.spawnY + randint(this.world.rng, -6, 6);
         if (this.world.isWalkable(x, y)) {
-          const d = new Dwarf(dwarfName(this.world.rng), x, y, DWARF_COLORS[this.dwarves.length % DWARF_COLORS.length]);
+          const d = new Dwarf(dwarfName(this.world.rng), x, y, DWARF_COLORS[this.dwarves.length % DWARF_COLORS.length], rollStartingSkills(this.world.rng));
           this.dwarves.push(d); arrived++;
+          this.flushDwarfToDB(d);
+          if (colonyDB) colonyDB.logEvent(`${d.name} (${professionOf(d)}) migrated to the colony`, Math.floor(this.time / DAY_LENGTH) + 1);
           break;
         }
       }
@@ -339,64 +420,162 @@ class Game {
     const hh = String(Math.floor(f)).padStart(2, "0");
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
-    document.getElementById("stat-clock").textContent = `Day ${day} · ${hh}:${mm}`;
+    const icon = this.shift() === "day" ? "☀️" : "🌙";
+    document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm}`;
     document.getElementById("stat-speed").textContent = this.paused ? "⏸ Paused" : `▶ ${this.speed}×`;
   }
 
+  setPanelTab(tab) {
+    this.panelTab = tab;
+    this._recordsLoaded = false;
+    this.updatePanel();
+  }
+
   updatePanel() {
-    // roster
-    const list = document.getElementById("dwarf-list");
-    list.innerHTML = "";
-    for (const d of this.dwarves) {
-      const row = document.createElement("div");
-      row.className = "dwarf-row";
-      const moodColor = d.mood > 60 ? "#5cb85c" : d.mood > 30 ? "#e0b158" : "#e08a6a";
+    const c = document.getElementById("panel-content");
+    if (!c) return;
+    document.querySelectorAll(".ptab").forEach(b =>
+      b.classList.toggle("active", b.dataset.tab === this.panelTab));
+    if (this.panelTab === "schedule") this.renderSchedule(c);
+    else if (this.panelTab === "records") this.renderRecords(c);
+    else this.renderColony(c);
+  }
+
+  renderColony(c) {
+    let html = `<h2>Colony · ${this.dwarves.length}</h2><div id="dwarf-list">`;
+    this.dwarves.forEach((d, i) => {
       const hungerColor = d.hunger < 50 ? "#5cb85c" : d.hunger < 80 ? "#e0b158" : "#e08a6a";
-      row.innerHTML = `
-        <span class="swatch" style="background:${d.color}"></span>
-        <span class="dname">${d.name}
-          <div class="dtask">${this.taskLabel(d)}</div>
-          <div class="bar"><i style="width:${100 - d.hunger}%;background:${hungerColor}"></i></div>
-        </span>`;
-      row.addEventListener("click", () => {
+      const energyColor = d.energy > 50 ? "#5c9be0" : d.energy > 20 ? "#e0b158" : "#e08a6a";
+      const sel = this.selectedDwarf === d ? " sel" : "";
+      html += `
+        <div class="dwarf-row${sel}" data-idx="${i}">
+          <span class="swatch" style="background:${d.color}"></span>
+          <span class="dname">${d.name}
+            <div class="dtask">${professionOf(d)} · ${this.taskLabel(d)}</div>
+            <div class="bar" title="Hunger"><i style="width:${100 - d.hunger}%;background:${hungerColor}"></i></div>
+            <div class="bar" title="Energy"><i style="width:${d.energy}%;background:${energyColor}"></i></div>
+          </span>
+        </div>`;
+    });
+    html += `</div><hr/><h2>Selection</h2><div id="inspector">${this.inspectorHTML()}</div>`;
+    c.innerHTML = html;
+    c.querySelectorAll(".dwarf-row").forEach(row => {
+      row.onclick = () => {
+        const d = this.dwarves[+row.dataset.idx];
         this.selectedDwarf = d; this.selectedTile = null;
         this.cam.x = d.x; this.cam.y = d.y; this.updatePanel();
-      });
-      list.appendChild(row);
-    }
+      };
+    });
+  }
 
-    // inspector
-    const insp = document.getElementById("inspector");
+  inspectorHTML() {
     if (this.selectedDwarf) {
       const d = this.selectedDwarf;
-      insp.innerHTML = `
-        <b>${d.name}</b><br/>
-        Task: ${this.taskLabel(d)}<br/>
-        Mood: ${Math.round(d.mood)}/100<br/>
-        Hunger: ${Math.round(d.hunger)}/100<br/>
-        ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] : ""}
-        <div style="margin-top:4px;color:#9c8a64;font-style:italic">“${d.thought || "..."}”</div>`;
-    } else if (this.selectedTile) {
+      let sk = `<div class="skill-grid">`;
+      for (const id of SKILL_IDS) {
+        const lv = d.skills[id].level;
+        const strong = lv > 0 ? "" : ' style="opacity:.4"';
+        sk += `<div class="skill"${strong} title="${skillTitle(lv)} (${lv}/${MAX_LEVEL})">
+          <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
+      }
+      sk += `</div>`;
+      return `
+        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span><br/>
+        Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
+        <div class="mini">Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
+        ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
+        <div class="thought">“${d.thought || "..."}”</div>
+        <div class="mini2">Skills</div>${sk}`;
+    }
+    if (this.selectedTile) {
       const t = this.selectedTile;
-      const parts = [];
-      parts.push(`<b>Tile ${t.x}, ${t.y}</b>`);
       const tile = this.world.tiles[t.y][t.x];
+      const parts = [`<b>Tile ${t.x}, ${t.y}</b>`];
       parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.kind}</span>`);
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
+      if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+      if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
       if (tile.designation) parts.push(`Designated: <span class="tag">${tile.designation}</span>`);
-      if (tile.buildJob) parts.push(`Queued: <span class="tag">${tile.pendingFloor ? "floor" : "wall"}</span>`);
+      if (tile.buildJob) parts.push(`Queued: <span class="tag">${tile.buildKind || "wall"}</span>`);
       if (tile.stockpile) parts.push(`<span class="tag">stockpile</span>`);
       if (tile.item) parts.push(`Item: <span class="tag">${ITEM_LABEL[tile.item.kind]}${tile.item.sub ? " (" + tile.item.sub + ")" : ""}</span>`);
-      insp.innerHTML = parts.join("<br/>");
-    } else {
-      insp.textContent = "Click a tile or dwarf with the Inspect tool.";
+      return parts.join("<br/>");
     }
+    return "Click a tile or dwarf with the Inspect tool.";
+  }
+
+  renderSchedule(c) {
+    let html = `<h2>Schedule &amp; Labors</h2>
+      <div class="sched-note">☀️ Day 06:00–18:00 · 🌙 Night 18:00–06:00. Set what each dwarf does per shift, and which labors they'll take.</div>`;
+    const opts = (sel) => ACTIVITIES.map(a =>
+      `<option value="${a.id}"${a.id === sel ? " selected" : ""}>${a.icon} ${a.name}</option>`).join("");
+    this.dwarves.forEach((d, i) => {
+      html += `<div class="sched-dwarf" data-idx="${i}">
+        <div class="sd-name"><span class="swatch" style="background:${d.color}"></span>${d.name}</div>
+        <div class="sd-shifts">
+          <label>☀️<select class="sd-day">${opts(d.schedule.day)}</select></label>
+          <label>🌙<select class="sd-night">${opts(d.schedule.night)}</select></label>
+        </div>
+        <div class="sd-labors">
+          ${LABORS.map(l => `<span class="chip${d.labors.has(l.id) ? " on" : ""}" data-labor="${l.id}" title="${l.name}">${l.icon}</span>`).join("")}
+        </div>
+      </div>`;
+    });
+    c.innerHTML = html;
+    c.querySelectorAll(".sched-dwarf").forEach(row => {
+      const d = this.dwarves[+row.dataset.idx];
+      row.querySelector(".sd-day").onchange = (e) => { d.schedule.day = e.target.value; };
+      row.querySelector(".sd-night").onchange = (e) => { d.schedule.night = e.target.value; };
+      row.querySelectorAll(".chip").forEach(chip => {
+        chip.onclick = () => {
+          const id = chip.dataset.labor;
+          if (d.labors.has(id)) d.labors.delete(id); else d.labors.add(id);
+          chip.classList.toggle("on");
+        };
+      });
+    });
+  }
+
+  renderRecords(c) {
+    if (this._recordsLoaded) return;
+    this._recordsLoaded = true;
+    c.innerHTML = `<h2>Hall of Records</h2>
+      <div class="sched-note">Persistent database: <b>${colonyDB ? colonyDB.describe() : "n/a"}</b></div>
+      <div id="rec-body" class="menu-empty">Loading…</div>`;
+    if (!colonyDB) return;
+    Promise.all([colonyDB.getAllDwarves(), colonyDB.getEvents(30)]).then(([dwarves, events]) => {
+      const body = document.getElementById("rec-body");
+      if (!body) return;
+      dwarves.sort((a, b) => (b.alive - a.alive) || 0);
+      let html = "";
+      for (const r of dwarves) {
+        const top = r.skills ? Object.entries(r.skills).sort((a, b) => b[1] - a[1]).slice(0, 3)
+          .filter(s => s[1] > 0).map(s => `${SKILLS[s[0]] ? SKILLS[s[0]].icon : ""}${s[1]}`).join(" ") : "";
+        html += `<div class="rec-row ${r.alive ? "" : "dead"}">
+          <span class="swatch" style="background:${r.color || "#888"}"></span>
+          <span class="rec-main"><b>${r.name}</b> <span class="rec-prof">${r.profession || ""}</span>
+          <div class="rec-sk">${top || "—"} ${r.alive ? "" : "· ✝ " + (r.cause || "lost")}</div></span>
+        </div>`;
+      }
+      html += `<div class="mini2">Chronicle</div><div class="rec-events">`;
+      for (const e of events) html += `<div>Day ${e.day}: ${e.text}</div>`;
+      html += `</div>`;
+      body.className = "";
+      body.innerHTML = html || `<div class="menu-empty">No records yet.</div>`;
+    }).catch(() => {
+      const body = document.getElementById("rec-body");
+      if (body) body.textContent = "Records unavailable.";
+    });
   }
 
   taskLabel(d) {
+    if (d.state === "sleep") return "Sleeping";
     if (!d.job) return d.state === "wander" ? "Strolling" : "Idle";
-    const map = { dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building", haul: "Hauling", eat: "Eating" };
+    const map = {
+      dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
+      haul: "Hauling", eat: "Eating", sleep: "Sleeping", train: "Training", socialize: "Socialising",
+    };
     return map[d.job.type] || "Working";
   }
 }

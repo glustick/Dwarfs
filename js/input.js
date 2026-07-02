@@ -36,6 +36,11 @@ class Input {
       btn.addEventListener("click", () => this.setTool(btn.dataset.tool));
     });
 
+    // Right-panel tabs
+    document.querySelectorAll(".ptab").forEach(btn => {
+      btn.addEventListener("click", () => this.game.setPanelTab(btn.dataset.tab));
+    });
+
     c.addEventListener("contextmenu", e => e.preventDefault());
 
     c.addEventListener("pointerdown", (e) => {
@@ -105,7 +110,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", r: "bedroom", t: "dining", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) this.setTool(map[e.key.toLowerCase()]);
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -162,14 +167,26 @@ class Input {
             if (w.isWalkable(x, y) && !t.stockpile) { t.stockpile = true; count++; }
             break;
           case "build":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.stockpile) { t.buildJob = true; t.pendingFloor = false; count++; }
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "wall"; count++; }
             break;
           case "floor":
-            if (w.isWalkable(x, y) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.pendingFloor = true; count++; }
+            if (w.isWalkable(x, y) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; count++; }
+            break;
+          case "bed":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            break;
+          case "bedroom":
+            if (w.isWalkable(x, y) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
+            break;
+          case "dining":
+            if (w.isWalkable(x, y) && t.zone !== ZONE.DINING) { t.zone = ZONE.DINING; count++; }
             break;
           case "erase":
-            if (t.designation || t.buildJob || t.stockpile) {
-              t.designation = null; t.buildJob = false; t.pendingFloor = false; t.stockpile = false; t.reserved = false; count++;
+            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture) {
+              t.designation = null; t.buildJob = false; t.buildKind = null;
+              t.stockpile = false; t.zone = null; t.reserved = false;
+              if (t.furniture === FURN.BED) t.furniture = null; // deconstruct
+              count++;
             }
             break;
         }
@@ -177,9 +194,14 @@ class Input {
     }
 
     if (this.tool === "stockpile" || this.tool === "erase") g.rebuildStockpiles();
+    if (this.tool === "bedroom" || this.tool === "dining" || this.tool === "erase" || this.tool === "bed") g.rebuildZones();
     g.jobs.reindex();
     if (count) {
-      const verb = { dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather", stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued", erase: "Cleared" }[this.tool];
+      const verb = {
+        dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
+        stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
+        bed: "Beds queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", erase: "Cleared",
+      }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`);
     }
   }
