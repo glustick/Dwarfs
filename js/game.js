@@ -7,17 +7,35 @@ const SPEEDS = [0, 1, 2, 4];
 const DAY_START = 0.25;        // 06:00
 const DAY_END = 0.75;          // 18:00
 
+// Event chronicle categories (for the filterable Log panel).
+const LOG_CATS = {
+  order:  { name: "Orders",   icon: "📋" },
+  labor:  { name: "Labor",    icon: "⚒️" },
+  build:  { name: "Building",  icon: "🏗️" },
+  craft:  { name: "Crafting",  icon: "🔨" },
+  combat: { name: "Combat",    icon: "⚔️" },
+  colony: { name: "Colony",    icon: "🧔" },
+  skill:  { name: "Skills",    icon: "⭐" },
+  system: { name: "System",    icon: "💾" },
+};
+const MAX_EVENTS = 4000;       // in-memory chronicle cap
+const SAVED_EVENTS = 600;      // how many recent events persist in a save
+
 class Game {
   // `saveData` restores a saved game; otherwise a fresh world is generated.
   constructor(saveData) {
     this.items = [];
     this.dwarves = [];
+    this.enemies = [];
     this.stockpileTiles = [];
     this.bedTiles = [];
     this.diningTiles = [];
     this._nextItemId = 1;
     this.running = true;
-    this.panelTab = "colony";  // colony | schedule | records
+    this.panelTab = "colony";  // colony | schedule | log | records
+    this.events = [];          // full chronicle of everything that happens
+    this.logFilter = "all";    // active category filter in the Log panel
+    this._eventSeq = 1;
 
     this.selectedDwarf = null;
     this.selectedTile = null;
@@ -27,6 +45,9 @@ class Game {
     this.growthTimer = 0;
     this.statTimer = 0;
     this.migrationTimer = DAY_LENGTH * 1.5;
+    this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
+    this.raidCount = 0;
+    this.combatFx = [];               // transient hit sparks {x,y,t,bad}
 
     this.jobs = new JobManager(this);
 
@@ -42,8 +63,8 @@ class Game {
     this.renderer = window.__renderer; this.renderer.game = this;
     this.input = window.__input; this.input.game = this;
 
-    if (saveData) this.log(`Loaded save “${saveData.name || "game"}”.`, "good");
-    else this.log("Your seven dwarves have arrived. Strike the earth!", "good");
+    if (saveData) this.log(`Loaded save “${saveData.name || "game"}”.`, "good", "system");
+    else this.log("Your seven dwarves have arrived. Strike the earth!", "good", "colony");
 
     this.jobs.reindex();
     this.updatePanel();
@@ -76,6 +97,7 @@ class Game {
           t.buildJob ? 1 : 0, t.buildKind || 0, t.stockpile ? 1 : 0,
           t.reserved ? 1 : 0, t.item ? t.item.id : 0,
           t.zone || 0, t.furniture || 0,
+          t.workshop || 0, t.workshopRecipe || 0,
         ];
       }
     }
@@ -90,6 +112,11 @@ class Game {
         hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
       })),
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
+      enemies: this.enemies.map(e => ({
+        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
+      })),
+      raidTimer: this.raidTimer, raidCount: this.raidCount,
+      events: this.events.slice(-SAVED_EVENTS),
       nextItemId: this._nextItemId,
       cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
       time: this.time, speedIdx: this.speedIdx, paused: this.paused,
@@ -100,6 +127,8 @@ class Game {
     return {
       name: d.name, x: d.x, y: d.y, color: d.color,
       hunger: d.hunger, energy: d.energy, mood: d.mood, facing: d.facing,
+      hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
+      weapon: d.weapon, armor: d.armor,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0,
       carrying: d.carrying ? d.carrying.id : 0,
@@ -111,6 +140,7 @@ class Game {
         type: d.job.type, x: d.job.x, y: d.job.y, phase: d.job.phase,
         item: d.job.item ? d.job.item.id : 0,
         dest: d.job.dest, dining: d.job.dining, buildKind: d.job.buildKind || null,
+        slot: d.job.slot || null,
       } : null,
     };
   }
@@ -137,6 +167,8 @@ class Game {
       const d = new Dwarf(o.name, o.x, o.y, o.color, o.skills);
       d.hunger = o.hunger; d.mood = o.mood; d.facing = o.facing;
       d.energy = o.energy != null ? o.energy : 100;
+      d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
+      d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0;
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
@@ -151,15 +183,30 @@ class Game {
         j.phase = o.job.phase;
         j.item = o.job.item ? byId.get(o.job.item) : null;
         j.dest = o.job.dest; j.dining = o.job.dining; j.buildKind = o.job.buildKind;
+        j.slot = o.job.slot || null;
         d.job = j;
       }
       return d;
     });
 
+    this.enemies = (data.enemies || []).map(o => {
+      const e = new Enemy(o.kind, o.x, o.y);
+      if (o.hp != null) e.hp = o.hp;
+      e.facing = o.facing || 1;
+      return e;
+    });
+    this.raidTimer = data.raidTimer != null ? data.raidTimer : DAY_LENGTH * 3;
+    this.raidCount = data.raidCount || 0;
+    this.events = Array.isArray(data.events) ? data.events : [];
+    this._eventSeq = this.events.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
+
     this.cam = { x: data.cam.x, y: data.cam.y, zoom: data.cam.zoom };
     this.time = data.time;
     this.speedIdx = data.speedIdx != null ? data.speedIdx : 1;
-    this.paused = !!data.paused;
+    // Always resume running: manual saves are taken from the (paused) menu, so a
+    // persisted `paused: true` would otherwise freeze the colony on load and the
+    // dwarves would appear to "go idle" and never continue their work.
+    this.paused = false;
     this.rebuildStockpiles();
     for (const d of this.dwarves) this.flushDwarfToDB(d);
   }
@@ -188,7 +235,7 @@ class Game {
   togglePause() {
     this.paused = !this.paused;
     this.updateStats();
-    this.log(this.paused ? "Paused." : "Resumed.");
+    this.log(this.paused ? "Paused." : "Resumed.", "", "system");
   }
   changeSpeed(dir) {
     this.speedIdx = clamp(this.speedIdx + dir, 1, SPEEDS.length - 1);
@@ -244,15 +291,21 @@ class Game {
 
     // dwarves
     for (const d of this.dwarves) this.updateDwarf(d, dt);
-    // remove starved
-    if (this._toRemove && this._toRemove.length) {
-      for (const d of this._toRemove) {
-        const i = this.dwarves.indexOf(d);
-        if (i >= 0) this.dwarves.splice(i, 1);
-        if (this.selectedDwarf === d) this.selectedDwarf = null;
-      }
-      this._toRemove = null;
-      this.updatePanel();
+    this.flushRemovals();
+
+    // enemies & combat
+    if (this.enemies.length) { this.updateEnemies(dt); this.flushRemovals(); }
+    for (let i = this.combatFx.length - 1; i >= 0; i--) {
+      this.combatFx[i].t -= dt;
+      if (this.combatFx[i].t <= 0) this.combatFx.splice(i, 1);
+    }
+
+    // raids
+    this.raidTimer -= dt;
+    if (this.raidTimer <= 0) {
+      const day = Math.floor(this.time / DAY_LENGTH) + 1;
+      this.raidTimer = randint(this.world.rng, DAY_LENGTH * 2, DAY_LENGTH * 3);
+      if (day >= 3) this.spawnRaid();
     }
 
     // migration
@@ -281,6 +334,7 @@ class Game {
   }
 
   updateDwarf(d, dt) {
+    if (d.hp <= 0) return; // slain — awaiting removal this frame
     const night = this.shift() === "night";
 
     // needs
@@ -296,6 +350,13 @@ class Game {
     } else d.starve = 0;
     if (d.energy < 18) d.mood = clamp(d.mood - dt * 1.5, 0, 100);
     else if (d.hunger < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
+
+    // slow healing when no threat is present
+    if (!this.enemies.length && d.hp < d.maxhp && d.hunger < 85)
+      d.hp = clamp(d.hp + 3 * dt, 0, d.maxhp);
+
+    // combat takes over whenever enemies are on the map
+    if (this.enemies.length && this.handleCombat(d, dt)) return;
 
     if (d.job) {
       this.jobs.execute(d, dt);
@@ -324,7 +385,7 @@ class Game {
   awardXp(d, skillId, amount) {
     const leveled = grantXp(d, skillId, amount);
     if (leveled) {
-      this.log(`${d.name} is now ${skillTitle(d.skills[leveled].level)} ${SKILLS[leveled].name}.`, "good");
+      this.log(`${d.name} is now ${skillTitle(d.skills[leveled].level)} ${SKILLS[leveled].name}.`, "good", "skill");
       this.flushDwarfToDB(d);
       if (colonyDB) colonyDB.logEvent(`${d.name} became ${skillTitle(d.skills[leveled].level)} at ${SKILLS[leveled].name}`, Math.floor(this.time / DAY_LENGTH) + 1);
     }
@@ -341,7 +402,7 @@ class Game {
   }
 
   recordDeath(d, cause) {
-    this.log(`${d.name} has ${cause}.`, "bad");
+    this.log(`${d.name} has ${cause}.`, "bad", "colony");
     if (d.bed) { const bt = this.world.get(d.bed.x, d.bed.y); if (bt) bt.reserved = false; }
     (this._toRemove || (this._toRemove = [])).push(d);
     if (colonyDB) {
@@ -353,6 +414,183 @@ class Game {
       }).catch(() => {});
       colonyDB.logEvent(`${d.name} ${cause}`, Math.floor(this.time / DAY_LENGTH) + 1);
     }
+  }
+
+  flushRemovals() {
+    if (!this._toRemove || !this._toRemove.length) return;
+    for (const d of this._toRemove) {
+      const i = this.dwarves.indexOf(d);
+      if (i >= 0) this.dwarves.splice(i, 1);
+      if (this.selectedDwarf === d) this.selectedDwarf = null;
+    }
+    this._toRemove = null;
+    this.updatePanel();
+  }
+
+  // ---- combat ----
+  soldierCount() { let n = 0; for (const d of this.dwarves) if (d.military) n++; return n; }
+  addFx(x, y, bad) { this.combatFx.push({ x, y, t: 0.3, bad: !!bad }); }
+
+  nearestEnemy(x, y) {
+    let best = null, bd = Infinity;
+    for (const e of this.enemies) {
+      if (e.hp <= 0) continue;
+      const d = dist2(e.x, e.y, x, y);
+      if (d < bd) { bd = d; best = e; }
+    }
+    return best;
+  }
+
+  nearestDwarf(x, y) {
+    let best = null, bd = Infinity;
+    for (const d of this.dwarves) {
+      if (d.hp <= 0) continue;
+      const dd = dist2(d.x, d.y, x, y) * (d.military ? 0.55 : 1); // enemies favour soldiers
+      if (dd < bd) { bd = dd; best = d; }
+    }
+    return best;
+  }
+
+  // Returns true if combat took control of this dwarf this frame.
+  handleCombat(d, dt) {
+    const foe = this.nearestEnemy(d.x, d.y);
+    if (!foe) { d.fleeing = false; return false; }
+    const fdist = Math.hypot(foe.x - d.x, foe.y - d.y);
+
+    if (d.military) {
+      if (d.job && d.job.type === "equip") { this.jobs.execute(d, dt); return true; } // finish arming
+      if (d.job) this.jobs.cancel(d); // drop civilian work to fight
+      const adj = Math.max(Math.abs(d.tileX - foe.tileX), Math.abs(d.tileY - foe.tileY)) <= 1;
+      if (adj) {
+        d.state = "fight"; d.path = null; d.facing = foe.x > d.x ? 1 : -1;
+        d.attackCd -= dt;
+        if (d.attackCd <= 0) { d.attackCd = 0.8; this.dwarfHitEnemy(d, foe); }
+      } else {
+        d.combatRepath -= dt;
+        if (!d.path || d.combatRepath <= 0) {
+          d.combatRepath = 0.4;
+          const p = pathAdjacent(this.world, d.tileX, d.tileY, foe.tileX, foe.tileY);
+          if (p) d.setPath(p);
+        }
+        d.state = "goto"; d.move(dt);
+      }
+      d.thought = "In battle!";
+      return true;
+    }
+
+    // civilians flee toward the colony centre when a foe is near
+    if (fdist < 8) {
+      if (d.job) this.jobs.cancel(d);
+      d.fleeing = true; d.thought = "Fleeing the enemy!";
+      d.mood = clamp(d.mood - dt * 2, 0, 100);
+      d.combatRepath -= dt;
+      if (!d.path || d.combatRepath <= 0) {
+        d.combatRepath = 0.5;
+        const p = pathTo(this.world, d.tileX, d.tileY, this.world.spawnX, this.world.spawnY);
+        if (p) d.setPath(p);
+      }
+      d.state = "goto"; d.move(dt);
+      return true;
+    }
+    d.fleeing = false;
+    return false;
+  }
+
+  dwarfHitEnemy(d, foe) {
+    foe.hp -= d.attackDamage();
+    this.addFx(foe.x, foe.y, false);
+    this.awardXp(d, "fighting", 5); this.awardXp(d, "fitness", 1);
+    if (foe.hp <= 0) this.killEnemy(foe, d);
+  }
+
+  enemyHitDwarf(e, d) {
+    d.hp -= d.damageTaken(e.atk);
+    this.addFx(d.x, d.y, true);
+    this.awardXp(d, "fighting", 2);
+    if (d.hp <= 0) this.recordDeath(d, `slain by a ${e.name}`);
+  }
+
+  killEnemy(foe, byDwarf) {
+    foe.hp = 0; // filtered out after the enemy loop
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    if (byDwarf) {
+      this.log(`${byDwarf.name} slew a ${foe.name}!`, "good", "combat");
+      byDwarf.mood = clamp(byDwarf.mood + 4, 0, 100);
+      this.awardXp(byDwarf, "fighting", 15);
+    } else this.log(`A ${foe.name} was slain.`, "good", "combat");
+    if (colonyDB) colonyDB.logEvent(`${byDwarf ? byDwarf.name : "The colony"} slew a ${foe.name}`, day);
+  }
+
+  updateEnemies(dt) {
+    for (const e of this.enemies) {
+      if (e.hp <= 0) continue;
+      e.attackCd -= dt;
+      const tgt = this.nearestDwarf(e.x, e.y);
+      if (!tgt) {
+        e.repath -= dt;
+        if (!e.path || e.repath <= 0) {
+          e.repath = 0.6;
+          const p = pathTo(this.world, e.tileX, e.tileY, this.world.spawnX, this.world.spawnY);
+          if (p) e.setPath(p);
+        }
+        e.move(dt);
+        continue;
+      }
+      const adj = Math.max(Math.abs(e.tileX - tgt.tileX), Math.abs(e.tileY - tgt.tileY)) <= 1;
+      if (adj) {
+        e.facing = tgt.x > e.x ? 1 : -1; e.path = null;
+        if (e.attackCd <= 0) { e.attackCd = 1.0; this.enemyHitDwarf(e, tgt); }
+      } else {
+        e.repath -= dt;
+        if (!e.path || e.repath <= 0) {
+          e.repath = 0.5;
+          const p = pathAdjacent(this.world, e.tileX, e.tileY, tgt.tileX, tgt.tileY);
+          if (p) e.setPath(p);
+        }
+        e.move(dt);
+      }
+    }
+    const before = this.enemies.length;
+    this.enemies = this.enemies.filter(e => e.hp > 0);
+    if (before && !this.enemies.length) this.log("The colony has repelled the attack!", "good", "combat");
+  }
+
+  randomEdgeTile() {
+    const w = this.world;
+    for (let t = 0; t < 40; t++) {
+      const side = randint(w.rng, 0, 3);
+      let x, y;
+      if (side === 0) { x = randint(w.rng, 0, w.w - 1); y = 1; }
+      else if (side === 1) { x = randint(w.rng, 0, w.w - 1); y = w.h - 2; }
+      else if (side === 2) { x = 1; y = randint(w.rng, 0, w.h - 1); }
+      else { x = w.w - 2; y = randint(w.rng, 0, w.h - 1); }
+      if (w.isWalkable(x, y) && pathTo(w, x, y, w.spawnX, w.spawnY)) return { x, y };
+    }
+    return null;
+  }
+
+  spawnRaid() {
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    const n = clamp(1 + Math.floor(day / 5) + Math.floor(this.dwarves.length / 6), 1, 8);
+    let kind = "wolf";
+    if (day >= 12 && this.world.rng() < 0.35) kind = "troll";
+    else if (day >= 6) kind = "goblin";
+    const edge = this.randomEdgeTile();
+    if (!edge) return;
+    let spawned = 0;
+    for (let k = 0; k < n; k++) {
+      for (let t = 0; t < 14; t++) {
+        const x = clamp(edge.x + randint(this.world.rng, -3, 3), 0, this.world.w - 1);
+        const y = clamp(edge.y + randint(this.world.rng, -3, 3), 0, this.world.h - 1);
+        if (this.world.isWalkable(x, y)) { this.enemies.push(new Enemy(kind, x, y)); spawned++; break; }
+      }
+    }
+    if (!spawned) return;
+    this.raidCount++;
+    const label = ENEMY_TYPES[kind].name + (spawned > 1 ? "s" : "");
+    this.log(`⚔️ A raid! ${spawned} ${label} approach from the wilds!`, "bad", "combat");
+    if (window.App) window.App.toast(`⚔️ Raid — ${spawned} ${label}!`);
+    if (colonyDB) colonyDB.logEvent(`Raid of ${spawned} ${label} attacked`, day);
   }
 
   rebuildZones() {
@@ -387,7 +625,7 @@ class Game {
         }
       }
     }
-    if (arrived) this.log(`${arrived} migrant${arrived > 1 ? "s have" : " has"} arrived seeking work.`, "good");
+    if (arrived) this.log(`${arrived} migrant${arrived > 1 ? "s have" : " has"} arrived seeking work.`, "good", "colony");
   }
 
   countItems(kind) {
@@ -397,17 +635,32 @@ class Game {
   }
 
   // ---- UI ----
-  log(msg, cls = "") {
-    const el = document.getElementById("log");
-    const div = document.createElement("div");
-    div.className = "entry " + cls;
+  // Every message flows through here: it shows in the bottom ticker AND is
+  // recorded in the permanent, filterable chronicle (this.events).
+  log(msg, cls = "", cat = "system") {
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const f = this.dayFraction() * 24;
     const hh = String(Math.floor(f)).padStart(2, "0");
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");
-    div.textContent = `[${hh}:${mm}] ${msg}`;
-    el.appendChild(div);
-    while (el.children.length > 60) el.removeChild(el.firstChild);
-    el.scrollTop = el.scrollHeight;
+    const hm = `${hh}:${mm}`;
+
+    // record in the chronicle
+    this.events.push({ seq: this._eventSeq++, day, hm, cat, cls, text: msg });
+    if (this.events.length > MAX_EVENTS) this.events.splice(0, this.events.length - MAX_EVENTS);
+
+    // bottom ticker (recent only)
+    const el = document.getElementById("log");
+    if (el) {
+      const div = document.createElement("div");
+      div.className = "entry " + cls;
+      div.textContent = `[D${day} ${hm}] ${msg}`;
+      el.appendChild(div);
+      while (el.children.length > 60) el.removeChild(el.firstChild);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    // live-refresh the Log panel if the player is viewing it at the top
+    if (this.panelTab === "log") this.maybeRefreshLog();
   }
 
   updateStats() {
@@ -423,6 +676,15 @@ class Game {
     const icon = this.shift() === "day" ? "☀️" : "🌙";
     document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm}`;
     document.getElementById("stat-speed").textContent = this.paused ? "⏸ Paused" : `▶ ${this.speed}×`;
+    const threat = document.getElementById("stat-threat");
+    if (threat) {
+      if (this.enemies.length) {
+        threat.style.display = "";
+        threat.innerHTML = `⚔️ <b>${this.enemies.length}</b> · 🛡 ${this.soldierCount()}`;
+      } else {
+        threat.style.display = "none";
+      }
+    }
   }
 
   setPanelTab(tab) {
@@ -438,7 +700,52 @@ class Game {
       b.classList.toggle("active", b.dataset.tab === this.panelTab));
     if (this.panelTab === "schedule") this.renderSchedule(c);
     else if (this.panelTab === "records") this.renderRecords(c);
+    else if (this.panelTab === "log") this.renderLog(c);
     else this.renderColony(c);
+  }
+
+  // Full event chronicle with category filters.
+  renderLog(c) {
+    const cats = Object.keys(LOG_CATS);
+    const filtered = this.events.filter(e => this.logFilter === "all" || e.cat === this.logFilter);
+    const shown = filtered.slice(-400).reverse(); // newest first, cap for perf
+
+    let chips = `<button class="log-chip${this.logFilter === "all" ? " on" : ""}" data-f="all">All</button>`;
+    for (const id of cats) {
+      chips += `<button class="log-chip${this.logFilter === id ? " on" : ""}" data-f="${id}">${LOG_CATS[id].icon} ${LOG_CATS[id].name}</button>`;
+    }
+
+    let rows = "";
+    for (const e of shown) {
+      const ico = (LOG_CATS[e.cat] || LOG_CATS.system).icon;
+      rows += `<div class="log-line ${e.cls || ""}">
+        <span class="lg-time">D${e.day} ${e.hm}</span>
+        <span class="lg-ico">${ico}</span>
+        <span class="lg-text">${this.escapeHtml(e.text)}</span></div>`;
+    }
+    if (!shown.length) rows = `<div class="menu-empty">No events${this.logFilter === "all" ? " yet" : " in this category"}.</div>`;
+
+    c.innerHTML = `<h2>Event Log</h2>
+      <div class="log-filters">${chips}</div>
+      <div class="log-count">${filtered.length} event${filtered.length === 1 ? "" : "s"}${filtered.length > 400 ? " · showing latest 400" : ""} · newest first</div>
+      <div id="log-body">${rows}</div>`;
+
+    c.querySelectorAll(".log-chip").forEach(b => {
+      b.onclick = () => { this.logFilter = b.dataset.f; this.renderLog(c); };
+    });
+  }
+
+  // Re-render the log in place without disturbing a player scrolling history.
+  maybeRefreshLog() {
+    const body = document.getElementById("log-body");
+    const c = document.getElementById("panel-content");
+    if (!body || !c) return;
+    if (body.scrollTop > 12) return; // player is reading older entries — leave it
+    this.renderLog(c);
+  }
+
+  escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[ch]));
   }
 
   renderColony(c) {
@@ -466,6 +773,31 @@ class Game {
         this.cam.x = d.x; this.cam.y = d.y; this.updatePanel();
       };
     });
+    this.wireInspector(c);
+  }
+
+  // Attach handlers for interactive controls inside the inspector.
+  wireInspector(c) {
+    const mil = c.querySelector("#insp-military");
+    if (mil && this.selectedDwarf) {
+      mil.onclick = () => {
+        const d = this.selectedDwarf;
+        d.military = !d.military;
+        if (d.job) this.jobs.cancel(d); // re-evaluate role next tick
+        this.log(`${d.name} ${d.military ? "enlists in the militia" : "returns to civilian life"}.`, "", "combat");
+        this.updatePanel();
+      };
+    }
+    if (this.selectedTile) {
+      const tile = this.world.tiles[this.selectedTile.y][this.selectedTile.x];
+      c.querySelectorAll(".recipe-btn").forEach(btn => {
+        btn.onclick = () => {
+          tile.workshopRecipe = +btn.dataset.recipe;
+          this.jobs.reindex();
+          this.updatePanel();
+        };
+      });
+    }
   }
 
   inspectorHTML() {
@@ -479,12 +811,15 @@ class Game {
           <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
       }
       sk += `</div>`;
+      const gear = [d.weapon ? "🗡 " + d.weapon : null, d.armor ? "🛡 " + d.armor : null].filter(Boolean).join(" · ");
       return `
-        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span><br/>
+        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
-        <div class="mini">Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
+        <div class="mini">HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
+        ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>
+        <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
         <div class="mini2">Skills</div>${sk}`;
     }
     if (this.selectedTile) {
@@ -495,6 +830,13 @@ class Game {
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+      if (tile.workshop) {
+        const list = RECIPES[tile.workshop] || [];
+        parts.push(`Workshop: <span class="tag">${WORKSHOP_INFO[tile.workshop].icon} ${WORKSHOP_INFO[tile.workshop].name}</span>`);
+        parts.push(`<div class="mini">Making: <b>${(list[tile.workshopRecipe] || {}).name || "—"}</b></div>`);
+        parts.push(`<div class="recipe-row">` + list.map((r, i) =>
+          `<button class="recipe-btn${i === (tile.workshopRecipe || 0) ? " on" : ""}" data-recipe="${i}">${r.name}</button>`).join("") + `</div>`);
+      }
       if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
       if (tile.designation) parts.push(`Designated: <span class="tag">${tile.designation}</span>`);
       if (tile.buildJob) parts.push(`Queued: <span class="tag">${tile.buildKind || "wall"}</span>`);
@@ -570,11 +912,14 @@ class Game {
   }
 
   taskLabel(d) {
+    if (d.state === "fight") return "Fighting!";
+    if (d.fleeing) return "Fleeing!";
     if (d.state === "sleep") return "Sleeping";
     if (!d.job) return d.state === "wander" ? "Strolling" : "Idle";
     const map = {
       dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
       haul: "Hauling", eat: "Eating", sleep: "Sleeping", train: "Training", socialize: "Socialising",
+      craft: "Crafting", equip: "Arming up",
     };
     return map[d.job.type] || "Working";
   }

@@ -35,7 +35,20 @@ Your seven dwarves have arrived in a procedurally-generated wilderness. *Strike 
    items there automatically.
 5. **🧱 Wall / ▦ Floor** — queue construction (each consumes 1 stone from a stockpile).
 6. **🔍 Inspect** — click a tile or dwarf to see details in the right panel.
-7. **🚫 Cancel** — clear any designation, zone, or build order.
+7. **🚫 Cancel** — clear any designation, zone, build order, or workshop.
+
+### ⚒️ Industry & 🛡️ Defense
+
+- **🔥 Smelter** & **⚒️ Forge** — build these workshops (they cost stone). The
+  smelter turns **ore → metal bars**; the forge turns **iron bars → weapons &
+  armor**. Select a workshop with Inspect to choose what it makes. A dwarf with
+  the **Crafting** labor works it (trains the *Smithing* skill).
+- **Raiders attack.** From around Day 4, wolves — then goblins and trolls — raid
+  the colony. Watch the ⚔️ threat indicator in the top bar.
+- **Enlist soldiers.** Select a dwarf and click **⚔ Enlist**. Enlisted dwarves
+  automatically pick up forged weapons/armor from a stockpile, fight raiders, and
+  train the *Fighting* skill; civilians flee to safety. Wall off your colony and
+  keep a standing militia to survive.
 
 Keep your dwarves fed — hungry dwarves eat from your food stores, and starving ones
 can die. A healthy, well-fed colony attracts **migrants** over time.

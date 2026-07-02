@@ -64,6 +64,7 @@ class Renderer {
         if (t.zone) this.drawZone(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts);
         if (t.furniture) this.drawFurniture(ctx, t, x * ts + ox, y * ts + oy, ts);
+        if (t.workshop) this.drawWorkshop(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.designation) this.drawDesignation(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.buildJob) this.drawBuildGhost(ctx, t, x * ts + ox, y * ts + oy, ts);
       }
@@ -79,6 +80,23 @@ class Renderer {
     // 4) dwarves
     for (const d of g.dwarves) {
       this.drawDwarf(ctx, d, ox, oy, ts);
+    }
+
+    // 4b) enemies
+    for (const e of g.enemies) {
+      if (e.hp <= 0) continue;
+      this.drawEnemy(ctx, e, ox, oy, ts);
+    }
+
+    // 4c) combat sparks
+    for (const fx of g.combatFx) {
+      const fcx = (fx.x + 0.5) * ts + ox, fcy = (fx.y + 0.3) * ts + oy;
+      const a = clamp(fx.t / 0.3, 0, 1);
+      ctx.fillStyle = fx.bad ? `rgba(230,70,60,${a})` : `rgba(255,230,120,${a})`;
+      ctx.font = `bold ${Math.floor(ts * 0.5)}px serif`;
+      ctx.textAlign = "center";
+      ctx.fillText("✳", fcx, fcy - (1 - a) * ts * 0.4);
+      ctx.textAlign = "start";
     }
 
     // 5) selection + drag rectangle
@@ -315,6 +333,33 @@ class Renderer {
     if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts);
   }
 
+  drawWorkshop(ctx, t, sx, sy, ts) {
+    // stone platform
+    ctx.fillStyle = t.workshop === "forge" ? "#4a4038" : "#4a4340";
+    ctx.fillRect(sx + ts * 0.08, sy + ts * 0.08, ts * 0.84, ts * 0.84);
+    ctx.strokeStyle = "#2a2420"; ctx.lineWidth = Math.max(1, ts * 0.05);
+    ctx.strokeRect(sx + ts * 0.08, sy + ts * 0.08, ts * 0.84, ts * 0.84);
+    // flame / anvil glow
+    const pulse = 0.5 + Math.sin(this.game.time * 5 + sx) * 0.5;
+    if (t.workshop === "smelter") {
+      ctx.fillStyle = `rgba(255,${120 + pulse * 90},40,0.85)`;
+      ctx.beginPath();
+      ctx.moveTo(sx + ts * 0.5, sy + ts * 0.28);
+      ctx.lineTo(sx + ts * 0.36, sy + ts * 0.66);
+      ctx.lineTo(sx + ts * 0.64, sy + ts * 0.66);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = `rgba(255,235,120,${0.6 + pulse * 0.3})`;
+      ctx.beginPath(); ctx.arc(sx + ts * 0.5, sy + ts * 0.55, ts * 0.1, 0, 7); ctx.fill();
+    } else {
+      // anvil
+      ctx.fillStyle = "#20242a";
+      ctx.fillRect(sx + ts * 0.3, sy + ts * 0.5, ts * 0.4, ts * 0.12);
+      ctx.fillRect(sx + ts * 0.42, sy + ts * 0.4, ts * 0.16, ts * 0.14);
+      ctx.fillStyle = `rgba(255,180,60,${0.4 + pulse * 0.5})`;
+      ctx.beginPath(); ctx.arc(sx + ts * 0.62, sy + ts * 0.44, ts * 0.05, 0, 7); ctx.fill();
+    }
+  }
+
   drawBed(ctx, sx, sy, ts) {
     const pad = ts * 0.14;
     const x = sx + pad, y = sy + pad, w = ts - pad * 2, h = ts - pad * 2;
@@ -365,6 +410,26 @@ class Renderer {
       ctx.fillRect(cx - ts * 0.04, cy - ts * 0.02, ts * 0.08, ts * 0.16);
       ctx.fillStyle = "#c0472e";
       ctx.beginPath(); ctx.ellipse(cx, cy - ts * 0.02, ts * 0.14, ts * 0.08, 0, Math.PI, 0); ctx.fill();
+    } else if (it.kind === ITEM.BAR) {
+      const col = it.sub === "gold" ? "#ffd34d" : it.sub === "coal" ? "#4a4a4a" : "#c4cad2";
+      ctx.fillStyle = col;
+      ctx.fillRect(cx - ts * 0.16, cy - ts * 0.02, ts * 0.32, ts * 0.12);
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.fillRect(cx - ts * 0.16, cy - ts * 0.02, ts * 0.32, ts * 0.03);
+    } else if (it.kind === ITEM.WEAPON) {
+      ctx.strokeStyle = "#d8dde4"; ctx.lineWidth = Math.max(1.5, ts * 0.08);
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.12, cy + ts * 0.12); ctx.lineTo(cx + ts * 0.12, cy - ts * 0.16); ctx.stroke();
+      ctx.strokeStyle = "#7a5a2c";
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.16, cy + ts * 0.06); ctx.lineTo(cx - ts * 0.06, cy + ts * 0.16); ctx.stroke();
+    } else if (it.kind === ITEM.ARMOR) {
+      ctx.fillStyle = "#8a94a0";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ts * 0.16);
+      ctx.lineTo(cx + ts * 0.14, cy - ts * 0.06);
+      ctx.lineTo(cx, cy + ts * 0.16);
+      ctx.lineTo(cx - ts * 0.14, cy - ts * 0.06);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#5a636e"; ctx.lineWidth = 1; ctx.stroke();
     }
   }
 
@@ -414,8 +479,39 @@ class Renderer {
 
     // carried item indicator
     if (d.carrying) {
-      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", ore: "#ffd34d", food: "#c0472e" }[d.carrying.kind] || "#fff";
+      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0" }[d.carrying.kind] || "#fff";
       ctx.fillRect(cx + r * 0.5, cy - r * 0.3, r * 0.5, r * 0.5);
+    }
+
+    // equipped weapon (held) and armor (shield)
+    if (d.weapon) {
+      ctx.strokeStyle = "#e2e6ec"; ctx.lineWidth = Math.max(1, r * 0.18);
+      const hx = cx + d.facing * r * 0.8;
+      ctx.beginPath(); ctx.moveTo(hx, cy + r * 0.4); ctx.lineTo(hx, cy - r * 0.7); ctx.stroke();
+    }
+    if (d.armor) {
+      ctx.fillStyle = "#8a94a0"; ctx.strokeStyle = "#5a636e"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(cx - d.facing * r * 0.7, cy + r * 0.15, r * 0.34, 0, 7); ctx.fill(); ctx.stroke();
+    }
+
+    // HP bar when wounded
+    if (d.hp < d.maxhp) {
+      const bw = r * 1.6, frac = clamp(d.hp / d.maxhp, 0, 1);
+      ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw, r * 0.24);
+      ctx.fillStyle = frac > 0.5 ? "#5cb85c" : frac > 0.25 ? "#e0b158" : "#e0553a";
+      ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw * frac, r * 0.24);
+    }
+
+    // fighting spark
+    if (d.state === "fight") {
+      const t = this.game.time;
+      ctx.strokeStyle = `rgba(255,120,90,${0.6 + Math.sin(t * 24) * 0.4})`;
+      ctx.lineWidth = Math.max(1.5, ts * 0.1);
+      const a = t * 12;
+      ctx.beginPath();
+      ctx.moveTo(cx + d.facing * r, cy - r * 0.5);
+      ctx.lineTo(cx + d.facing * (r * 1.7 + Math.sin(a) * r * 0.3), cy - r * 0.2);
+      ctx.stroke();
     }
 
     // working spark
@@ -449,6 +545,51 @@ class Renderer {
       ctx.strokeStyle = "#ffcf6b";
       ctx.lineWidth = Math.max(1.5, ts * 0.06);
       ctx.beginPath(); ctx.arc(cx, cy, r * 1.5, 0, 7); ctx.stroke();
+    }
+  }
+
+  drawEnemy(ctx, e, ox, oy, ts) {
+    const bob = Math.sin(e.bob) * (e.path ? ts * 0.05 : 0);
+    const cx = (e.x + 0.5) * ts + ox;
+    const cy = (e.y + 0.5) * ts + oy + bob;
+    const r = ts * 0.30;
+
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(cx, cy + r * 1.1, r * 0.9, r * 0.35, 0, 0, 7); ctx.fill();
+
+    if (e.kind === "wolf") {
+      // low four-legged body
+      ctx.fillStyle = e.color;
+      ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.2, r * 0.95, r * 0.5, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + e.facing * r * 0.8, cy, r * 0.4, 0, 7); ctx.fill();
+      ctx.fillStyle = "#c94040"; // eye
+      ctx.beginPath(); ctx.arc(cx + e.facing * r * 0.9, cy - r * 0.05, r * 0.08, 0, 7); ctx.fill();
+    } else {
+      // humanoid raider
+      ctx.fillStyle = e.color;
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.7, cy + r); ctx.lineTo(cx - r * 0.5, cy - r * 0.1);
+      ctx.lineTo(cx + r * 0.5, cy - r * 0.1); ctx.lineTo(cx + r * 0.7, cy + r);
+      ctx.closePath(); ctx.fill();
+      ctx.fillStyle = e.kind === "troll" ? "#8a7f9a" : "#6f8a48";
+      ctx.beginPath(); ctx.arc(cx, cy - r * 0.5, r * 0.55, 0, 7); ctx.fill();
+      // menacing eyes
+      ctx.fillStyle = "#e03020";
+      const ex = e.facing * r * 0.12;
+      ctx.beginPath(); ctx.arc(cx - r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
+      // crude weapon
+      ctx.strokeStyle = "#b0b6bc"; ctx.lineWidth = Math.max(1, r * 0.16);
+      ctx.beginPath(); ctx.moveTo(cx + e.facing * r * 0.8, cy + r * 0.5); ctx.lineTo(cx + e.facing * r * 0.8, cy - r * 0.6); ctx.stroke();
+    }
+
+    // hp bar
+    if (e.hp < e.maxhp) {
+      const bw = r * 1.7, frac = clamp(e.hp / e.maxhp, 0, 1);
+      ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw, r * 0.24);
+      ctx.fillStyle = "#e0553a";
+      ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw * frac, r * 0.24);
     }
   }
 

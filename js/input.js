@@ -1,5 +1,12 @@
 // ---- Input: tools, mouse designation, camera --------------------------------
 
+// Which toolbar category owns each tool (for fly-out highlighting).
+const TOOL_CAT = {
+  dig: "designate", chop: "designate", gather: "designate",
+  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build",
+  stockpile: "zone", bedroom: "zone", dining: "zone",
+};
+
 class Input {
   constructor(game, canvas) {
     this.game = game;
@@ -17,7 +24,29 @@ class Input {
     this.tool = tool;
     document.querySelectorAll(".tool").forEach(b =>
       b.classList.toggle("active", b.dataset.tool === tool));
+    // highlight the category that owns this tool
+    const cat = TOOL_CAT[tool] || null;
+    document.querySelectorAll(".cat").forEach(b =>
+      b.classList.toggle("active", b.dataset.cat === cat));
     this.canvas.style.cursor = tool === "select" ? "pointer" : "crosshair";
+  }
+
+  toggleFlyout(cat, btn) {
+    const fly = document.getElementById("flyout");
+    if (!fly) return;
+    const open = !fly.classList.contains("hidden") && this._flyCat === cat;
+    if (open) { this.closeFlyout(); return; }
+    this._flyCat = cat;
+    fly.querySelectorAll(".fly-group").forEach(g =>
+      g.classList.toggle("show", g.dataset.group === cat));
+    fly.classList.remove("hidden");
+    if (btn) fly.style.top = Math.max(52, btn.getBoundingClientRect().top) + "px";
+  }
+
+  closeFlyout() {
+    const fly = document.getElementById("flyout");
+    if (fly) fly.classList.add("hidden");
+    this._flyCat = null;
   }
 
   tileAt(ev) {
@@ -31,9 +60,14 @@ class Input {
     // reused across games, so a captured reference would go stale.
     const c = this.canvas;
 
-    // Toolbar buttons
+    // Toolbar tool buttons (also present inside fly-outs)
     document.querySelectorAll(".tool").forEach(btn => {
-      btn.addEventListener("click", () => this.setTool(btn.dataset.tool));
+      btn.addEventListener("click", () => { this.setTool(btn.dataset.tool); this.closeFlyout(); });
+    });
+
+    // Category buttons open their fly-out submenu
+    document.querySelectorAll(".cat").forEach(btn => {
+      btn.addEventListener("click", () => this.toggleFlyout(btn.dataset.cat, btn));
     });
 
     // Right-panel tabs
@@ -45,6 +79,7 @@ class Input {
 
     c.addEventListener("pointerdown", (e) => {
       if (window.appMenuOpen) return;
+      this.closeFlyout(); // clicking the map dismisses any open submenu
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.keys.has(" ")) {
         this.panning = true;
@@ -105,13 +140,18 @@ class Input {
     // Keyboard
     window.addEventListener("keydown", (e) => {
       const g = this.game;
-      // Escape always toggles the in-game menu.
-      if (e.key === "Escape") { if (window.App) window.App.onEscape(); return; }
+      // Escape closes an open submenu first, otherwise toggles the in-game menu.
+      if (e.key === "Escape") {
+        const fly = document.getElementById("flyout");
+        if (fly && !fly.classList.contains("hidden")) { this.closeFlyout(); return; }
+        if (window.App) window.App.onEscape();
+        return;
+      }
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", r: "bedroom", t: "dining", x: "erase" };
-      if (map[e.key.toLowerCase()] && !e.repeat) this.setTool(map[e.key.toLowerCase()]);
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", r: "bedroom", t: "dining", x: "erase" };
+      if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
     });
@@ -173,7 +213,11 @@ class Input {
             if (w.isWalkable(x, y) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; count++; }
             break;
           case "bed":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            break;
+          case "smelter":
+          case "forge":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "bedroom":
             if (w.isWalkable(x, y) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
@@ -182,10 +226,11 @@ class Input {
             if (w.isWalkable(x, y) && t.zone !== ZONE.DINING) { t.zone = ZONE.DINING; count++; }
             break;
           case "erase":
-            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture) {
+            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop) {
               t.designation = null; t.buildJob = false; t.buildKind = null;
               t.stockpile = false; t.zone = null; t.reserved = false;
               if (t.furniture === FURN.BED) t.furniture = null; // deconstruct
+              t.workshop = null; // deconstruct workshop
               count++;
             }
             break;
@@ -200,9 +245,10 @@ class Input {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
-        bed: "Beds queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", erase: "Cleared",
+        bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued",
+        bedroom: "Bedroom zoned", dining: "Dining hall zoned", erase: "Cleared",
       }[this.tool];
-      g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`);
+      g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
     }
   }
 }

@@ -180,7 +180,7 @@ class App {
     const res = SaveManager.save(name, window.game);
     if (res.ok) {
       this.toast(`Saved “${name}”`);
-      if (window.game) window.game.log(`Game saved as “${name}”.`, "good");
+      if (window.game) window.game.log(`Game saved as “${name}”.`, "good", "system");
       this.openPauseMenu();
     } else {
       this.toast("Save failed: " + res.error);
@@ -239,7 +239,7 @@ class App {
     const res = SaveManager.save(AUTOSAVE_NAME, window.game);
     if (res.ok) {
       this.toast("Autosaved");
-      window.game.log("Autosaved.", "");
+      window.game.log("Autosaved.", "", "system");
     }
   }
 }

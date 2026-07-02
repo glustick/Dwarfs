@@ -1,8 +1,26 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
+
+// Workshop recipes: inputs consumed from stockpiles -> output produced.
+const RECIPES = {
+  smelter: [
+    { name: "Iron bar", in: [{ kind: ITEM.ORE, sub: "iron" }], out: { kind: ITEM.BAR, sub: "iron" }, time: 2.6 },
+    { name: "Gold bar", in: [{ kind: ITEM.ORE, sub: "gold" }], out: { kind: ITEM.BAR, sub: "gold" }, time: 2.6 },
+  ],
+  forge: [
+    { name: "Sword", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "sword" }, time: 3.2 },
+    { name: "Axe", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "axe" }, time: 3.2 },
+    { name: "Shield", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "shield" }, time: 3.0 },
+    { name: "Mail", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "mail" }, time: 3.4 },
+  ],
+};
+const WORKSHOP_INFO = {
+  smelter: { name: "Smelter", icon: "🔥" },
+  forge: { name: "Forge", icon: "⚒️" },
+};
 
 class Job {
   constructor(type, x, y) {
@@ -13,7 +31,8 @@ class Job {
     this.item = null;
     this.dest = null;      // {x,y} carry destination (haul)
     this.dining = null;    // {x,y} dining spot (eat)
-    this.buildKind = null; // wall|floor|bed
+    this.buildKind = null; // wall|floor|bed|smelter|forge
+    this.slot = null;      // equip slot: weapon|armor
   }
 }
 
@@ -26,7 +45,7 @@ class JobManager {
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [] };
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const t = w.tiles[y][x];
@@ -35,9 +54,55 @@ class JobManager {
         else if (t.designation === "chop" && w.hasWalkableNeighbor(x, y)) c.chop.push([x, y]);
         else if (t.designation === "gather" && w.hasWalkableNeighbor(x, y)) c.gather.push([x, y]);
         if (t.buildJob && w.hasWalkableNeighbor(x, y)) c.build.push([x, y]);
+        if (t.workshop && this.recipeAvailable(t) && w.hasWalkableNeighbor(x, y)) c.craft.push([x, y]);
       }
     }
     this.candidates = c;
+  }
+
+  // ---- workshop recipe helpers ----
+  currentRecipe(t) {
+    const list = RECIPES[t.workshop];
+    if (!list || !list.length) return null;
+    return list[(t.workshopRecipe || 0) % list.length];
+  }
+
+  // A stored (stockpiled) item matching a recipe input spec.
+  findStoredMatch(kind, sub) {
+    for (const it of this.game.items) {
+      if (it.kind !== kind || it.hauled) continue;
+      if (sub && it.sub !== sub) continue;
+      const t = this.game.world.tiles[it.y][it.x];
+      if (t.stockpile) return it;
+    }
+    return null;
+  }
+
+  recipeAvailable(t) {
+    const rec = this.currentRecipe(t);
+    if (!rec) return false;
+    // Temporarily flag matched items so duplicate input specs need distinct items.
+    const claimed = [];
+    let ok = true;
+    for (const inp of rec.in) {
+      const it = this.findStoredMatch(inp.kind, inp.sub);
+      if (!it) { ok = false; break; }
+      it.hauled = true; claimed.push(it);
+    }
+    for (const it of claimed) it.hauled = false;
+    return ok;
+  }
+
+  // Consume a recipe's inputs from stockpiles; returns false if any is missing.
+  consumeInputs(rec) {
+    const claimed = [];
+    for (const inp of rec.in) {
+      const it = this.findStoredMatch(inp.kind, inp.sub);
+      if (!it) { for (const c of claimed) c.hauled = false; return false; }
+      it.hauled = true; claimed.push(it);
+    }
+    for (const it of claimed) this.consumeItem(it);
+    return true;
   }
 
   // ---- stockpile / item helpers ----
@@ -128,6 +193,9 @@ class JobManager {
 
   // ---- assignment (schedule/labor aware) ----
   assign(dwarf) {
+    // Enlisted soldiers gear up during peacetime before anything else.
+    if (dwarf.military && !this.game.enemies.length && this.assignEquip(dwarf)) return true;
+
     const act = dwarf.activity || "work";
     if (act === "sleep") return this.assignSleep(dwarf);
     if (act === "train") return this.assignTrain(dwarf);
@@ -147,6 +215,7 @@ class JobManager {
     const pools = [
       ["dig", this.candidates.dig], ["chop", this.candidates.chop],
       ["gather", this.candidates.gather], ["build", this.candidates.build],
+      ["craft", this.candidates.craft],
     ];
     let best = null, bestD = Infinity;
     for (const [type, list] of pools) {
@@ -157,6 +226,8 @@ class JobManager {
         if (type === "build") {
           if (!t.buildJob) continue;
           if (!this.findAnyItem(this.buildMaterialKind(t), dx, dy)) continue;
+        } else if (type === "craft") {
+          if (!t.workshop || !this.recipeAvailable(t)) continue;
         } else if (t.designation !== type) continue;
         const d = manhattan(x, y, dx, dy);
         if (d >= bestD) continue;
@@ -180,9 +251,29 @@ class JobManager {
       dwarf.setPath(p2); dwarf.thought = `Fetching ${matKind} to build`;
     } else {
       job.phase = "move"; dwarf.setPath(path);
-      dwarf.thought = { dig: "Off to mine", chop: "Off to chop", gather: "Gathering plants" }[best.type];
+      dwarf.thought = {
+        dig: "Off to mine", chop: "Off to chop", gather: "Gathering plants",
+        craft: `Off to the ${WORKSHOP_INFO[t.workshop] ? WORKSHOP_INFO[t.workshop].name.toLowerCase() : "workshop"}`,
+      }[best.type];
     }
     dwarf.job = job; dwarf.state = "goto";
+    return true;
+  }
+
+  // Enlisted dwarves fetch a weapon, then armor, from stockpiles/ground.
+  assignEquip(dwarf) {
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
+    let slot = null, item = null;
+    if (!dwarf.weapon) { item = this.findAnyItem(ITEM.WEAPON, dx, dy); if (item) slot = "weapon"; }
+    if (!item && !dwarf.armor) { item = this.findAnyItem(ITEM.ARMOR, dx, dy); if (item) slot = "armor"; }
+    if (!item) return false;
+    const path = pathAdjacent(g.world, dx, dy, item.x, item.y) || pathTo(g.world, dx, dy, item.x, item.y);
+    if (!path) return false;
+    item.hauled = true;
+    const job = new Job("equip", item.x, item.y);
+    job.item = item; job.slot = slot; job.phase = "move";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = `Arming up (${item.sub || slot})`;
     return true;
   }
 
@@ -332,6 +423,16 @@ class JobManager {
       case "socialize":
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "socialize");
         break;
+      case "craft": {
+        const wt = w.tiles[job.y][job.x];
+        const rec = this.currentRecipe(wt);
+        const base = rec ? rec.time : WORK_TIME.craft;
+        dwarf.state = "work"; dwarf.workTimer = base / dwarf.workSpeedMult("smithing");
+        break;
+      }
+      case "equip":
+        dwarf.state = "work"; dwarf.workTimer = WORK_TIME.equip;
+        break;
       default: // dig / chop / gather
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, job.type);
     }
@@ -378,7 +479,7 @@ class JobManager {
       t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
       this.spawnItem(ITEM.STONE, job.x, job.y);
       if (ore) this.spawnItem(ITEM.ORE, job.x, job.y, ore);
-      g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "");
+      g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
       g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
       dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 1), 0, 100);
     } else if (job.type === "chop" && t) {
@@ -386,24 +487,48 @@ class JobManager {
       t.feature = F.NONE; t.growth = 0;
       const logs = randint(w.rng, 1, 3) + Math.floor(dwarf.skillLevel("woodcutting") / 6);
       for (let i = 0; i < logs; i++) this.spawnItem(ITEM.WOOD, job.x, job.y);
-      g.log(`${dwarf.name} felled a tree (${logs} logs).`);
+      g.log(`${dwarf.name} felled a tree (${logs} logs).`, "", "labor");
       g.awardXp(dwarf, "woodcutting", 12); g.awardXp(dwarf, "fitness", 2);
     } else if (job.type === "gather" && t) {
       t.designation = null; t.reserved = false;
       let food = (t.feature === F.BUSH ? randint(w.rng, 1, 2) : 1) + Math.floor(dwarf.skillLevel("farming") / 8);
       t.feature = F.NONE; t.growth = 0;
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y);
-      g.log(`${dwarf.name} gathered ${food} food.`);
+      g.log(`${dwarf.name} gathered ${food} food.`, "", "labor");
       g.awardXp(dwarf, "farming", 9);
     } else if (job.type === "build" && t) {
       t.reserved = false; t.buildJob = false;
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
       const kind = job.buildKind || "wall";
-      if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`); }
-      else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good"); }
-      else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a stone wall.`); }
+      if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
+      else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
+      else if (kind === "smelter" || kind === "forge") {
+        t.workshop = kind; t.workshopRecipe = 0;
+        g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
+      }
+      else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a stone wall.`, "", "build"); }
       t.buildKind = null;
       g.awardXp(dwarf, "building", 12); g.awardXp(dwarf, "fitness", 1);
+    } else if (job.type === "craft" && t && t.workshop) {
+      t.reserved = false;
+      const rec = this.currentRecipe(t);
+      if (rec && this.consumeInputs(rec)) {
+        this.spawnItem(rec.out.kind, job.x, job.y, rec.out.sub);
+        g.awardXp(dwarf, "smithing", 12);
+        dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
+        g.log(`${dwarf.name} crafted ${rec.name} at the ${WORKSHOP_INFO[t.workshop].name}.`, "", "craft");
+      } else {
+        dwarf.thought = "No materials to craft";
+      }
+    } else if (job.type === "equip") {
+      // Consume the equipment item and don it.
+      if (job.item) {
+        const slot = job.slot || (job.item.kind === ITEM.ARMOR ? "armor" : "weapon");
+        dwarf[slot] = job.item.sub || slot;
+        this.consumeItem(job.item);
+        g.awardXp(dwarf, "fighting", 3);
+        g.log(`${dwarf.name} equips a ${job.item.sub || slot}.`, "", "combat");
+      }
     } else if (job.type === "eat") {
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
       else if (job.item) this.consumeItem(job.item);

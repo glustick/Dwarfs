@@ -33,10 +33,13 @@ const FURN = { NONE: null, BED: "bed", TABLE: "table" };
 // Zones a tile can belong to (in addition to stockpile).
 const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining" };
 
+// Workshops that can be built on a tile.
+const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge" };
+
 // What a queued construction will produce.
-const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed" };
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", SMELTER: "smelter", FORGE: "forge" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", smelter: "stone", forge: "stone" };
 
 class Tile {
   constructor(kind) {
@@ -51,6 +54,8 @@ class Tile {
     this.stockpile = false;   // part of a stockpile zone
     this.zone = ZONE.NONE;    // 'bedroom' | 'dining'
     this.furniture = FURN.NONE; // 'bed' | 'table'
+    this.workshop = WORKSHOP.NONE; // 'smelter' | 'forge'
+    this.workshopRecipe = 0;  // selected recipe index for this workshop
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
   }
@@ -80,7 +85,8 @@ class World {
 
   // Restore tile state from a serialized array; `itemsById` maps item ids.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
-  //                buildKind,stockpile,reserved,itemId,zone,furniture]
+  //                buildKind,stockpile,reserved,itemId,zone,furniture,
+  //                workshop,workshopRecipe]
   loadTiles(data, itemsById) {
     let i = 0;
     for (let y = 0; y < this.h; y++) {
@@ -93,6 +99,7 @@ class World {
         t.reserved = !!a[9];
         t.item = a[10] ? (itemsById.get(a[10]) || null) : null;
         t.zone = a[11] || null; t.furniture = a[12] || null;
+        t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
       }
     }
   }

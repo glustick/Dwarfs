@@ -11,6 +11,7 @@ const SKILLS = {
   building:     { name: "Building",     noun: "Builder",    icon: "🧱", jobs: ["build"],  attr: false },
   hauling:      { name: "Hauling",      noun: "Hauler",     icon: "📦", jobs: ["haul"],   attr: false },
   cooking:      { name: "Cooking",      noun: "Cook",       icon: "🍲", jobs: ["eat"],    attr: false },
+  smithing:     { name: "Smithing",     noun: "Smith",      icon: "🔨", jobs: ["craft"],  attr: false },
   fitness:      { name: "Fitness",      noun: "Athlete",    icon: "💪", attr: true },  // move speed / stamina
   fighting:     { name: "Fighting",     noun: "Warrior",    icon: "⚔️", attr: true },  // trained by 'train'
   charisma:     { name: "Charisma",     noun: "Diplomat",   icon: "💬", attr: true },  // social, migration
@@ -23,7 +24,7 @@ const SKILL_IDS = Object.keys(SKILLS);
 const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building", "hauling", "fighting"];
 
 // Map a job type to the skill it trains.
-const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking" };
+const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing" };
 
 // Dwarf Fortress-style proficiency titles.
 const SKILL_TITLES = [

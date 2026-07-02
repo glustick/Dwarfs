@@ -17,24 +17,56 @@
       <span class="stat" title="Stone">🪨 <b id="stat-stone">0</b></span>
       <span class="stat" title="Ore">⛏️ <b id="stat-ore">0</b></span>
       <span class="stat" title="Food">🍄 <b id="stat-food">0</b></span>
+      <span class="stat" id="stat-threat" title="Threat · Soldiers" style="display:none;color:#e08a6a"></span>
       <span class="stat clock" title="Time"><span id="stat-clock">Day 1 · 06:00</span></span>
       <span class="stat" id="stat-speed" title="Speed (Space to pause, +/- to change)">▶ 1×</span>
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
 
-    <!-- Left toolbar -->
+    <!-- Left toolbar: categories with fly-out submenus -->
     <div id="toolbar">
       <button class="tool active" data-tool="select" title="Inspect (Q)"><span class="ico">🔍</span><span class="lbl">Inspect</span></button>
-      <button class="tool" data-tool="dig" title="Dig / Mine stone (D)"><span class="ico">⛏️</span><span class="lbl">Mine</span></button>
-      <button class="tool" data-tool="chop" title="Chop trees (C)"><span class="ico">🪓</span><span class="lbl">Chop</span></button>
-      <button class="tool" data-tool="gather" title="Gather plants (G)"><span class="ico">🌿</span><span class="lbl">Gather</span></button>
-      <button class="tool" data-tool="stockpile" title="Place stockpile (S)"><span class="ico">📦</span><span class="lbl">Stockpile</span></button>
-      <button class="tool" data-tool="build" title="Build stone wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
-      <button class="tool" data-tool="floor" title="Build stone floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
-      <button class="tool" data-tool="bed" title="Build bed — costs wood (E)"><span class="ico">🛏️</span><span class="lbl">Bed</span></button>
-      <button class="tool" data-tool="bedroom" title="Zone bedroom (R)"><span class="ico">🛌</span><span class="lbl">Bedroom</span></button>
-      <button class="tool" data-tool="dining" title="Zone dining hall (T)"><span class="ico">🍽️</span><span class="lbl">Dining</span></button>
+      <button class="cat" data-cat="designate" title="Designate orders"><span class="ico">⛏️</span><span class="lbl">Orders</span></button>
+      <button class="cat" data-cat="build" title="Build structures"><span class="ico">🏗️</span><span class="lbl">Build</span></button>
+      <button class="cat" data-cat="zone" title="Designate zones"><span class="ico">📐</span><span class="lbl">Zones</span></button>
       <button class="tool" data-tool="erase" title="Cancel / deconstruct (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
+    </div>
+
+    <!-- Fly-out submenus for each toolbar category -->
+    <div id="flyout" class="hidden">
+      <div class="fly-group" data-group="designate">
+        <div class="fly-title">⛏️ Designate Orders</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="dig" title="Mine stone (D)"><span class="ico">⛏️</span><span class="lbl">Mine</span></button>
+          <button class="tool" data-tool="chop" title="Chop trees (C)"><span class="ico">🪓</span><span class="lbl">Chop</span></button>
+          <button class="tool" data-tool="gather" title="Gather plants (G)"><span class="ico">🌿</span><span class="lbl">Gather</span></button>
+        </div>
+      </div>
+      <div class="fly-group" data-group="build">
+        <div class="fly-title">🏗️ Build Structures</div>
+        <div class="fly-sub">Construction</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="build" title="Stone wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
+          <button class="tool" data-tool="floor" title="Stone floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
+        </div>
+        <div class="fly-sub">Furniture</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="bed" title="Bed — costs wood (E)"><span class="ico">🛏️</span><span class="lbl">Bed</span></button>
+        </div>
+        <div class="fly-sub">Workshops</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="smelter" title="Smelter — ore → bars (1)"><span class="ico">🔥</span><span class="lbl">Smelter</span></button>
+          <button class="tool" data-tool="forge" title="Forge — bars → arms (2)"><span class="ico">⚒️</span><span class="lbl">Forge</span></button>
+        </div>
+      </div>
+      <div class="fly-group" data-group="zone">
+        <div class="fly-title">📐 Designate Zones</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="stockpile" title="Stockpile (S)"><span class="ico">📦</span><span class="lbl">Stockpile</span></button>
+          <button class="tool" data-tool="bedroom" title="Bedroom (R)"><span class="ico">🛌</span><span class="lbl">Bedroom</span></button>
+          <button class="tool" data-tool="dining" title="Dining hall (T)"><span class="ico">🍽️</span><span class="lbl">Dining</span></button>
+        </div>
+      </div>
     </div>
 
     <!-- Right info panel -->
@@ -42,6 +74,7 @@
       <div id="panel-tabs">
         <button class="ptab active" data-tab="colony">Colony</button>
         <button class="ptab" data-tab="schedule">Schedule</button>
+        <button class="ptab" data-tab="log">Log</button>
         <button class="ptab" data-tab="records">Records</button>
       </div>
       <div id="panel-content"></div>
