@@ -34,10 +34,17 @@ Your seven elves have arrived in a procedurally-generated wilderness. *Raise the
 2. **🪓 Chop** — drag over trees to fell them for wood logs.
 3. **🌿 Gather** — drag over bushes/mushrooms to collect **food**.
 4. **📦 Stockpile** — drag on open ground to make a storage zone. Elves haul loose
-   items there automatically.
+   items there automatically. Select any tile in it with Inspect to restrict the
+   whole contiguous pile to one goods category (Building/Ore & Bars/Food/Drink/
+   Arms) for cleaner logistics.
 5. **🧱 Wall / ▦ Floor** — queue construction (each consumes 1 stone from a stockpile).
 6. **🔍 Inspect** — click a tile or elf to see details in the right panel.
 7. **🚫 Cancel** — clear any designation, zone, build order, or workshop.
+8. **🗺️ Minimap** — bottom-right corner; click it to jump the camera anywhere
+   on the map.
+9. **🔔 Auto-pause** (top bar) — pauses the instant a raid starts, an elf
+   dies, or one starts starving or dying of thirst, so a crisis at high
+   speed doesn't slip by unnoticed.
 
 ### ⚒️ Industry & 🛡️ Defense
 
@@ -161,6 +168,14 @@ across games as a hall of records.
   and well-fed, but only if there's **space** (each bed adds room to grow).
 - **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
   stop to make decisions or fast-forward the grind.
+
+## Audio
+
+Everything is synthesized live (no audio files) — a generative ambient score
+plus procedural sound effects, all built from oscillators and noise. It darkens
+and picks up tempo the moment a raid starts, each workshop has its own crafting
+tone, and daytime brings sparse birdsong. Mute entirely from the 🔊 button (top
+bar), or dial Music and SFX separately from the **⏸ Menu → Audio** sliders.
 
 ## Controls
 

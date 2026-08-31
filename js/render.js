@@ -72,7 +72,7 @@ class Renderer {
       for (let x = x0; x <= x1; x++) {
         const t = w.tiles[y][x];
         if (t.zone) this.drawZone(ctx, t, x * ts + ox, y * ts + oy, ts);
-        if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts);
+        if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts, t.stockpileFilter);
         if (t.furniture) this.drawFurniture(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.workshop) this.drawWorkshop(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.designation) this.drawDesignation(ctx, t, x * ts + ox, y * ts + oy, ts);
@@ -117,6 +117,80 @@ class Renderer {
 
     // 6) day/night tint
     this.drawDayNight(ctx);
+
+    // 7) minimap overlay
+    this.drawMinimap(ctx, x0, y0, x1, y1);
+  }
+
+  // -- minimap ---------------------------------------------------------------
+  get miniRect() {
+    const w = this.game.world;
+    const mw = 180, mh = Math.round(180 * w.h / w.w);
+    const pad = 14 * this.dpr;
+    const x = this.canvas.width - mw * this.dpr - pad;
+    const y = this.canvas.height - mh * this.dpr - pad;
+    return { x, y, w: mw * this.dpr, h: mh * this.dpr };
+  }
+
+  buildMinimapTexture() {
+    const w = this.game.world;
+    if (!this.miniCanvas) {
+      this.miniCanvas = document.createElement("canvas");
+      this.miniCtx = this.miniCanvas.getContext("2d");
+    }
+    if (this.miniCanvas.width !== w.w || this.miniCanvas.height !== w.h) {
+      this.miniCanvas.width = w.w; this.miniCanvas.height = w.h;
+    }
+    const mctx = this.miniCtx;
+    const img = mctx.createImageData(w.w, w.h);
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        const t = w.tiles[y][x];
+        let r, gg, b;
+        if (t.built === B.WALL) { r = 122; gg = 79; b = 52; }
+        else if (t.workshop || t.furniture) { r = 138; gg = 120; b = 90; }
+        else if (t.kind === K.WATER) { r = 45; gg = 100; b = 160; }
+        else if (t.kind === K.SAND) { r = 201; gg = 184; b = 120; }
+        else if (t.kind === K.STONE) { r = 109; gg = 106; b = 100; }
+        else if (t.kind === K.FLOOR) { r = 138; gg = 131; b = 120; }
+        else if (t.kind === K.GRASS) { r = t.feature === F.TREE ? 40 : 74; gg = t.feature === F.TREE ? 90 : 122; b = 40; }
+        else { r = 107; gg = 78; b = 46; } // soil
+        const i = (y * w.w + x) * 4;
+        img.data[i] = r; img.data[i + 1] = gg; img.data[i + 2] = b; img.data[i + 3] = 255;
+      }
+    }
+    mctx.putImageData(img, 0, 0);
+    this._miniBuiltAt = performance.now();
+  }
+
+  drawMinimap(ctx, x0, y0, x1, y1) {
+    const g = this.game, w = g.world;
+    if (!this._miniBuiltAt || performance.now() - this._miniBuiltAt > 2000) this.buildMinimapTexture();
+    const r = this.miniRect;
+
+    ctx.fillStyle = "rgba(10,8,6,0.75)";
+    ctx.fillRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(this.miniCanvas, 0, 0, w.w, w.h, r.x, r.y, r.w, r.h);
+    ctx.imageSmoothingEnabled = true;
+
+    const sx = r.w / w.w, sy = r.h / w.h;
+    // viewport rectangle
+    ctx.strokeStyle = "#ffcf6b"; ctx.lineWidth = Math.max(1, this.dpr);
+    ctx.strokeRect(r.x + x0 * sx, r.y + y0 * sy, (x1 - x0) * sx, (y1 - y0) * sy);
+    // dwarves
+    for (const d of g.dwarves) {
+      ctx.fillStyle = d.color;
+      ctx.fillRect(r.x + d.x * sx - 1, r.y + d.y * sy - 1, 2, 2);
+    }
+    // enemies
+    ctx.fillStyle = "#e0553a";
+    for (const e of g.enemies) {
+      if (e.hp <= 0) continue;
+      ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
+    }
+    ctx.strokeStyle = "rgba(180,150,100,0.6)"; ctx.lineWidth = 1;
+    ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
   }
 
   // -- terrain -------------------------------------------------------------
@@ -327,7 +401,7 @@ class Renderer {
   }
 
   // -- overlays ------------------------------------------------------------
-  drawStockpile(ctx, sx, sy, ts) {
+  drawStockpile(ctx, sx, sy, ts, filter) {
     ctx.fillStyle = "rgba(200,160,60,0.12)";
     ctx.fillRect(sx, sy, ts, ts);
     ctx.strokeStyle = "rgba(220,180,80,0.5)";
@@ -335,6 +409,17 @@ class Renderer {
     ctx.lineWidth = 1;
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
+    if (filter && ts > 14) {
+      const cat = STOCKPILE_CATEGORIES.find(c => c.id === filter);
+      if (cat) {
+        ctx.globalAlpha = 0.55;
+        ctx.font = `${Math.floor(ts * 0.4)}px serif`;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.fillText(cat.icon, sx + ts * 0.78, sy + ts * 0.24);
+        ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   drawDesignation(ctx, t, sx, sy, ts) {

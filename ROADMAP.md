@@ -21,7 +21,10 @@ Doctor — new Medicine labor/skill — for meaningfully faster recovery) ·
 Brewery turns water + food into mood-boosting Ale) · **relationships**
 (elves develop love/hate opinions of each other, any pairing; partners get a
 mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
-(a Forester labor plants saplings to deliberately regrow logged forest).
+(a Forester labor plants saplings to deliberately regrow logged forest) ·
+**minimap**, **auto-pause alerts**, **stockpile categories**, and **audio
+polish** (combat tension music, per-workshop crafting tones, birdsong,
+volume sliders).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -49,14 +52,19 @@ mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
 
 ## Tier 3 — UX & quality of life (cheap wins)
 
-- [ ] **Minimap** — 90×70 world is easy to get lost in.
-- [ ] **Auto-pause alerts** — toggle to pause on raid / starvation so crises
-      aren't missed at high speed.
-- [ ] **Stockpile categories** — per-stockpile item-type filters (separate arms,
-      ore, food) for cleaner logistics.
-- [ ] **Audio polish** *(base system shipped)* — per-channel music/SFX volume
-      sliders, tension music that ramps during raids, and richer per-action
-      variety (distinct forge vs. smelter tones, ambient birdsong by day).
+- [x] ~~Minimap~~ — bottom-right overview of the whole map with a live
+      viewport box and elf/enemy dots; click it to jump the camera there.
+- [x] ~~Auto-pause alerts~~ — a 🔔 toggle in the top bar that pauses the game
+      the moment a raid starts, an elf dies, or an elf starts starving or
+      dying of thirst — so crises aren't missed at high speed.
+- [x] ~~Stockpile categories~~ — select a stockpile with Inspect to restrict
+      what a whole contiguous pile accepts (Building/Ore & Bars/Food/Drink/
+      Arms), so hauling organizes itself instead of dumping everything into
+      whichever pile is nearest.
+- [x] ~~Audio polish~~ — per-channel Music/SFX volume sliders (pause menu);
+      the ambient score darkens, loudens, and speeds up during a raid; the
+      Smelter/Forge/Well/Brewery each have a distinct crafting sound; sparse
+      daytime birdsong.
 
 ## Tier 4 — the big one
 
@@ -67,9 +75,7 @@ mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
 ---
 
 ### Notes
-- **Tier 2 is fully shipped.** Recommended next: the cheap **Tier 3** UX wins
-  below — a good breather after several systems-heavy rounds — before tackling
-  **Z-levels** (Tier 4), the big one.
-- Cheapest immediate polish: **Minimap + Auto-pause alerts** (Tier 3).
-- With **audio now shipped**, the remaining Tier 3 sound work is optional polish
-  rather than a gap.
+- **Tiers 1–3 are all fully shipped.** Only **Z-levels** (Tier 4) remains —
+  the big one. It touches the world model, rendering, and pathfinding, so
+  it's worth planning carefully (and possibly its own sub-roadmap) rather
+  than treating it as a single round.

@@ -69,6 +69,7 @@ class Game {
     this.statTimer = 0;
     this.relTimer = 0;
     this.decorCount = {};
+    this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.migrationTimer = DAY_LENGTH * 1.5;
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
     this.raidCount = 0;
@@ -127,6 +128,7 @@ class Game {
           t.workshop || 0, t.workshopRecipe || 0,
           t.doorLocked ? 1 : 0,
           t.bedOccupants && t.bedOccupants.length ? t.bedOccupants.join(",") : 0,
+          t.stockpileFilter || 0,
         ];
       }
     }
@@ -277,6 +279,19 @@ class Game {
     this.updateStats();
     this.log(this.paused ? "Paused." : "Resumed.", "", "system");
   }
+
+  // ---- auto-pause on crises (raid, death, starvation/dehydration) ----
+  toggleAutoPause() {
+    this.autoPause = !this.autoPause;
+    try { localStorage.setItem("ee_autopause", this.autoPause ? "1" : "0"); } catch (e) {}
+    this.updateStats();
+  }
+  triggerAutoPause(reason) {
+    if (!this.autoPause || this.paused) return;
+    this.paused = true;
+    this.updateStats();
+    if (window.App) window.App.toast(`⏸ Auto-paused: ${reason}`);
+  }
   changeSpeed(dir) {
     this.speedIdx = clamp(this.speedIdx + dir, 1, SPEEDS.length - 1);
     this.paused = false;
@@ -290,6 +305,31 @@ class Game {
     for (let y = 0; y < this.world.h; y++)
       for (let x = 0; x < this.world.w; x++)
         if (this.world.tiles[y][x].stockpile) this.stockpileTiles.push([x, y]);
+  }
+
+  // Set an item-type filter across a whole contiguous stockpile (flood-fill
+  // over 4-connected stockpile tiles from x,y), not just the one clicked tile.
+  setStockpileFilter(x, y, filter) {
+    const w = this.world;
+    const start = w.tiles[y] && w.tiles[y][x];
+    if (!start || !start.stockpile) return;
+    const seen = new Set();
+    const key = (px, py) => py * w.w + px;
+    const stack = [[x, y]];
+    seen.add(key(x, y));
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      w.tiles[cy][cx].stockpileFilter = filter;
+      for (const [dx, dy] of NEIGHBORS4) {
+        const nx = cx + dx, ny = cy + dy;
+        if (!w.inBounds(nx, ny)) continue;
+        const k = key(nx, ny);
+        if (seen.has(k)) continue;
+        if (!w.tiles[ny][nx].stockpile) continue;
+        seen.add(k);
+        stack.push([nx, ny]);
+      }
+    }
   }
 
   // ---- main loop ----
@@ -420,11 +460,13 @@ class Game {
 
     // mood
     if (d.hunger > 92) {
+      if (!d.starve) this.triggerAutoPause(`${d.name} is starving`);
       d.mood = clamp(d.mood - dt * 4, 0, 100);
       d.starve = (d.starve || 0) + dt;
       if (d.starve > 45) { this.recordDeath(d, "starved to death"); return; }
     } else d.starve = 0;
     if (d.thirst > 92) {
+      if (!d.parch) this.triggerAutoPause(`${d.name} is dying of thirst`);
       d.mood = clamp(d.mood - dt * 4, 0, 100);
       d.parch = (d.parch || 0) + dt;
       if (d.parch > 45) { this.recordDeath(d, "died of thirst"); return; }
@@ -510,6 +552,7 @@ class Game {
 
   recordDeath(d, cause) {
     this.log(`${d.name} has ${cause}.`, "bad", "colony");
+    this.triggerAutoPause(`${d.name} has ${cause}`);
     this.jobs.releaseBed(d);
     if (d.partnerId) {
       const partner = this.dwarves.find(o => o.dbId === d.partnerId);
@@ -821,6 +864,7 @@ class Game {
     this.log(`⚔️ A raid! ${spawned} ${label} approach from the wilds!`, "bad", "combat");
     if (window.App) window.App.toast(`⚔️ Raid — ${spawned} ${label}!`);
     if (colonyDB) colonyDB.logEvent(`Raid of ${spawned} ${label} attacked`, day);
+    this.triggerAutoPause(`a raid of ${spawned} ${label} is approaching`);
   }
 
   // ---- trade caravans ----
@@ -1046,6 +1090,11 @@ class Game {
     }
     const doorCtl = document.getElementById("door-ctl");
     if (doorCtl) doorCtl.style.display = this.doorTiles.length ? "" : "none";
+    const apBtn = document.getElementById("autopause-btn");
+    if (apBtn) {
+      apBtn.classList.toggle("on", this.autoPause);
+      apBtn.textContent = this.autoPause ? "🔔" : "🔕";
+    }
   }
 
   setPanelTab(tab) {
@@ -1199,6 +1248,12 @@ class Game {
           this.updatePanel();
         };
       }
+      c.querySelectorAll(".stockfilter-btn").forEach(btn => {
+        btn.onclick = () => {
+          this.setStockpileFilter(this.selectedTile.x, this.selectedTile.y, btn.dataset.filter || null);
+          this.updatePanel();
+        };
+      });
     }
   }
 
@@ -1263,7 +1318,15 @@ class Game {
       if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
       if (tile.designation) parts.push(`Designated: <span class="tag">${tile.designation}</span>`);
       if (tile.buildJob) parts.push(`Queued: <span class="tag">${tile.buildKind || "wall"}</span>`);
-      if (tile.stockpile) parts.push(`<span class="tag">stockpile</span>`);
+      if (tile.stockpile) {
+        parts.push(`<span class="tag">stockpile</span>`);
+        const cat = STOCKPILE_CATEGORIES.find(c => c.id === tile.stockpileFilter);
+        parts.push(`Accepts: <span class="tag">${cat ? cat.icon + " " + cat.name : "Anything"}</span>`);
+        parts.push(`<div class="recipe-row">
+          <button class="stockfilter-btn${!tile.stockpileFilter ? " on" : ""}" data-filter="">All</button>
+          ${STOCKPILE_CATEGORIES.map(c => `<button class="stockfilter-btn${tile.stockpileFilter === c.id ? " on" : ""}" data-filter="${c.id}">${c.icon} ${c.name}</button>`).join("")}
+        </div>`);
+      }
       if (tile.item) parts.push(`Item: <span class="tag">${ITEM_LABEL[tile.item.kind]}${tile.item.sub ? " (" + tile.item.sub + ")" : ""}</span>`);
       return parts.join("<br/>");
     }

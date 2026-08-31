@@ -54,6 +54,7 @@ class Tile {
     this.buildJob = false;    // construction queued here
     this.buildKind = null;    // 'wall' | 'floor' | 'bed' when buildJob
     this.stockpile = false;   // part of a stockpile zone
+    this.stockpileFilter = null; // null = accepts anything, else a STOCKPILE_CATEGORIES id
     this.zone = ZONE.NONE;    // 'bedroom' | 'dining'
     this.furniture = FURN.NONE; // 'bed' | 'table' | 'doublebed' | 'painting'
     this.bedOccupants = [];   // dbIds currently sleeping here (beds only; >1 only for a double bed)
@@ -90,7 +91,7 @@ class World {
   // Restore tile state from a serialized array; `itemsById` maps item ids.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
-  //                workshop,workshopRecipe,doorLocked,bedOccupants]
+  //                workshop,workshopRecipe,doorLocked,bedOccupants,stockpileFilter]
   loadTiles(data, itemsById) {
     let i = 0;
     for (let y = 0; y < this.h; y++) {
@@ -106,6 +107,7 @@ class World {
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
         t.doorLocked = !!a[15];
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
+        t.stockpileFilter = a[17] || null;
       }
     }
   }

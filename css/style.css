@@ -171,13 +171,13 @@ html, body {
 }
 .mini-btn:hover { border-color: #e08a6a; background: linear-gradient(#5a2626, #2c1313); }
 .recipe-row { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
-.recipe-btn {
+.recipe-btn, .stockfilter-btn {
   padding: 4px 9px; font-size: 12px; cursor: pointer;
   color: #d8c8a0; background: #ffffff08;
   border: 1px solid #5a4630; border-radius: 12px;
 }
-.recipe-btn:hover { border-color: #a9843e; }
-.recipe-btn.on { border-color: #ffcf6b; background: #6b4f22; color: #ffe9a8; }
+.recipe-btn:hover, .stockfilter-btn:hover { border-color: #a9843e; }
+.recipe-btn.on, .stockfilter-btn.on { border-color: #ffcf6b; background: #6b4f22; color: #ffe9a8; }
 
 /* ---- Speed controls ---- */
 #speed-ctl { display: inline-flex; gap: 3px; margin-left: 4px; }
@@ -412,6 +412,11 @@ html, body {
   font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
   color: #c9a758; margin: 18px 0 8px;
 }
+.vol-row {
+  display: flex; align-items: center; gap: 8px;
+  color: #b7a988; font-size: 12px; text-align: left;
+}
+.vol-row input[type="range"] { flex: 1; accent-color: #c9a758; }
 .slot-list { display: flex; flex-direction: column; gap: 8px; text-align: left; }
 .slot {
   display: flex; align-items: center; gap: 10px;

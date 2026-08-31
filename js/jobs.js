@@ -138,12 +138,15 @@ class JobManager {
   }
 
   // ---- stockpile / item helpers ----
-  findFreeStockpileTile(nearX, nearY) {
+  // `itemKind`, if given, skips any pile filtered to a different category.
+  findFreeStockpileTile(nearX, nearY, itemKind = null) {
     const g = this.game, w = g.world;
+    const cat = itemKind ? STOCKPILE_CATEGORY_OF[itemKind] : null;
     let best = null, bd = Infinity;
     for (const [x, y] of g.stockpileTiles) {
       const t = w.tiles[y][x];
       if (t.item || t.built === B.WALL) continue;
+      if (t.stockpileFilter && cat && t.stockpileFilter !== cat) continue;
       const d = manhattan(x, y, nearX, nearY);
       if (d < bd) { bd = d; best = { x, y }; }
     }
@@ -365,7 +368,7 @@ class JobManager {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
     const loose = this.findLooseItem(dx, dy);
     if (!loose) return false;
-    const dest = this.findFreeStockpileTile(loose.x, loose.y);
+    const dest = this.findFreeStockpileTile(loose.x, loose.y, loose.kind);
     if (!dest) return false;
     const path = pathAdjacent(g.world, dx, dy, loose.x, loose.y) || pathTo(g.world, dx, dy, loose.x, loose.y);
     if (!path) return false;
@@ -564,7 +567,7 @@ class JobManager {
         if (dwarf.move(dt)) {
           const t = w.tiles[job.dest.y][job.dest.x];
           if (t.item) {
-            const dest = this.findFreeStockpileTile(dwarf.tileX, dwarf.tileY);
+            const dest = this.findFreeStockpileTile(dwarf.tileX, dwarf.tileY, dwarf.carrying ? dwarf.carrying.kind : null);
             if (dest) { job.dest = dest; this.gotoTile(dwarf, dest.x, dest.y, "carry"); break; }
             this.dropCarried(dwarf); this.cancel(dwarf); break;
           }

@@ -56,6 +56,21 @@ class Input {
     return { x: Math.floor(w.x), y: Math.floor(w.y) };
   }
 
+  // If the click lands on the minimap, pan the camera there and report true
+  // so the caller skips normal tile designation/selection for this click.
+  clickMinimap(ev) {
+    const rend = this.game.renderer;
+    const rect = this.canvas.getBoundingClientRect();
+    const px = (ev.clientX - rect.left) * rend.dpr, py = (ev.clientY - rect.top) * rend.dpr;
+    const m = rend.miniRect;
+    if (px < m.x || px > m.x + m.w || py < m.y || py > m.y + m.h) return false;
+    const w = this.game.world;
+    this.game.cam.x = (px - m.x) / m.w * w.w;
+    this.game.cam.y = (py - m.y) / m.h * w.h;
+    this.clampCam();
+    return true;
+  }
+
   bind() {
     // NOTE: handlers must read `this.game` freshly — the Input instance is
     // reused across games, so a captured reference would go stale.
@@ -85,6 +100,9 @@ class Input {
     const unlockBtn = document.getElementById("unlock-doors-btn");
     if (unlockBtn) unlockBtn.addEventListener("click", () => this.game.setDoorsLocked(false));
 
+    const autoPauseBtn = document.getElementById("autopause-btn");
+    if (autoPauseBtn) autoPauseBtn.addEventListener("click", () => this.game.toggleAutoPause());
+
     // Right-panel tabs
     document.querySelectorAll(".ptab").forEach(btn => {
       btn.addEventListener("click", () => this.game.setPanelTab(btn.dataset.tab));
@@ -95,6 +113,7 @@ class Input {
     c.addEventListener("pointerdown", (e) => {
       if (window.appMenuOpen) return;
       this.closeFlyout(); // clicking the map dismisses any open submenu
+      if (this.clickMinimap(e)) return;
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.keys.has(" ")) {
         this.panning = true;

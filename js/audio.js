@@ -6,6 +6,10 @@
 // the first click or key press.
 
 const SOUND_PREF_KEY = "ee_sound_on";
+const MUSIC_VOL_KEY = "ee_music_vol";
+const SFX_VOL_KEY = "ee_sfx_vol";
+const MUSIC_BASE_GAIN = 0.32; // "100%" reference gains — day baseline
+const SFX_BASE_GAIN = 0.6;
 
 // A-minor-pentatonic scale (A C D E G) — calm and "woodland". Semitone offsets
 // from A used to build note frequencies across octaves.
@@ -31,6 +35,8 @@ class SoundManager {
     this._melIdx = 4;                 // current melody scale degree (random walk)
     this._stepMs = 260;               // ambient tempo
     this._last = Object.create(null); // per-sound throttle timestamps
+    this.musicVol = this._loadVol(MUSIC_VOL_KEY);
+    this.sfxVol = this._loadVol(SFX_VOL_KEY);
 
     // Browsers require a user gesture before audio can start.
     const kick = () => {
@@ -60,6 +66,23 @@ class SoundManager {
     try { localStorage.setItem(SOUND_PREF_KEY, this.enabled ? "1" : "0"); } catch (e) {}
   }
 
+  _loadVol(key) {
+    try {
+      const v = parseFloat(localStorage.getItem(key));
+      return isNaN(v) ? 1 : clamp(v, 0, 1);
+    } catch (e) { return 1; }
+  }
+
+  setMusicVolume(v) {
+    this.musicVol = clamp(v, 0, 1);
+    try { localStorage.setItem(MUSIC_VOL_KEY, String(this.musicVol)); } catch (e) {}
+  }
+  setSfxVolume(v) {
+    this.sfxVol = clamp(v, 0, 1);
+    try { localStorage.setItem(SFX_VOL_KEY, String(this.sfxVol)); } catch (e) {}
+    if (this.sfxGain) this.sfxGain.gain.value = SFX_BASE_GAIN * this.sfxVol;
+  }
+
   _ensure() {
     if (this.ctx) {
       if (this.ctx.state === "suspended") { try { this.ctx.resume(); } catch (e) {} }
@@ -83,7 +106,7 @@ class SoundManager {
     this.musicGain.connect(this.master);
 
     this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.6;
+    this.sfxGain.gain.value = SFX_BASE_GAIN * this.sfxVol;
     this.sfxGain.connect(this.master);
 
     // Short noise buffer reused for percussive/impact effects.
@@ -153,10 +176,23 @@ class SoundManager {
         this._noise(0.12, { freq: 400, q: 0.6, gain: 0.28 });
         this._tone(130, 0.14, { type: "square", gain: 0.1 });
         break;
-      case "craft": // metallic clang (two detuned squares)
+      case "craft": // forge: metallic clang (two detuned squares)
         this._tone(740, 0.28, { type: "square", gain: 0.09 });
         this._tone(742, 0.28, { type: "square", gain: 0.09, detune: 12 });
         this._noise(0.06, { type: "bandpass", freq: 3000, q: 2, gain: 0.1 });
+        break;
+      case "craftSmelter": // fiery whoosh + low rumble
+        this._noise(0.22, { type: "highpass", freq: 2000, q: 0.5, gain: 0.14 });
+        this._tone(140, 0.3, { type: "sawtooth", gain: 0.12, glideTo: 70 });
+        break;
+      case "craftWell": // watery drip/splash
+        this._tone(700, 0.1, { type: "sine", gain: 0.1, glideTo: 380 });
+        this._later(0.08, () => this._tone(520, 0.14, { type: "sine", gain: 0.08, glideTo: 260 }));
+        break;
+      case "craftBrewery": // bubbly glug
+        this._tone(220, 0.08, { type: "sine", gain: 0.1, glideTo: 340 });
+        this._later(0.09, () => this._tone(240, 0.08, { type: "sine", gain: 0.09, glideTo: 360 }));
+        this._later(0.18, () => this._tone(260, 0.08, { type: "sine", gain: 0.08, glideTo: 380 }));
         break;
       case "levelup": // bright rising arpeggio
         this._arp([523, 659, 784, 1047], 0.09, { type: "triangle", gain: 0.16 });
@@ -214,24 +250,33 @@ class SoundManager {
   _musicStep() {
     const s = this._step++;
 
-    // Day/night colour: darker & quieter at night, brighter by day.
-    let night = false;
+    // Day/night colour: darker & quieter at night, brighter by day. Combat
+    // overrides both — darker, louder, faster — for a rising sense of tension.
+    let night = false, inCombat = false;
     try {
       const g = window.game;
       if (g && typeof g.dayFraction === "function") {
         const f = g.dayFraction();
         night = (f < 0.25 || f > 0.78);
       }
+      inCombat = !!(g && g.enemies && g.enemies.length);
     } catch (e) {}
     const t = this.ctx.currentTime;
-    this.musicFilter.frequency.setTargetAtTime(night ? 850 : 1500, t, 1.5);
-    this.musicGain.gain.setTargetAtTime(night ? 0.22 : 0.32, t, 1.5);
+    const mv = this.musicVol;
+    this.musicFilter.frequency.setTargetAtTime(inCombat ? 650 : (night ? 850 : 1500), t, 0.8);
+    this.musicGain.gain.setTargetAtTime((inCombat ? 0.4 : (night ? 0.22 : 0.32)) * mv, t, 0.8);
+    this._stepMs = inCombat ? 160 : 260; // faster tempo ramps the tension
 
     // Bass drone every 16 steps, alternating root / fourth.
     if (s % 16 === 0) {
       const deg = (s % 32 === 0) ? 0 : 2; // A ... D
-      this._tone(pentaFreq(0, deg), 4.0, { type: "sine", gain: 0.16, attack: 0.6, dest: this.musicFilter });
-      this._tone(pentaFreq(1, deg), 4.0, { type: "triangle", gain: 0.05, attack: 0.6, dest: this.musicFilter });
+      this._tone(pentaFreq(0, deg), 4.0, { type: "sine", gain: 0.16 * mv, attack: 0.6, dest: this.musicFilter });
+      this._tone(pentaFreq(1, deg), 4.0, { type: "triangle", gain: 0.05 * mv, attack: 0.6, dest: this.musicFilter });
+    }
+
+    // A tense low throb under combat, on top of the regular drone.
+    if (inCombat && s % 4 === 0) {
+      this._tone(55, 0.35, { type: "sawtooth", gain: 0.1 * mv, attack: 0.02, dest: this.musicFilter });
     }
 
     // Melody: a soft pluck on every other step, random-walking the scale.
@@ -241,13 +286,20 @@ class SoundManager {
       if (this._melIdx > 9) this._melIdx = 8;
       const oct = night ? 1 : 2;
       this._tone(pentaFreq(oct, this._melIdx), 0.5, {
-        type: "triangle", gain: 0.12, attack: 0.02, dest: this.musicFilter,
+        type: "triangle", gain: 0.12 * mv, attack: 0.02, dest: this.musicFilter,
       });
     }
 
     // Occasional high sparkle by day.
     if (!night && s % 8 === 3 && Math.random() < 0.4) {
-      this._tone(pentaFreq(3, this._melIdx), 0.6, { type: "sine", gain: 0.05, dest: this.musicFilter });
+      this._tone(pentaFreq(3, this._melIdx), 0.6, { type: "sine", gain: 0.05 * mv, dest: this.musicFilter });
+    }
+
+    // Ambient birdsong — sparse daytime chirps, silent once a fight starts.
+    if (!night && !inCombat && Math.random() < 0.025) {
+      const base = 1800 + Math.random() * 1400;
+      this._tone(base, 0.09, { type: "sine", gain: 0.05 * mv, attack: 0.005, glideTo: base * 1.3, dest: this.musicFilter });
+      this._later(0.1, () => this._tone(base * 1.15, 0.07, { type: "sine", gain: 0.04 * mv, attack: 0.005, dest: this.musicFilter }));
     }
   }
 
@@ -262,7 +314,12 @@ class SoundManager {
         else if (m.includes("gathered")) this.play("gather", 130);
         break;
       case "build": this.play("build", 120); break;
-      case "craft": this.play("craft", 150); break;
+      case "craft":
+        if (m.includes("smelter")) this.play("craftSmelter", 150);
+        else if (m.includes("well")) this.play("craftWell", 150);
+        else if (m.includes("brewery")) this.play("craftBrewery", 150);
+        else this.play("craft", 150); // forge (default)
+        break;
       case "skill": this.play(m.includes("researched") ? "tech" : "levelup", 200); break;
       case "combat":
         if (m.includes("raid")) this.play("raid", 400);

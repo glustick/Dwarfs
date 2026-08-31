@@ -18,6 +18,23 @@ const ITEM_LABEL = {
   water: "Water", ale: "Ale",
 };
 
+// Stockpile filters group item kinds so a pile can be restricted to just one
+// kind of goods (e.g. "Arms only") for cleaner logistics.
+const STOCKPILE_CATEGORIES = [
+  { id: "building", name: "Building", icon: "🧱" },
+  { id: "ore", name: "Ore & Bars", icon: "⛏️" },
+  { id: "food", name: "Food", icon: "🍄" },
+  { id: "drink", name: "Drink", icon: "💧" },
+  { id: "arms", name: "Arms", icon: "⚔️" },
+];
+const STOCKPILE_CATEGORY_OF = {
+  wood: "building", stone: "building",
+  ore: "ore", bar: "ore",
+  food: "food",
+  water: "drink", ale: "drink",
+  weapon: "arms", armor: "arms",
+};
+
 class Item {
   constructor(kind, x, y, sub = null) {
     this.kind = kind;

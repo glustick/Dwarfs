@@ -4,6 +4,21 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.3.0 (build 18)
+Completes Tier 3 — UX and quality-of-life:
+
+- **Minimap** — bottom-right overview of the whole map, live viewport box,
+  elf/enemy dots; click it to jump the camera there.
+- **Auto-pause alerts** — a 🔔 top-bar toggle pauses the instant a raid
+  starts, an elf dies, or an elf starts starving or dying of thirst.
+- **Stockpile categories** — restrict a whole contiguous stockpile (via
+  Inspect) to one goods category — Building, Ore & Bars, Food, Drink, or
+  Arms — so hauling organizes itself.
+- **Audio polish** — per-channel Music/SFX volume sliders (pause menu); the
+  ambient score darkens, loudens, and speeds up during a raid for rising
+  tension; the Smelter/Forge/Well/Brewery each got a distinct crafting
+  sound; sparse daytime birdsong.
+
 ## v1.2.0 (build 17)
 Elves develop opinions of each other, and forests can be replanted on purpose:
 
