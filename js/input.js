@@ -2,8 +2,9 @@
 
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
-  dig: "designate", chop: "designate", gather: "designate",
+  dig: "designate", chop: "designate", gather: "designate", forest: "designate",
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
+  doublebed: "build", painting: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
 
@@ -164,7 +165,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -217,6 +218,9 @@ class Input {
           case "gather":
             if (t.feature === F.BUSH || t.feature === F.MUSHROOM) { t.designation = "gather"; count++; }
             break;
+          case "forest":
+            if ((t.kind === K.GRASS || t.kind === K.SOIL) && t.feature === F.NONE && !t.designation) { t.designation = "forest"; count++; }
+            break;
           case "stockpile":
             if (w.isWalkable(x, y) && !t.stockpile) { t.stockpile = true; count++; }
             break;
@@ -228,6 +232,12 @@ class Input {
             break;
           case "bed":
             if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            break;
+          case "doublebed":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; count++; }
+            break;
+          case "painting":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; count++; }
             break;
           case "smelter":
           case "forge":
@@ -263,7 +273,7 @@ class Input {
             if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR) {
               t.designation = null; t.buildJob = false; t.buildKind = null;
               t.stockpile = false; t.zone = null; t.reserved = false;
-              if (t.furniture === FURN.BED) t.furniture = null; // deconstruct
+              t.furniture = null; t.bedOccupants = []; // deconstruct any furniture (bed, table, double bed, painting)
               t.workshop = null; // deconstruct workshop
               if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; } // deconstruct door
               count++;
@@ -279,9 +289,10 @@ class Input {
     if (count) {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
+        forest: "Marked to plant trees",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
-        well: "Well queued", brewery: "Brewery queued",
+        well: "Well queued", brewery: "Brewery queued", doublebed: "Double beds queued", painting: "Paintings queued",
         table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
       }[this.tool];

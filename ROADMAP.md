@@ -18,7 +18,10 @@ Hospital** (badly wounded elves must rest in a bed and can be tended by a
 Doctor — new Medicine labor/skill — for meaningfully faster recovery) ·
 **Toughness** (combat attribute reducing damage taken and raising max hp) ·
 **thirst & wells/brewing** (a second survival need; Well draws water,
-Brewery turns water + food into mood-boosting Ale).
+Brewery turns water + food into mood-boosting Ale) · **relationships**
+(elves develop love/hate opinions of each other, any pairing; partners get a
+mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
+(a Forester labor plants saplings to deliberately regrow logged forest).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.

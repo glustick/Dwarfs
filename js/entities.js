@@ -38,8 +38,9 @@ const LABORS = [
   { id: "crafting",    job: "craft",  name: "Crafting",    icon: "🔨" },
   { id: "hauling",     job: "haul",   name: "Hauling",     icon: "📦" },
   { id: "medicine",    job: "doctor", name: "Doctoring",   icon: "⚕️" },
+  { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [
@@ -50,6 +51,15 @@ const ACTIVITIES = [
   { id: "train", name: "Train",  icon: "⚔️" },
   { id: "idle",  name: "Off",    icon: "🎲" },
 ];
+
+// Relationship affinity (-100..100) -> a human-readable label.
+const RELATIONSHIP_THRESHOLDS = [
+  [60, "Lover"], [25, "Friend"], [-25, "Acquaintance"], [-60, "Rival"], [-Infinity, "Enemy"],
+];
+function relationshipLabel(affinity) {
+  for (const [min, name] of RELATIONSHIP_THRESHOLDS) if (affinity >= min) return name;
+  return "Enemy";
+}
 
 // Dwarf state machine: idle -> pathing -> working -> (deliver) -> idle
 class Dwarf {
@@ -86,6 +96,10 @@ class Dwarf {
     this.schedule = { day: "work", night: "sleep" };
     this.activity = "work";  // resolved from schedule + shift
     this.bed = null;         // {x,y} of an assigned bed while sleeping
+
+    // ---- relationships ----
+    this.relationships = {}; // otherDbId -> { affinity: -100..100 }
+    this.partnerId = null;   // dbId of current romantic partner, or null
 
     // ---- health & military ----
     // Toughness raises the hp pool itself — 2 per level, up to +40 at max.

@@ -339,7 +339,7 @@ class Renderer {
 
   drawDesignation(ctx, t, sx, sy, ts) {
     const pulse = 0.4 + Math.sin(this.game.time * 4) * 0.2;
-    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})` };
+    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})`, forest: `rgba(60,170,90,${pulse})` };
     ctx.fillStyle = colors[t.designation] || `rgba(255,255,255,${pulse})`;
     ctx.fillRect(sx, sy, ts, ts);
     ctx.strokeStyle = colors[t.designation];
@@ -349,7 +349,7 @@ class Renderer {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${Math.floor(ts * 0.5)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿" }[t.designation] || "";
+    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿", forest: "🌲" }[t.designation] || "";
     ctx.fillText(glyph, sx + ts / 2, sy + ts / 2 + 1);
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
   }
@@ -362,7 +362,7 @@ class Renderer {
     ctx.setLineDash([Math.max(2, ts * 0.12), Math.max(2, ts * 0.1)]);
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
-    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪", well: "💧", brewery: "🍺" }[t.buildKind] || "🧱";
+    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪", well: "💧", brewery: "🍺", doublebed: "💞", painting: "🖼️" }[t.buildKind] || "🧱";
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     ctx.font = `${Math.floor(ts * 0.45)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -389,7 +389,9 @@ class Renderer {
 
   drawFurniture(ctx, t, sx, sy, ts) {
     if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.DOUBLE_BED) this.drawBed(ctx, sx, sy, ts, true);
     else if (t.furniture === FURN.TABLE) this.drawTable(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.PAINTING) this.drawPainting(ctx, sx, sy, ts);
   }
 
   drawTable(ctx, sx, sy, ts) {
@@ -454,7 +456,7 @@ class Renderer {
     }
   }
 
-  drawBed(ctx, sx, sy, ts) {
+  drawBed(ctx, sx, sy, ts, double = false) {
     const pad = ts * 0.14;
     const x = sx + pad, y = sy + pad, w = ts - pad * 2, h = ts - pad * 2;
     // frame
@@ -463,12 +465,30 @@ class Renderer {
     // mattress
     ctx.fillStyle = "#c9b8a0";
     ctx.fillRect(x + w * 0.12, y + h * 0.28, w * 0.76, h * 0.6);
-    // pillow
+    // pillow(s) — two side by side for a double bed
     ctx.fillStyle = "#eee4d2";
-    ctx.fillRect(x + w * 0.16, y + h * 0.12, w * 0.68, h * 0.2);
+    if (double) {
+      ctx.fillRect(x + w * 0.14, y + h * 0.12, w * 0.32, h * 0.2);
+      ctx.fillRect(x + w * 0.54, y + h * 0.12, w * 0.32, h * 0.2);
+    } else {
+      ctx.fillRect(x + w * 0.16, y + h * 0.12, w * 0.68, h * 0.2);
+    }
     // blanket band
-    ctx.fillStyle = "#9a5b4a";
+    ctx.fillStyle = double ? "#7a3b5a" : "#9a5b4a";
     ctx.fillRect(x + w * 0.12, y + h * 0.62, w * 0.76, h * 0.26);
+  }
+
+  drawPainting(ctx, sx, sy, ts) {
+    const pad = ts * 0.2;
+    const x = sx + pad, y = sy + pad * 0.6, w = ts - pad * 2, h = ts * 0.55;
+    ctx.fillStyle = "#5a3a1e";
+    ctx.fillRect(x - ts * 0.03, y - ts * 0.03, w + ts * 0.06, h + ts * 0.06);
+    ctx.fillStyle = "#cbb87a";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#4a7a5a";
+    ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w * 0.35, y + h * 0.4); ctx.lineTo(x + w * 0.65, y + h * 0.75); ctx.lineTo(x + w, y + h * 0.25); ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#e8cf6a";
+    ctx.beginPath(); ctx.arc(x + w * 0.75, y + h * 0.25, ts * 0.06, 0, 7); ctx.fill();
   }
 
   // -- items ---------------------------------------------------------------

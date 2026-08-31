@@ -29,7 +29,7 @@ const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door" };
 
 // Furniture placed on a tile.
-const FURN = { NONE: null, BED: "bed", TABLE: "table" };
+const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting" };
 
 // Zones a tile can belong to (in addition to stockpile).
 // farm/study/hospital are unlocked through research.
@@ -39,9 +39,9 @@ const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", S
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery" };
 
 // What a queued construction will produce.
-const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery" };
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood" };
 
 class Tile {
   constructor(kind) {
@@ -55,7 +55,8 @@ class Tile {
     this.buildKind = null;    // 'wall' | 'floor' | 'bed' when buildJob
     this.stockpile = false;   // part of a stockpile zone
     this.zone = ZONE.NONE;    // 'bedroom' | 'dining'
-    this.furniture = FURN.NONE; // 'bed' | 'table'
+    this.furniture = FURN.NONE; // 'bed' | 'table' | 'doublebed' | 'painting'
+    this.bedOccupants = [];   // dbIds currently sleeping here (beds only; >1 only for a double bed)
     this.workshop = WORKSHOP.NONE; // 'smelter' | 'forge'
     this.workshopRecipe = 0;  // selected recipe index for this workshop
     this.item = null;         // item resting on this tile
@@ -89,7 +90,7 @@ class World {
   // Restore tile state from a serialized array; `itemsById` maps item ids.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
-  //                workshop,workshopRecipe,doorLocked]
+  //                workshop,workshopRecipe,doorLocked,bedOccupants]
   loadTiles(data, itemsById) {
     let i = 0;
     for (let y = 0; y < this.h; y++) {
@@ -104,6 +105,7 @@ class World {
         t.zone = a[11] || null; t.furniture = a[12] || null;
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
         t.doorLocked = !!a[15];
+        t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
       }
     }
   }

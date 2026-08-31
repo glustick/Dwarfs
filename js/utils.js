@@ -19,6 +19,16 @@ const manhattan = (ax, ay, bx, by) => Math.abs(ax - bx) + Math.abs(ay - by);
 function choice(rng, arr) { return arr[Math.floor(rng() * arr.length)]; }
 function randint(rng, lo, hi) { return lo + Math.floor(rng() * (hi - lo + 1)); }
 
+// Deterministic "chemistry" for a pair of ids: always the same value for the
+// same two ids (order doesn't matter), so some pairs just naturally hit it
+// off (positive) while others always clash (negative) — no hidden RNG jitter.
+function pairChemistry(idA, idB) {
+  const key = idA < idB ? idA + "|" + idB : idB + "|" + idA;
+  let h = 0;
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return ((h >>> 0) % 2001 - 1000) / 1000; // -1..1
+}
+
 // Lightweight value-noise for terrain — smooth, tileable-ish blobs.
 function makeNoise(rng) {
   const size = 256;

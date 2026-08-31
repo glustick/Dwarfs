@@ -95,7 +95,8 @@ over time.
 
 Every elf is an individual with **skills** that improve through work:
 Mining, Woodcutting, Farming, Building, Hauling, Cooking, Smithing, Medicine,
-plus the attributes Fitness, Fighting, Toughness, Charisma and Intelligence. Higher skill = faster work and
+Foresting, plus the attributes Fitness, Fighting, Toughness, Charisma and
+Intelligence. Higher skill = faster work and
 better yields; Intelligence speeds all learning; Fitness speeds movement;
 Charisma draws more migrants. Elves start with random specialties fitting the
 woodland world, and earn classic roguelike-style titles (Novice → Legendary).
@@ -113,9 +114,33 @@ across games as a hall of records.
 - **Energy** — elves tire out (faster at night) and must sleep to recover.
 - **Schedule tab** — set each elf's activity per shift (☀️ Day 06:00–18:00,
   🌙 Night 18:00–06:00): Work, Sleep, Eat, Drink, Train, or Off. Toggle which
-  **labors** (mining/woodcutting/gathering/building/hauling/crafting/medicine)
-  each elf will take. Set the whole colony to sleep at night, or run night
-  shifts — your call.
+  **labors** (mining/woodcutting/gathering/building/hauling/crafting/medicine/
+  foresting) each elf will take. Set the whole colony to sleep at night, or run
+  night shifts — your call.
+
+## Relationships
+
+- Nearby elves' opinions of each other drift over time — some pairs just click,
+  some just clash, and it's a bit faster when they're actively socializing or
+  sharing a bed. Cross a high threshold and two elves **fall in love** (any
+  pairing — there's no gender restriction); drift into the negative and they
+  become **rivals**. Check an elf's Inspect panel for their partner and
+  notable relationships.
+- **💞 Double Bed** — build one (costs wood) in a bedroom. A couple can share
+  it, which lifts mood beyond what sleeping alone gets them.
+- **🖼️ Painting** — a purely decorative furniture piece (costs wood). Nice
+  things in the room matter: paintings in a bedroom (or dining hall) add a
+  further mood bonus to whoever's there.
+- A partner's death is a real blow — it clears the relationship and hits the
+  survivor's mood hard.
+
+## Foresting
+
+- **🌲 Plant Tree** — drag over an empty patch of grass or soil (handy on a
+  logged-out clearing) to designate it for replanting. An elf with the new
+  **Foresting** labor plants a sapling there, which matures into a full tree
+  over time — same as any other regrowth, just started deliberately instead
+  of left to chance.
 
 ### 🔬 Research & 😀 Happiness
 
@@ -146,7 +171,7 @@ across games as a hall of records.
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
 
 ## Under the hood
 

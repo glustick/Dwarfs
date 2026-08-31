@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -62,13 +62,13 @@ class Job {
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [] };
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const t = w.tiles[y][x];
@@ -76,6 +76,7 @@ class JobManager {
         if (t.designation === "dig" && w.hasWalkableNeighbor(x, y)) c.dig.push([x, y]);
         else if (t.designation === "chop" && w.hasWalkableNeighbor(x, y)) c.chop.push([x, y]);
         else if (t.designation === "gather" && w.hasWalkableNeighbor(x, y)) c.gather.push([x, y]);
+        else if (t.designation === "forest" && w.hasWalkableNeighbor(x, y)) c.forest.push([x, y]);
         if (t.buildJob && w.hasWalkableNeighbor(x, y)) c.build.push([x, y]);
         if (t.workshop && this.recipeAvailable(t) && w.hasWalkableNeighbor(x, y)) c.craft.push([x, y]);
         if (t.zone === ZONE.FARM && w.hasWalkableNeighbor(x, y)) {
@@ -200,17 +201,45 @@ class JobManager {
 
   // `preferHospital` biases the pick toward a Hospital-zoned bed (still the
   // nearest among those) when one exists, for wounded elves seeking care.
-  nearestFreeBed(x, y, preferHospital = false) {
+  // `dwarf`, if given, lets the search join a double bed its partner already
+  // occupies rather than treating it as full.
+  nearestFreeBed(x, y, preferHospital = false, dwarf = null) {
     const g = this.game;
     let best = null, bd = Infinity;
     for (const [bx, by] of g.bedTiles) {
       const t = g.world.tiles[by][bx];
-      if (t.furniture !== FURN.BED || t.reserved) continue;
+      if (t.furniture !== FURN.BED && t.furniture !== FURN.DOUBLE_BED) continue;
+      const cap = t.furniture === FURN.DOUBLE_BED ? 2 : 1;
+      const occ = t.bedOccupants || [];
+      const withPartner = dwarf && dwarf.partnerId && occ.includes(dwarf.partnerId);
+      if (occ.length >= cap) continue;
+      if (occ.length > 0 && !withPartner) continue; // occupied by someone else
       let d = manhattan(bx, by, x, y);
       if (preferHospital && t.zone === ZONE.HOSPITAL) d -= 1000;
+      if (withPartner) d -= 500; // prefer joining a partner over any other free bed
       if (d < bd) { bd = d; best = { x: bx, y: by }; }
     }
     return best;
+  }
+
+  // Claim a bed tile for a sleeping/recovering dwarf (co-occupancy aware).
+  claimBed(dwarf, bed) {
+    const t = this.game.world.tiles[bed.y][bed.x];
+    t.bedOccupants = t.bedOccupants || [];
+    t.bedOccupants.push(dwarf.dbId);
+    t.reserved = true;
+    dwarf.bed = { x: bed.x, y: bed.y };
+  }
+
+  // Release a dwarf from whatever bed they're in, freeing it only once empty.
+  releaseBed(dwarf) {
+    if (!dwarf.bed) return;
+    const t = this.game.world.get(dwarf.bed.x, dwarf.bed.y);
+    if (t) {
+      t.bedOccupants = (t.bedOccupants || []).filter(id => id !== dwarf.dbId);
+      t.reserved = t.bedOccupants.length > 0;
+    }
+    dwarf.bed = null;
   }
 
   buildMaterialKind(t) {
@@ -265,6 +294,7 @@ class JobManager {
       ["gather", this.candidates.gather], ["build", this.candidates.build],
       ["craft", this.candidates.craft],
       ["plant", this.candidates.plant], ["harvest", this.candidates.harvest],
+      ["forest", this.candidates.forest],
     ];
     let best = null, bestD = Infinity;
     for (const [type, list] of pools) {
@@ -306,6 +336,7 @@ class JobManager {
         dig: "Off to mine", chop: "Off to chop", gather: "Gathering plants",
         craft: `Off to the ${WORKSHOP_INFO[t.workshop] ? WORKSHOP_INFO[t.workshop].name.toLowerCase() : "workshop"}`,
         plant: "Off to plant a crop", harvest: "Off to harvest the farm",
+        forest: "Off to plant a sapling",
       }[best.type];
     }
     dwarf.job = job; dwarf.state = "goto";
@@ -440,15 +471,15 @@ class JobManager {
 
   assignSleep(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
-    const bed = this.nearestFreeBed(dx, dy);
+    const bed = this.nearestFreeBed(dx, dy, false, dwarf);
     const job = new Job("sleep", bed ? bed.x : dx, bed ? bed.y : dy);
     job.phase = "move";
     if (bed) {
       const path = pathTo(g.world, dx, dy, bed.x, bed.y);
       if (path) {
-        g.world.tiles[bed.y][bed.x].reserved = true;
-        dwarf.bed = { x: bed.x, y: bed.y };
-        dwarf.setPath(path); dwarf.thought = "Off to bed";
+        this.claimBed(dwarf, bed);
+        const withPartner = (g.world.tiles[bed.y][bed.x].bedOccupants || []).includes(dwarf.partnerId);
+        dwarf.setPath(path); dwarf.thought = withPartner ? "Off to bed with their beloved" : "Off to bed";
       } else { dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Napping on the ground"; }
     } else {
       dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Napping on the ground";
@@ -460,14 +491,13 @@ class JobManager {
   // A badly wounded elf seeks a bed (a Hospital bed if one's free) to rest and heal.
   assignRecover(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
-    const bed = this.nearestFreeBed(dx, dy, true);
+    const bed = this.nearestFreeBed(dx, dy, true, dwarf);
     const job = new Job("recover", bed ? bed.x : dx, bed ? bed.y : dy);
     job.phase = "move";
     if (bed) {
       const path = pathTo(g.world, dx, dy, bed.x, bed.y);
       if (path) {
-        g.world.tiles[bed.y][bed.x].reserved = true;
-        dwarf.bed = { x: bed.x, y: bed.y };
+        this.claimBed(dwarf, bed);
         dwarf.setPath(path); dwarf.thought = "Wounded — heading to recover";
       } else { dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Resting where they lie"; }
     } else {
@@ -551,8 +581,15 @@ class JobManager {
         const inBed = !!dwarf.bed;
         const comfort = g.hasTech("comfort") ? 1.5 : 1;
         dwarf.energy = clamp(dwarf.energy + (inBed ? ENERGY_SLEEP_BED : ENERGY_SLEEP_GROUND) * comfort * dt, 0, 100);
-        if (inBed && w.tiles[dwarf.bed.y][dwarf.bed.x].zone === ZONE.BEDROOM)
-          dwarf.mood = clamp(dwarf.mood + dt * 0.6 * (g.hasTech("comfort") ? 2 : 1), 0, 100);
+        if (inBed) {
+          const bedTile = w.tiles[dwarf.bed.y][dwarf.bed.x];
+          if (bedTile.zone === ZONE.BEDROOM) {
+            dwarf.mood = clamp(dwarf.mood + dt * 0.6 * (g.hasTech("comfort") ? 2 : 1), 0, 100);
+            dwarf.mood = clamp(dwarf.mood + dt * 0.15 * Math.min(5, g.decorCount[ZONE.BEDROOM] || 0), 0, 100);
+          }
+          if (dwarf.partnerId && (bedTile.bedOccupants || []).includes(dwarf.partnerId))
+            dwarf.mood = clamp(dwarf.mood + dt * 1.2, 0, 100); // sharing a bed with a partner
+        }
         if (dwarf.energy >= 99 || (dwarf.activity !== "sleep" && dwarf.energy > 55))
           this.finishSleep(dwarf);
         break;
@@ -693,6 +730,11 @@ class JobManager {
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y);
       g.log(`${dwarf.name} gathered ${food} food.`, "", "labor");
       g.awardXp(dwarf, "farming", 9);
+    } else if (job.type === "forest" && t) {
+      t.designation = null; t.reserved = false;
+      t.feature = F.SAPLING; t.growth = 0.05;
+      g.log(`${dwarf.name} planted a sapling.`, "", "labor");
+      g.awardXp(dwarf, "foresting", 10);
     } else if (job.type === "plant" && t) {
       t.reserved = false;
       t.feature = F.CROP; t.growth = 0;
@@ -711,7 +753,9 @@ class JobManager {
       const kind = job.buildKind || "wall";
       if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
       else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
+      else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a double bed.`, "good", "build"); }
       else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a table.`, "good", "build"); }
+      else if (kind === "painting") { t.furniture = FURN.PAINTING; g.rebuildZones(); g.log(`${dwarf.name} hung a painting.`, "good", "build"); }
       else if (kind === "smelter" || kind === "forge" || kind === "well" || kind === "brewery") {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
@@ -793,22 +837,14 @@ class JobManager {
 
   finishSleep(dwarf) {
     const g = this.game;
-    if (dwarf.bed) {
-      const t = g.world.tiles[dwarf.bed.y][dwarf.bed.x];
-      if (t) t.reserved = false;
-      dwarf.bed = null;
-    }
+    this.releaseBed(dwarf);
     dwarf.thought = "Well rested";
     this.cancel(dwarf, true);
   }
 
   finishRecover(dwarf) {
     const g = this.game;
-    if (dwarf.bed) {
-      const t = g.world.tiles[dwarf.bed.y][dwarf.bed.x];
-      if (t) t.reserved = false;
-      dwarf.bed = null;
-    }
+    this.releaseBed(dwarf);
     if (!dwarf.wounded) {
       dwarf.thought = "Recovered";
       g.log(`${dwarf.name} has recovered from their wounds.`, "good", "colony");
@@ -852,17 +888,15 @@ class JobManager {
   cancel(dwarf, completed = false) {
     const job = dwarf.job;
     if (job) {
+      const isBedJob = job.type === "sleep" || job.type === "recover";
       // A doctor's job.x/y is the patient's tile (their bed) — never owned by
-      // this job, so don't clear its reservation on cancel.
-      const t = job.type === "doctor" ? null : this.game.world.get(job.x, job.y);
+      // this job. A sleep/recover job's x/y is the dwarf's own bed, released
+      // via releaseBed() below (which respects a double bed's other occupant).
+      const t = (job.type === "doctor" || isBedJob) ? null : this.game.world.get(job.x, job.y);
       if (t && !completed) t.reserved = false;
       if (!completed && job.item) job.item.hauled = false;
       if (!completed && job.type === "doctor" && job.patient) job.patient.beingTreated = false;
-      if (!completed && (job.type === "sleep" || job.type === "recover") && dwarf.bed) {
-        const bt = this.game.world.get(dwarf.bed.x, dwarf.bed.y);
-        if (bt) bt.reserved = false;
-        dwarf.bed = null;
-      }
+      if (!completed && isBedJob) this.releaseBed(dwarf);
     }
     if (!completed && dwarf.carrying) this.dropCarried(dwarf);
     dwarf.job = null;

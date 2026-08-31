@@ -67,6 +67,8 @@ class Game {
     this.reindexTimer = 0;
     this.growthTimer = 0;
     this.statTimer = 0;
+    this.relTimer = 0;
+    this.decorCount = {};
     this.migrationTimer = DAY_LENGTH * 1.5;
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
     this.raidCount = 0;
@@ -124,6 +126,7 @@ class Game {
           t.zone || 0, t.furniture || 0,
           t.workshop || 0, t.workshopRecipe || 0,
           t.doorLocked ? 1 : 0,
+          t.bedOccupants && t.bedOccupants.length ? t.bedOccupants.join(",") : 0,
         ];
       }
     }
@@ -161,6 +164,7 @@ class Game {
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0, parch: d.parch || 0,
       carrying: d.carrying ? d.carrying.id : 0,
+      relationships: d.relationships, partnerId: d.partnerId || null,
       dbId: d.dbId, skills: d.skills,
       labors: [...d.labors], schedule: d.schedule, activity: d.activity,
       bed: d.bed,
@@ -199,6 +203,7 @@ class Game {
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
+      d.relationships = o.relationships || {}; d.partnerId = o.partnerId || null;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0; d.parch = o.parch || 0;
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
@@ -323,6 +328,10 @@ class Game {
     // plant growth
     this.growthTimer -= dt;
     if (this.growthTimer <= 0) { this.world.tickGrowth(this.world.rng); this.growthTimer = 0.5; }
+
+    // relationships drift between nearby elves
+    this.relTimer -= dt;
+    if (this.relTimer <= 0) { this.updateRelationships(); this.relTimer = 4; }
 
     // research accrues over time
     this.research += this.researchRate() * dt;
@@ -501,7 +510,15 @@ class Game {
 
   recordDeath(d, cause) {
     this.log(`${d.name} has ${cause}.`, "bad", "colony");
-    if (d.bed) { const bt = this.world.get(d.bed.x, d.bed.y); if (bt) bt.reserved = false; }
+    this.jobs.releaseBed(d);
+    if (d.partnerId) {
+      const partner = this.dwarves.find(o => o.dbId === d.partnerId);
+      if (partner) {
+        partner.partnerId = null;
+        partner.mood = clamp(partner.mood - 20, 0, 100);
+        this.log(`${partner.name} mourns the loss of ${d.name}.`, "bad", "colony");
+      }
+    }
     (this._toRemove || (this._toRemove = [])).push(d);
     if (colonyDB) {
       const skills = {};
@@ -559,6 +576,57 @@ class Game {
     if (!this.dwarves.length) return 0;
     let s = 0; for (const d of this.dwarves) s += (d.happiness != null ? d.happiness : 60);
     return s / this.dwarves.length;
+  }
+
+  // ---- relationships ----
+  getRelationship(a, b) {
+    if (!a.relationships[b.dbId]) a.relationships[b.dbId] = { affinity: 0 };
+    return a.relationships[b.dbId];
+  }
+
+  // Nearby elves' opinions of each other drift over time. Each pair has a
+  // fixed "chemistry" (some just click, some just don't) plus a bump from
+  // Charisma and from the context (idle chatter < socializing < sharing a
+  // bed). Crossing a high threshold pairs them up; crossing back into the
+  // negative ends it.
+  updateRelationships() {
+    const ds = this.dwarves;
+    for (let i = 0; i < ds.length; i++) {
+      const a = ds[i];
+      if (a.hp <= 0) continue;
+      for (let j = i + 1; j < ds.length; j++) {
+        const b = ds[j];
+        if (b.hp <= 0) continue;
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dist > 4) continue;
+
+        const chem = pairChemistry(a.dbId, b.dbId);
+        const socializing = (a.job && a.job.type === "socialize") || (b.job && b.job.type === "socialize");
+        const sharingBed = a.bed && b.bed && a.bed.x === b.bed.x && a.bed.y === b.bed.y;
+        let rate = 0.15;
+        if (socializing) rate = 0.6;
+        if (sharingBed) rate = 0.9;
+        const cha = ((a.skillLevel("charisma") + b.skillLevel("charisma")) / 2) * 0.015;
+        const delta = rate * chem + (chem > 0 ? cha : -cha * 0.5);
+
+        const rel = this.getRelationship(a, b);
+        rel.affinity = clamp(rel.affinity + delta, -100, 100);
+        this.getRelationship(b, a).affinity = rel.affinity; // symmetric, single shared value
+
+        if (a.partnerId === b.dbId) {
+          a.mood = clamp(a.mood + 0.3, 0, 100); b.mood = clamp(b.mood + 0.3, 0, 100);
+          if (rel.affinity < 0) {
+            a.partnerId = null; b.partnerId = null;
+            this.log(`💔 ${a.name} and ${b.name} have broken up.`, "bad", "colony");
+          }
+        } else if (rel.affinity <= -60) {
+          a.mood = clamp(a.mood - 0.15, 0, 100); b.mood = clamp(b.mood - 0.15, 0, 100);
+        } else if (rel.affinity >= 60 && !a.partnerId && !b.partnerId) {
+          a.partnerId = b.dbId; b.partnerId = a.dbId;
+          this.log(`💞 ${a.name} and ${b.name} have fallen in love!`, "good", "colony");
+        }
+      }
+    }
   }
 
   // ---- speed controls ----
@@ -844,12 +912,13 @@ class Game {
     this.bedTiles = []; this.diningTiles = [];
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = [];
     this.depotTiles = []; this.doorTiles = [];
-    this.tableCount = 0;
+    this.tableCount = 0; this.decorCount = {};
     for (let y = 0; y < this.world.h; y++)
       for (let x = 0; x < this.world.w; x++) {
         const t = this.world.tiles[y][x];
-        if (t.furniture === FURN.BED) this.bedTiles.push([x, y]);
+        if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y]);
         else if (t.furniture === FURN.TABLE) this.tableCount++;
+        else if (t.furniture === FURN.PAINTING && t.zone) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + 1;
         if (t.zone === ZONE.DINING) this.diningTiles.push([x, y]);
         else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y]);
         else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y]);
@@ -1133,6 +1202,21 @@ class Game {
     }
   }
 
+  relationshipsHTML(d) {
+    const partner = d.partnerId ? this.dwarves.find(o => o.dbId === d.partnerId) : null;
+    const entries = Object.entries(d.relationships || {})
+      .map(([dbId, rel]) => ({ dwarf: this.dwarves.find(o => o.dbId === dbId), affinity: rel.affinity }))
+      .filter(e => e.dwarf && Math.abs(e.affinity) >= 25 && e.dwarf.dbId !== d.partnerId)
+      .sort((a, b) => Math.abs(b.affinity) - Math.abs(a.affinity))
+      .slice(0, 3);
+    let html = partner ? `<div class="mini">💞 Partner: <b>${partner.name}</b></div>` : "";
+    if (!entries.length && !partner) return html || `<div class="mini" style="opacity:.6">No notable relationships yet.</div>`;
+    for (const e of entries) {
+      html += `<div class="mini">${relationshipLabel(e.affinity)}: ${e.dwarf.name} <span class="tag">${Math.round(e.affinity)}</span></div>`;
+    }
+    return html;
+  }
+
   inspectorHTML() {
     if (this.selectedDwarf) {
       const d = this.selectedDwarf;
@@ -1153,6 +1237,7 @@ class Game {
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>
         <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
+        <div class="mini2">Relationships</div>${this.relationshipsHTML(d)}
         <div class="mini2">Skills</div>${sk}`;
     }
     if (this.selectedTile) {
@@ -1258,7 +1343,7 @@ class Game {
       dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
       haul: "Hauling", eat: "Eating", drink: "Drinking", sleep: "Sleeping", train: "Training", socialize: "Socialising",
       craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
-      recover: "Recovering", doctor: "Treating patient",
+      recover: "Recovering", doctor: "Treating patient", forest: "Foresting",
     };
     return map[d.job.type] || "Working";
   }
