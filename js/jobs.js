@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -17,10 +17,19 @@ const RECIPES = {
     { name: "Shield", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "shield" }, time: 3.0 },
     { name: "Mail", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "mail" }, time: 3.4 },
   ],
+  // Wells need no inputs — an empty `in` list just always succeeds.
+  well: [
+    { name: "Draw water", in: [], out: { kind: ITEM.WATER }, time: 1.8 },
+  ],
+  brewery: [
+    { name: "Brew ale", in: [{ kind: ITEM.WATER }, { kind: ITEM.FOOD }], out: { kind: ITEM.ALE }, time: 3.0 },
+  ],
 };
 const WORKSHOP_INFO = {
   smelter: { name: "Smelter", icon: "🔥" },
   forge: { name: "Forge", icon: "⚒️" },
+  well: { name: "Well", icon: "💧" },
+  brewery: { name: "Brewery", icon: "🍺" },
 };
 
 // What a caravan will pay for each sellable item (sub-keyed). Gold bars and
@@ -233,10 +242,19 @@ class JobManager {
       if (dwarf.hunger > 35 && this.assignEat(dwarf, true)) return true;
       return this.assignSocialize(dwarf); // otherwise mingle in the hall
     }
-    if (act === "idle") return (dwarf.hunger > 70) ? this.assignEat(dwarf, false) : false;
+    if (act === "drink") {
+      if (dwarf.thirst > 35 && this.assignDrink(dwarf, true)) return true;
+      return this.assignSocialize(dwarf);
+    }
+    if (act === "idle") {
+      if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
+      if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
+      return false;
+    }
 
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
+    if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
     return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
@@ -404,6 +422,22 @@ class JobManager {
     return true;
   }
 
+  // Prefers ale (brewed) over plain water when both are available.
+  assignDrink(dwarf, force) {
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
+    if (!force && dwarf.thirst < 55) return false;
+    const drink = this.findAnyItem(ITEM.ALE, dx, dy) || this.findAnyItem(ITEM.WATER, dx, dy);
+    if (!drink) return false;
+    const path = pathAdjacent(g.world, dx, dy, drink.x, drink.y) || pathTo(g.world, dx, dy, drink.x, drink.y);
+    if (!path) return false;
+    drink.hauled = true;
+    const job = new Job("drink", drink.x, drink.y);
+    job.item = drink; job.phase = "toWater";
+    job.dining = g.diningTiles.length ? this.nearestTile(g.diningTiles, drink.x, drink.y) : null;
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto"; dwarf.thought = "Fetching a drink";
+    return true;
+  }
+
   assignSleep(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
     const bed = this.nearestFreeBed(dx, dy);
@@ -560,6 +594,15 @@ class JobManager {
           dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "eat");
         }
         break;
+      case "drink":
+        if (job.phase === "toWater") {
+          this.pickup(dwarf, job.item);
+          if (job.dining) { this.gotoTile(dwarf, job.dining.x, job.dining.y, "goto"); job.phase = "toDining"; dwarf.thought = "To the dining hall"; }
+          else { dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "drink"); }
+        } else { // toDining
+          dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "drink");
+        }
+        break;
       case "sleep":
         dwarf.state = "sleep";
         break;
@@ -669,7 +712,7 @@ class JobManager {
       if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
       else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
       else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a table.`, "good", "build"); }
-      else if (kind === "smelter" || kind === "forge") {
+      else if (kind === "smelter" || kind === "forge" || kind === "well" || kind === "brewery") {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
       }
@@ -711,6 +754,20 @@ class JobManager {
       g.awardXp(dwarf, "cooking", 5);
       if (inDining) g.awardXp(dwarf, "charisma", 4);
       dwarf.thought = inDining ? "Dined well in the hall" : "Ate a meal";
+    } else if (job.type === "drink") {
+      const kind = (dwarf.carrying && dwarf.carrying.kind) || (job.item && job.item.kind);
+      if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
+      else if (job.item) this.consumeItem(job.item);
+      const here = w.tiles[dwarf.tileY] && w.tiles[dwarf.tileY][dwarf.tileX];
+      const inDining = here && here.zone === ZONE.DINING;
+      const isAle = kind === ITEM.ALE;
+      dwarf.thirst = clamp(dwarf.thirst - (isAle ? 85 : 60), 0, 100);
+      const diningBonus = inDining ? (isAle ? 10 : 6) : (isAle ? 6 : 3);
+      dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
+      if (inDining) g.awardXp(dwarf, "charisma", 3);
+      dwarf.thought = isAle
+        ? (inDining ? "Enjoyed ale in the hall" : "Enjoyed a mug of ale")
+        : (inDining ? "Refreshed in the hall" : "Had a drink");
     } else if (job.type === "doctor") {
       const patient = job.patient;
       if (patient) patient.beingTreated = false;

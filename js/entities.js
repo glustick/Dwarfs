@@ -9,10 +9,13 @@ const ITEM = {
   BAR: "bar",       // smelted metal bar (sub = iron/gold)
   WEAPON: "weapon", // forged weapon (sub = sword/axe)
   ARMOR: "armor",   // forged armor (sub = shield/mail)
+  WATER: "water",   // drawn from a Well
+  ALE: "ale",       // brewed from water + food; quenches thirst better
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
+  water: "Water", ale: "Ale",
 };
 
 class Item {
@@ -43,6 +46,7 @@ const ACTIVITIES = [
   { id: "work",  name: "Work",   icon: "⚒️" },
   { id: "sleep", name: "Sleep",  icon: "😴" },
   { id: "eat",   name: "Eat",    icon: "🍽️" },
+  { id: "drink", name: "Drink",  icon: "💧" },
   { id: "train", name: "Train",  icon: "⚔️" },
   { id: "idle",  name: "Off",    icon: "🎲" },
 ];
@@ -64,6 +68,7 @@ class Dwarf {
     this.carrying = null;  // Item being carried
     this.workTimer = 0;    // seconds of work remaining on current action
     this.hunger = 0;       // 0 fine .. 100 starving
+    this.thirst = 0;       // 0 fine .. 100 parched
     this.energy = 100;     // 100 rested .. 0 exhausted
     this.mood = 70;        // 0 miserable .. 100 ecstatic
     this.happiness = 70;   // overall gauge: health + mood + needs (derived)
@@ -135,7 +140,7 @@ class Dwarf {
       if (this.pathIdx >= this.path.length) { this.path = null; return true; }
       return false;
     }
-    const sluggish = (this.hunger > 80 || this.energy < 18) ? 0.6 : 1;
+    const sluggish = (this.hunger > 80 || this.thirst > 80 || this.energy < 18) ? 0.6 : 1;
     const spd = this.speed * this.moveSpeedMult() * sluggish * dt;
     const m = Math.min(spd, d);
     this.x += (dx / d) * m;

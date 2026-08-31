@@ -15,7 +15,10 @@ buy surplus gold bars/weapons/armor and sell food/wood/iron ore, Charisma-booste
 prices, coal now consumed as smelter fuel) · **real farming** (plant → grow →
 harvest jobs in the Farm zone, driven by a 4-season year) · **injuries & the
 Hospital** (badly wounded elves must rest in a bed and can be tended by a
-Doctor — new Medicine labor/skill — for meaningfully faster recovery).
+Doctor — new Medicine labor/skill — for meaningfully faster recovery) ·
+**Toughness** (combat attribute reducing damage taken and raising max hp) ·
+**thirst & wells/brewing** (a second survival need; Well draws water,
+Brewery turns water + food into mood-boosting Ale).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -36,8 +39,10 @@ Doctor — new Medicine labor/skill — for meaningfully faster recovery).
       them wounded: they can no longer just shrug it off at work and must rest
       in a bed to heal. A Doctor (new Medicine labor/skill) tending them in a
       Hospital heals far faster than bed rest alone.
-- [ ] **Thirst + wells/brewing** — a second survival need tied to farming and a
-      buildable Well.
+- [x] ~~Thirst + wells/brewing~~ — a second survival need with the same real
+      stakes as hunger. A buildable Well draws Water; a Brewery turns Water +
+      Food into Ale, a stronger drink that quenches more and lifts mood
+      further — ties the new need directly into the farming loop.
 
 ## Tier 3 — UX & quality of life (cheap wins)
 
@@ -59,10 +64,9 @@ Doctor — new Medicine labor/skill — for meaningfully faster recovery).
 ---
 
 ### Notes
-- With **Real farming** and **Injuries & the Hospital** shipped, recommended
-  next: **Thirst + wells/brewing** — the last Tier 2 item, and it closes out
-  the tier — or jump to the cheap **Tier 3** UX wins below if a break from
-  systems work is welcome.
+- **Tier 2 is fully shipped.** Recommended next: the cheap **Tier 3** UX wins
+  below — a good breather after several systems-heavy rounds — before tackling
+  **Z-levels** (Tier 4), the big one.
 - Cheapest immediate polish: **Minimap + Auto-pause alerts** (Tier 3).
 - With **audio now shipped**, the remaining Tier 3 sound work is optional polish
   rather than a gap.

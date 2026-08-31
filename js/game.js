@@ -2,6 +2,7 @@
 
 const DAY_LENGTH = 120;        // real seconds per in-game day at 1x
 const HUNGER_RATE = 100 / 280; // reach 100 in ~280s of game time
+const THIRST_RATE = 100 / 240; // reach 100 in ~240s of game time — a bit thirstier than hungry
 const ENERGY_RATE = 100 / 300; // drop to 0 in ~300s awake (faster at night)
 const SPEEDS = [0, 1, 2, 4];
 const DAY_START = 0.25;        // 06:00
@@ -153,12 +154,12 @@ class Game {
   serializeDwarf(d) {
     return {
       name: d.name, x: d.x, y: d.y, color: d.color,
-      hunger: d.hunger, energy: d.energy, mood: d.mood, facing: d.facing,
+      hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing,
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
       weapon: d.weapon, armor: d.armor,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
-      idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0,
+      idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0, parch: d.parch || 0,
       carrying: d.carrying ? d.carrying.id : 0,
       dbId: d.dbId, skills: d.skills,
       labors: [...d.labors], schedule: d.schedule, activity: d.activity,
@@ -193,13 +194,13 @@ class Game {
 
     this.dwarves = data.dwarves.map(o => {
       const d = new Dwarf(o.name, o.x, o.y, o.color, o.skills);
-      d.hunger = o.hunger; d.mood = o.mood; d.facing = o.facing;
+      d.hunger = o.hunger; d.thirst = o.thirst != null ? o.thirst : 0; d.mood = o.mood; d.facing = o.facing;
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
-      d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0;
+      d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0; d.parch = o.parch || 0;
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
       if (o.dbId) d.dbId = o.dbId;
       if (o.labors) d.labors = new Set(o.labors);
@@ -258,9 +259,11 @@ class Game {
         placed++;
       }
     }
-    // Seed a bit of starting stone/wood so the first walls can go up.
+    // Seed a bit of starting stone/wood/food/water so the colony has a grace
+    // period to get a Well built before anyone goes hungry or thirsty.
     for (let i = 0; i < 6; i++) this.jobs.spawnItem(ITEM.STONE, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
     for (let i = 0; i < 10; i++) this.jobs.spawnItem(ITEM.FOOD, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
+    for (let i = 0; i < 10; i++) this.jobs.spawnItem(ITEM.WATER, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
   }
 
   get speed() { return SPEEDS[this.speedIdx]; }
@@ -390,6 +393,7 @@ class Game {
   // Resolve what a dwarf should be doing right now (critical needs override schedule).
   resolveActivity(d) {
     if (d.hunger > 85) return "eat";
+    if (d.thirst > 85) return "drink";
     if (d.wounded) return "recover";
     if (d.energy < 15) return "sleep";
     return d.schedule[this.shift()] || "work";
@@ -401,6 +405,7 @@ class Game {
 
     // needs
     d.hunger = clamp(d.hunger + this.hungerRate() * dt, 0, 100);
+    d.thirst = clamp(d.thirst + THIRST_RATE * dt, 0, 100);
     if (d.state !== "sleep") d.energy = clamp(d.energy - ENERGY_RATE * (night ? 1.4 : 1) * dt, 0, 100);
     d.activity = this.resolveActivity(d);
 
@@ -410,8 +415,13 @@ class Game {
       d.starve = (d.starve || 0) + dt;
       if (d.starve > 45) { this.recordDeath(d, "starved to death"); return; }
     } else d.starve = 0;
+    if (d.thirst > 92) {
+      d.mood = clamp(d.mood - dt * 4, 0, 100);
+      d.parch = (d.parch || 0) + dt;
+      if (d.parch > 45) { this.recordDeath(d, "died of thirst"); return; }
+    } else d.parch = 0;
     if (d.energy < 18) d.mood = clamp(d.mood - dt * 1.5, 0, 100);
-    else if (d.hunger < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
+    else if (d.hunger < 50 && d.thirst < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
 
     // Slow healing when no threat is present. A badly wounded elf (d.wounded)
     // only heals while actively in "recover" state — minor scrapes still
@@ -543,7 +553,7 @@ class Game {
   // ---- happiness (derived gauge: health + mood + needs) ----
   computeHappiness(d) {
     const hpPct = (d.hp / d.maxhp) * 100;
-    return clamp(0.4 * d.mood + 0.25 * hpPct + 0.2 * (100 - d.hunger) + 0.15 * d.energy, 0, 100);
+    return clamp(0.35 * d.mood + 0.2 * hpPct + 0.15 * (100 - d.hunger) + 0.15 * (100 - d.thirst) + 0.15 * d.energy, 0, 100);
   }
   avgHappiness() {
     if (!this.dwarves.length) return 0;
@@ -940,6 +950,7 @@ class Game {
     document.getElementById("stat-stone").textContent = this.countItems(ITEM.STONE);
     document.getElementById("stat-ore").textContent = this.countItems(ITEM.ORE);
     document.getElementById("stat-food").textContent = this.countItems(ITEM.FOOD);
+    document.getElementById("stat-water").textContent = this.countItems(ITEM.WATER) + this.countItems(ITEM.ALE);
     const f = this.dayFraction() * 24;
     const hh = String(Math.floor(f)).padStart(2, "0");
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");
@@ -1137,7 +1148,7 @@ class Game {
       return `
         <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}${d.wounded ? ' <span class="tag" style="background:#6b2f2f">🩹 wounded</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
-        <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
+        <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
         ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>
@@ -1245,7 +1256,7 @@ class Game {
     if (!d.job) return d.state === "wander" ? "Strolling" : "Idle";
     const map = {
       dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
-      haul: "Hauling", eat: "Eating", sleep: "Sleeping", train: "Training", socialize: "Socialising",
+      haul: "Hauling", eat: "Eating", drink: "Drinking", sleep: "Sleeping", train: "Training", socialize: "Socialising",
       craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
       recover: "Recovering", doctor: "Treating patient",
     };

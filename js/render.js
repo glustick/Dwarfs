@@ -362,7 +362,7 @@ class Renderer {
     ctx.setLineDash([Math.max(2, ts * 0.12), Math.max(2, ts * 0.1)]);
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
-    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪" }[t.buildKind] || "🧱";
+    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪", well: "💧", brewery: "🍺" }[t.buildKind] || "🧱";
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     ctx.font = `${Math.floor(ts * 0.45)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -404,11 +404,11 @@ class Renderer {
 
   drawWorkshop(ctx, t, sx, sy, ts) {
     // stone platform
-    ctx.fillStyle = t.workshop === "forge" ? "#4a4038" : "#4a4340";
+    const bg = { forge: "#4a4038", smelter: "#4a4340", well: "#3a4048", brewery: "#4a3d28" }[t.workshop] || "#4a4340";
+    ctx.fillStyle = bg;
     ctx.fillRect(sx + ts * 0.08, sy + ts * 0.08, ts * 0.84, ts * 0.84);
     ctx.strokeStyle = "#2a2420"; ctx.lineWidth = Math.max(1, ts * 0.05);
     ctx.strokeRect(sx + ts * 0.08, sy + ts * 0.08, ts * 0.84, ts * 0.84);
-    // flame / anvil glow
     const pulse = 0.5 + Math.sin(this.game.time * 5 + sx) * 0.5;
     if (t.workshop === "smelter") {
       ctx.fillStyle = `rgba(255,${120 + pulse * 90},40,0.85)`;
@@ -419,13 +419,38 @@ class Renderer {
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = `rgba(255,235,120,${0.6 + pulse * 0.3})`;
       ctx.beginPath(); ctx.arc(sx + ts * 0.5, sy + ts * 0.55, ts * 0.1, 0, 7); ctx.fill();
-    } else {
+    } else if (t.workshop === "forge") {
       // anvil
       ctx.fillStyle = "#20242a";
       ctx.fillRect(sx + ts * 0.3, sy + ts * 0.5, ts * 0.4, ts * 0.12);
       ctx.fillRect(sx + ts * 0.42, sy + ts * 0.4, ts * 0.16, ts * 0.14);
       ctx.fillStyle = `rgba(255,180,60,${0.4 + pulse * 0.5})`;
       ctx.beginPath(); ctx.arc(sx + ts * 0.62, sy + ts * 0.44, ts * 0.05, 0, 7); ctx.fill();
+    } else if (t.workshop === "well") {
+      const cx = sx + ts * 0.5, cy = sy + ts * 0.58;
+      // roof
+      ctx.fillStyle = "#7a4f2c";
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.3, sy + ts * 0.2); ctx.lineTo(cx, sy + ts * 0.06); ctx.lineTo(cx + ts * 0.3, sy + ts * 0.2); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#5a3a1e"; ctx.lineWidth = Math.max(1, ts * 0.05);
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.22, sy + ts * 0.22); ctx.lineTo(cx - ts * 0.22, cy - ts * 0.1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx + ts * 0.22, sy + ts * 0.22); ctx.lineTo(cx + ts * 0.22, cy - ts * 0.1); ctx.stroke();
+      // stone rim + water
+      ctx.fillStyle = "#8a8378";
+      ctx.beginPath(); ctx.arc(cx, cy, ts * 0.27, 0, 7); ctx.fill();
+      ctx.fillStyle = `rgba(80,${140 + pulse * 30},${170 + pulse * 30},0.9)`;
+      ctx.beginPath(); ctx.arc(cx, cy, ts * 0.18, 0, 7); ctx.fill();
+    } else if (t.workshop === "brewery") {
+      const cx = sx + ts * 0.5, cy = sy + ts * 0.6;
+      // barrel
+      ctx.fillStyle = "#6a4a24";
+      ctx.beginPath(); ctx.ellipse(cx, cy, ts * 0.3, ts * 0.26, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#3a2712"; ctx.lineWidth = Math.max(1, ts * 0.04);
+      ctx.beginPath(); ctx.ellipse(cx, cy, ts * 0.3, ts * 0.26, 0, 0, 7); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.3, cy - ts * 0.09); ctx.lineTo(cx + ts * 0.3, cy - ts * 0.09); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.3, cy + ts * 0.09); ctx.lineTo(cx + ts * 0.3, cy + ts * 0.09); ctx.stroke();
+      // bubbling glow
+      ctx.fillStyle = `rgba(210,160,60,${0.5 + pulse * 0.3})`;
+      ctx.beginPath(); ctx.arc(cx, cy - ts * 0.14, ts * 0.07, 0, 7); ctx.fill();
     }
   }
 
@@ -499,6 +524,22 @@ class Renderer {
       ctx.lineTo(cx - ts * 0.14, cy - ts * 0.06);
       ctx.closePath(); ctx.fill();
       ctx.strokeStyle = "#5a636e"; ctx.lineWidth = 1; ctx.stroke();
+    } else if (it.kind === ITEM.WATER) {
+      ctx.fillStyle = "#4a7a9a";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - ts * 0.16);
+      ctx.quadraticCurveTo(cx + ts * 0.14, cy + ts * 0.02, cx, cy + ts * 0.14);
+      ctx.quadraticCurveTo(cx - ts * 0.14, cy + ts * 0.02, cx, cy - ts * 0.16);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.beginPath(); ctx.arc(cx - ts * 0.03, cy, ts * 0.02, 0, 7); ctx.fill();
+    } else if (it.kind === ITEM.ALE) {
+      ctx.fillStyle = "#8a5a2c";
+      ctx.fillRect(cx - ts * 0.12, cy - ts * 0.1, ts * 0.24, ts * 0.2);
+      ctx.fillStyle = "#e8b84a";
+      ctx.fillRect(cx - ts * 0.1, cy - ts * 0.08, ts * 0.2, ts * 0.08);
+      ctx.strokeStyle = "#5a3a1e"; ctx.lineWidth = Math.max(1, ts * 0.03);
+      ctx.beginPath(); ctx.moveTo(cx + ts * 0.12, cy - ts * 0.05); ctx.lineTo(cx + ts * 0.18, cy - ts * 0.05); ctx.lineTo(cx + ts * 0.18, cy + ts * 0.06); ctx.lineTo(cx + ts * 0.12, cy + ts * 0.06); ctx.stroke();
     }
   }
 
@@ -548,7 +589,7 @@ class Renderer {
 
     // carried item indicator
     if (d.carrying) {
-      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0" }[d.carrying.kind] || "#fff";
+      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0", water: "#4a7a9a", ale: "#e8b84a" }[d.carrying.kind] || "#fff";
       ctx.fillRect(cx + r * 0.5, cy - r * 0.3, r * 0.5, r * 0.5);
     }
 

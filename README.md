@@ -65,8 +65,20 @@ Your seven elves have arrived in a procedurally-generated wilderness. *Raise the
   hits) that cuts incoming damage and raises max hp, so seasoned veterans take
   a lot more punishment before going down and before being wounded at all.
 
-Keep your elves fed — hungry elves eat from your food stores, and starving ones
-can die. A healthy, well-fed colony attracts **migrants** over time.
+Keep your elves fed and watered — hungry elves eat from your food stores, thirsty
+ones drink, and neglecting either can kill. A healthy colony attracts **migrants**
+over time.
+
+## Thirst, wells & brewing
+
+- **💧 Well** — build one (costs stone, no ingredients needed). Elves with the
+  Crafting labor draw **Water** from it, same as smelting or forging.
+- **🍺 Brewery** — build one to brew **Water + Food → Ale**. Ale quenches thirst
+  more than plain water and lifts mood further — a nice treat that also ties
+  thirst straight into your farming output.
+- Thirsty elves fetch the nearest drink automatically (preferring ale over
+  water), same as eating. Track the colony's water supply with the 💧 counter
+  in the top bar.
 
 ## Trade
 
@@ -100,9 +112,10 @@ across games as a hall of records.
   in the hall lift mood (and dining trains Charisma).
 - **Energy** — elves tire out (faster at night) and must sleep to recover.
 - **Schedule tab** — set each elf's activity per shift (☀️ Day 06:00–18:00,
-  🌙 Night 18:00–06:00): Work, Sleep, Eat, Train, or Off. Toggle which **labors**
-  (mining/woodcutting/gathering/building/hauling) each elf will take. Set the
-  whole colony to sleep at night, or run night shifts — your call.
+  🌙 Night 18:00–06:00): Work, Sleep, Eat, Drink, Train, or Off. Toggle which
+  **labors** (mining/woodcutting/gathering/building/hauling/crafting/medicine)
+  each elf will take. Set the whole colony to sleep at night, or run night
+  shifts — your call.
 
 ### 🔬 Research & 😀 Happiness
 
@@ -133,7 +146,7 @@ across games as a hall of records.
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
 
 ## Under the hood
 

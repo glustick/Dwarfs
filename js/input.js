@@ -3,7 +3,7 @@
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
   dig: "designate", chop: "designate", gather: "designate",
-  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build",
+  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
 
@@ -164,7 +164,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -231,6 +231,8 @@ class Input {
             break;
           case "smelter":
           case "forge":
+          case "well":
+          case "brewery":
             if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "door":
@@ -279,6 +281,7 @@ class Input {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
+        well: "Well queued", brewery: "Brewery queued",
         table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
       }[this.tool];
