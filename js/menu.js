@@ -91,6 +91,7 @@ class App {
             <span class="mi">📂</span><span>Load Game ${saves.length ? `<span style="color:#9c8a64">(${saves.length})</span>` : ""}</span>
           </button>
         </div>
+        <div class="menu-version">v${RELEASE_VERSION} · build ${BUILD_NUMBER}</div>
       </div>`, "main");
 
     if (recent) document.getElementById("mm-continue").onclick = () => this.startGame(SaveManager.load(recent.name));
@@ -116,6 +117,7 @@ class App {
           <button class="menu-btn" id="pm-new"><span class="mi">✨</span><span>New Game</span></button>
           <button class="menu-btn danger ghost" id="pm-main"><span class="mi">🚪</span><span>Quit to Main Menu</span></button>
         </div>
+        <div class="menu-version">v${RELEASE_VERSION} · build ${BUILD_NUMBER}</div>
       </div>`, "pause");
 
     document.getElementById("pm-resume").onclick = () => this.resumeGame();
@@ -166,7 +168,7 @@ class App {
         const row = document.createElement("div");
         row.className = "slot";
         row.innerHTML = `<div class="slot-main"><div class="slot-name">${s.name}</div>
-          <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}</div></div>`;
+          <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}${s.build ? ` · build ${s.build}` : ""}</div></div>`;
         row.querySelector(".slot-main").onclick = () => {
           if (confirm(`Overwrite “${s.name}”?`)) this.doSave(s.name);
         };
@@ -212,7 +214,7 @@ class App {
         row.innerHTML = `
           <div class="slot-main">
             <div class="slot-name">${s.name} ${s.auto ? '<span class="badge">auto</span>' : ""}</div>
-            <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}</div>
+            <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}${s.build ? ` · build ${s.build}` : ""}</div>
           </div>
           <button class="slot-del" title="Delete">🗑</button>`;
         row.querySelector(".slot-main").onclick = () => {

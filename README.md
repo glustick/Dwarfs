@@ -12,7 +12,8 @@ Just open **`index.html`** in any modern browser (double-click it). No build ste
 no server, no dependencies.
 
 You'll land on a **main menu** — start a *New Game*, *Continue* your most recent
-save, or *Load* any saved empire.
+save, or *Load* any saved empire. The current release and build number are
+shown at the bottom of the main and pause menus (see `CHANGELOG.md`).
 
 ## Saving & loading
 

@@ -128,6 +128,7 @@ class Game {
     }
     return {
       version: SAVE_VERSION,
+      release: RELEASE_VERSION, build: BUILD_NUMBER, // informational: which release/build made this save
       savedAt: Date.now(),
       day: Math.floor(this.time / DAY_LENGTH) + 1,
       pop: this.dwarves.length,

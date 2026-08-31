@@ -385,6 +385,7 @@ html, body {
   margin-bottom: 22px;
 }
 .menu-btns { display: flex; flex-direction: column; gap: 10px; }
+.menu-version { margin-top: 18px; color: #6b5f48; font-size: 11px; letter-spacing: 0.5px; }
 .menu-btn {
   display: flex; align-items: center; gap: 12px;
   width: 100%;

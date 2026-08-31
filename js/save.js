@@ -49,6 +49,7 @@ const SaveManager = {
       try {
         const d = JSON.parse(localStorage.getItem(k));
         meta.day = d.day; meta.pop = d.pop; meta.savedAt = d.savedAt || 0;
+        meta.build = d.build || null;
         meta.auto = name === AUTOSAVE_NAME;
       } catch (e) { /* corrupt slot */ }
       out.push(meta);
