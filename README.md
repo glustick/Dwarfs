@@ -50,9 +50,24 @@ Your seven elves have arrived in a procedurally-generated wilderness. *Raise the
   automatically pick up forged weapons/armor from a stockpile, fight raiders, and
   train the *Fighting* skill; civilians flee to safety. Wall off your colony and
   keep a standing militia to survive.
+- **🚪 Door** — build one to seal a wall while staying passable. Elves always walk
+  through freely; toggle a single door from its Inspect panel, or use the
+  🔒/🔓 buttons in the top bar to lock or unlock every door at once, sealing
+  raiders out during a fight.
 
 Keep your elves fed — hungry elves eat from your food stores, and starving ones
 can die. A healthy, well-fed colony attracts **migrants** over time.
+
+## Trade
+
+- **🐎 Depot** — paint a trade zone. Elves with the Hauling labor carry spare
+  **gold bars** and surplus **weapons/armor** there automatically (iron bars stay
+  put — they're needed for the forge). Smelting now also burns **coal** as fuel,
+  so mined coal finally has a use.
+- **Caravans** — a merchant wagon visits periodically, buys whatever's sitting
+  on the depot, and spends the proceeds on whichever staple (food, wood, or iron
+  ore) your colony is shortest on. A high **Charisma** skill among your elves
+  improves the exchange rate.
 
 ## Elves, skills & the colony database
 
@@ -102,7 +117,7 @@ across games as a hall of records.
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `R` bedroom · `T` dining · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
 
 ## Under the hood
 

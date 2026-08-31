@@ -5,10 +5,11 @@ const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
 // Workshop recipes: inputs consumed from stockpiles -> output produced.
+// Smelting burns a lump of coal alongside the ore — coal's only sink.
 const RECIPES = {
   smelter: [
-    { name: "Iron bar", in: [{ kind: ITEM.ORE, sub: "iron" }], out: { kind: ITEM.BAR, sub: "iron" }, time: 2.6 },
-    { name: "Gold bar", in: [{ kind: ITEM.ORE, sub: "gold" }], out: { kind: ITEM.BAR, sub: "gold" }, time: 2.6 },
+    { name: "Iron bar", in: [{ kind: ITEM.ORE, sub: "iron" }, { kind: ITEM.ORE, sub: "coal" }], out: { kind: ITEM.BAR, sub: "iron" }, time: 2.6 },
+    { name: "Gold bar", in: [{ kind: ITEM.ORE, sub: "gold" }, { kind: ITEM.ORE, sub: "coal" }], out: { kind: ITEM.BAR, sub: "gold" }, time: 2.6 },
   ],
   forge: [
     { name: "Sword", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "sword" }, time: 3.2 },
@@ -21,6 +22,18 @@ const WORKSHOP_INFO = {
   smelter: { name: "Smelter", icon: "🔥" },
   forge: { name: "Forge", icon: "⚒️" },
 };
+
+// What a caravan will pay for each sellable item (sub-keyed). Gold bars and
+// forged arms are the only surplus goods worth exporting.
+const TRADE_SELL_PRICE = {
+  bar: { gold: 14 },
+  weapon: { sword: 10, axe: 10 },
+  armor: { shield: 10, mail: 10 },
+};
+function tradeSellPrice(it) {
+  const m = TRADE_SELL_PRICE[it.kind];
+  return m ? (m[it.sub] || null) : null;
+}
 
 class Job {
   constructor(type, x, y) {
@@ -211,7 +224,7 @@ class JobManager {
 
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
-    return this.assignWork(dwarf) || this.assignHaul(dwarf);
+    return this.assignWork(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   assignWork(dwarf) {
@@ -295,6 +308,67 @@ class JobManager {
     job.item = loose; job.dest = dest; job.phase = "toItem";
     dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
     dwarf.thought = "Hauling to stockpile";
+    return true;
+  }
+
+  // How many more of this kind are stockpiled than the militia still needs —
+  // >0 means some are surplus and safe to sell off to a caravan.
+  sellableSurplus(kind) {
+    const g = this.game;
+    let have = 0;
+    for (const it of g.items) if (it.kind === kind && !it.hauled) have++;
+    const need = g.dwarves.filter(d => d.military && !(kind === ITEM.WEAPON ? d.weapon : d.armor)).length;
+    return have - need;
+  }
+
+  // Nearest stockpiled (non-depot) item the colony can spare for trade.
+  findSellableItem(nearX, nearY) {
+    const g = this.game, w = g.world;
+    const weaponSurplus = this.sellableSurplus(ITEM.WEAPON) > 0;
+    const armorSurplus = this.sellableSurplus(ITEM.ARMOR) > 0;
+    let best = null, bd = Infinity;
+    for (const it of g.items) {
+      if (it.hauled) continue;
+      const t = w.tiles[it.y][it.x];
+      if (!t.stockpile || t.zone === ZONE.TRADE) continue;
+      const sellable = (it.kind === ITEM.BAR && it.sub === "gold")
+        || (it.kind === ITEM.WEAPON && weaponSurplus)
+        || (it.kind === ITEM.ARMOR && armorSurplus);
+      if (!sellable) continue;
+      const d = manhattan(it.x, it.y, nearX, nearY);
+      if (d < bd) { bd = d; best = it; }
+    }
+    return best;
+  }
+
+  findFreeDepotTile(nearX, nearY) {
+    const g = this.game, w = g.world;
+    let best = null, bd = Infinity;
+    for (const [x, y] of g.depotTiles) {
+      const t = w.tiles[y][x];
+      if (t.item || t.built === B.WALL) continue;
+      const d = manhattan(x, y, nearX, nearY);
+      if (d < bd) { bd = d; best = { x, y }; }
+    }
+    return best;
+  }
+
+  // Haul spare gold bars / arms out to the trade depot for the next caravan.
+  assignSell(dwarf) {
+    if (!dwarf.labors.has("hauling")) return false;
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
+    if (!g.depotTiles.length) return false;
+    const item = this.findSellableItem(dx, dy);
+    if (!item) return false;
+    const dest = this.findFreeDepotTile(item.x, item.y);
+    if (!dest) return false;
+    const path = pathAdjacent(g.world, dx, dy, item.x, item.y) || pathTo(g.world, dx, dy, item.x, item.y);
+    if (!path) return false;
+    item.hauled = true;
+    const job = new Job("haul", item.x, item.y);
+    job.item = item; job.dest = dest; job.phase = "toItem";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = "Hauling goods to the trade depot";
     return true;
   }
 
@@ -513,6 +587,10 @@ class JobManager {
       else if (kind === "smelter" || kind === "forge") {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
+      }
+      else if (kind === "door") {
+        t.built = B.DOOR; t.doorLocked = false; g.rebuildZones();
+        g.log(`${dwarf.name} built a door.`, "good", "build");
       }
       else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a stone wall.`, "", "build"); }
       t.buildKind = null;

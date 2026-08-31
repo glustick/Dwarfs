@@ -19,6 +19,10 @@
       <span class="stat" title="Food">🍄 <b id="stat-food">0</b></span>
       <span class="stat" id="stat-research" title="Research points">🔬 <b>0</b></span>
       <span class="stat" id="stat-threat" title="Threat · Soldiers" style="display:none;color:#e08a6a"></span>
+      <span id="door-ctl" style="display:none">
+        <button class="spd" id="lock-doors-btn" title="Lock all doors">🔒</button>
+        <button class="spd" id="unlock-doors-btn" title="Unlock all doors">🔓</button>
+      </span>
       <span class="stat clock" title="Time"><span id="stat-clock">Day 1 · 06:00</span></span>
       <span id="speed-ctl" title="Game speed">
         <button class="spd" data-spd="pause" title="Pause (Space)">⏸</button>
@@ -66,6 +70,10 @@
           <button class="tool" data-tool="smelter" title="Smelter — ore → bars (1)"><span class="ico">🔥</span><span class="lbl">Smelter</span></button>
           <button class="tool" data-tool="forge" title="Forge — bars → arms (2)"><span class="ico">⚒️</span><span class="lbl">Forge</span></button>
         </div>
+        <div class="fly-sub">Defenses</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="door" title="Door — passable, but lockable during raids (O)"><span class="ico">🚪</span><span class="lbl">Door</span></button>
+        </div>
       </div>
       <div class="fly-group" data-group="zone">
         <div class="fly-title">📐 Designate Zones</div>
@@ -73,6 +81,7 @@
           <button class="tool" data-tool="stockpile" title="Stockpile (S)"><span class="ico">📦</span><span class="lbl">Stockpile</span></button>
           <button class="tool" data-tool="bedroom" title="Bedroom (R)"><span class="ico">🛌</span><span class="lbl">Bedroom</span></button>
           <button class="tool" data-tool="dining" title="Dining hall (T)"><span class="ico">🍽️</span><span class="lbl">Dining</span></button>
+          <button class="tool" data-tool="depot" title="Trade Depot — caravans buy/sell here (Y)"><span class="ico">🐎</span><span class="lbl">Depot</span></button>
           <button class="tool" data-tool="farm" title="Farm — grows food · needs Agriculture" style="display:none"><span class="ico">🌾</span><span class="lbl">Farm</span></button>
           <button class="tool" data-tool="study" title="Study — boosts research · needs Scholarship" style="display:none"><span class="ico">📚</span><span class="lbl">Study</span></button>
           <button class="tool" data-tool="hospital" title="Hospital — heals faster · needs Medicine" style="display:none"><span class="ico">⚕️</span><span class="lbl">Hospital</span></button>

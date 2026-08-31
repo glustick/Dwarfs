@@ -9,6 +9,7 @@ const ZONE_STYLE = {
   farm:     { fill: "rgba(120,190,70,0.16)",  stroke: "rgba(150,210,90,0.50)",  glyph: "🌾" },
   study:    { fill: "rgba(150,110,220,0.15)", stroke: "rgba(180,150,240,0.50)", glyph: "📖" },
   hospital: { fill: "rgba(220,80,80,0.13)",   stroke: "rgba(240,120,120,0.50)", glyph: "✚" },
+  trade:    { fill: "rgba(210,120,220,0.15)", stroke: "rgba(230,150,240,0.50)", glyph: "🐎" },
 };
 
 class Renderer {
@@ -97,7 +98,10 @@ class Renderer {
       this.drawEnemy(ctx, e, ox, oy, ts);
     }
 
-    // 4c) combat sparks
+    // 4c) caravans
+    for (const car of g.caravans) this.drawCaravan(ctx, car, ox, oy, ts);
+
+    // 4d) combat sparks
     for (const fx of g.combatFx) {
       const fcx = (fx.x + 0.5) * ts + ox, fcy = (fx.y + 0.3) * ts + oy;
       const a = clamp(fx.t / 0.3, 0, 1);
@@ -157,6 +161,7 @@ class Renderer {
       this.drawStoneWall(ctx, t, sx, sy, s, gx, gy);
     }
     if (t.built === B.WALL) this.drawBrickWall(ctx, sx, sy, s);
+    if (t.built === B.DOOR) this.drawDoor(ctx, t, sx, sy, ts);
     if (t.kind === K.FLOOR || t.built === B.FLOOR) this.drawFloorGrid(ctx, sx, sy, ts);
 
     // features
@@ -218,6 +223,22 @@ class Renderer {
       const off = (r % 2) ? s / 2 : 0;
       ctx.beginPath(); ctx.moveTo(sx + off, y); ctx.lineTo(sx + off, y + rh); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(sx + (off + s / 2) % s, y); ctx.lineTo(sx + (off + s / 2) % s, y + rh); ctx.stroke();
+    }
+  }
+
+  drawDoor(ctx, t, sx, sy, ts) {
+    const pad = ts * 0.12;
+    ctx.fillStyle = t.doorLocked ? "#6b3a2a" : "#8a5a34";
+    ctx.fillRect(sx + pad, sy, ts - pad * 2, ts);
+    ctx.strokeStyle = "#3a2416"; ctx.lineWidth = Math.max(1, ts * 0.05);
+    ctx.strokeRect(sx + pad, sy, ts - pad * 2, ts);
+    ctx.fillStyle = "#e8d8a0";
+    ctx.beginPath(); ctx.arc(sx + ts * 0.68, sy + ts * 0.5, ts * 0.05, 0, 7); ctx.fill();
+    if (t.doorLocked) {
+      ctx.font = `${Math.floor(ts * 0.4)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🔒", sx + ts / 2, sy + ts * 0.24);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
   }
 
@@ -320,7 +341,7 @@ class Renderer {
     ctx.setLineDash([Math.max(2, ts * 0.12), Math.max(2, ts * 0.1)]);
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
-    const glyph = { wall: "🧱", floor: "▦", bed: "🛏" }[t.buildKind] || "🧱";
+    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪" }[t.buildKind] || "🧱";
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     ctx.font = `${Math.floor(ts * 0.45)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -617,6 +638,38 @@ class Renderer {
       ctx.fillStyle = "rgba(0,0,0,0.55)"; ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw, r * 0.24);
       ctx.fillStyle = "#e0553a";
       ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw * frac, r * 0.24);
+    }
+  }
+
+  drawCaravan(ctx, car, ox, oy, ts) {
+    const bob = Math.sin(car.bob) * (car.path ? ts * 0.05 : 0);
+    const cx = (car.x + 0.5) * ts + ox;
+    const cy = (car.y + 0.5) * ts + oy + bob;
+    const r = ts * 0.32;
+
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.beginPath(); ctx.ellipse(cx, cy + r * 1.15, r, r * 0.35, 0, 0, 7); ctx.fill();
+
+    // wheels
+    ctx.fillStyle = "#3a2e1c";
+    ctx.beginPath(); ctx.arc(cx - r * 0.55, cy + r * 0.8, r * 0.28, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + r * 0.55, cy + r * 0.8, r * 0.28, 0, 7); ctx.fill();
+
+    // wagon bed
+    ctx.fillStyle = "#7a5a34";
+    ctx.fillRect(cx - r * 0.9, cy - r * 0.15, r * 1.8, r * 0.9);
+
+    // canopy
+    ctx.fillStyle = "rgba(224,212,180,0.9)";
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.1, r * 0.95, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = Math.max(1, r * 0.1);
+    ctx.beginPath(); ctx.arc(cx, cy - r * 0.1, r * 0.95, Math.PI, 0); ctx.stroke();
+
+    if (car.state === "trading") {
+      ctx.font = `${Math.floor(ts * 0.4)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🪙", cx, cy - r * 1.6);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
   }
 

@@ -25,22 +25,22 @@ const ORES = ["iron", "gold", "coal"];
 const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
 
 // Built structures
-const B = { NONE: null, WALL: "wall", FLOOR: "floor" };
+const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door" };
 
 // Furniture placed on a tile.
 const FURN = { NONE: null, BED: "bed", TABLE: "table" };
 
 // Zones a tile can belong to (in addition to stockpile).
 // farm/study/hospital are unlocked through research.
-const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital" };
+const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade" };
 
 // Workshops that can be built on a tile.
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge" };
 
 // What a queued construction will produce.
-const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge" };
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood" };
 
 class Tile {
   constructor(kind) {
@@ -59,6 +59,7 @@ class Tile {
     this.workshopRecipe = 0;  // selected recipe index for this workshop
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
+    this.doorLocked = false;  // built === DOOR: barred against raiders
   }
 }
 
@@ -87,7 +88,7 @@ class World {
   // Restore tile state from a serialized array; `itemsById` maps item ids.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
-  //                workshop,workshopRecipe]
+  //                workshop,workshopRecipe,doorLocked]
   loadTiles(data, itemsById) {
     let i = 0;
     for (let y = 0; y < this.h; y++) {
@@ -101,6 +102,7 @@ class World {
         t.item = a[10] ? (itemsById.get(a[10]) || null) : null;
         t.zone = a[11] || null; t.furniture = a[12] || null;
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
+        t.doorLocked = !!a[15];
       }
     }
   }
@@ -176,11 +178,13 @@ class World {
     }
   }
 
-  // Is this tile walkable by a dwarf?
-  isWalkable(x, y) {
+  // Is this tile walkable? `outsider` (raiders, caravans) is blocked by a
+  // locked door; the colony's own elves always pass through their doors.
+  isWalkable(x, y, outsider = false) {
     const t = this.get(x, y);
     if (!t) return false;
     if (t.built === B.WALL) return false;
+    if (t.built === B.DOOR && outsider && t.doorLocked) return false;
     if (t.kind === K.STONE) return false;   // solid rock
     if (t.kind === K.WATER) return false;
     if (t.feature === F.BOULDER) return false;

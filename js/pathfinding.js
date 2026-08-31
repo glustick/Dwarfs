@@ -35,6 +35,7 @@ class MinHeap {
 // Returns an array of {x,y} steps (excluding start) or null.
 function findPath(world, sx, sy, goalTest, heuristic, opts = {}) {
   const maxNodes = opts.maxNodes || 6000;
+  const outsider = !!opts.outsider;
   const W = world.w;
   const idx = (x, y) => y * W + x;
 
@@ -71,10 +72,10 @@ function findPath(world, sx, sy, goalTest, heuristic, opts = {}) {
     const g = gScore.get(ci);
     for (const [dx, dy] of NEIGHBORS8) {
       const nx = cur.x + dx, ny = cur.y + dy;
-      if (!world.isWalkable(nx, ny)) continue;
+      if (!world.isWalkable(nx, ny, outsider)) continue;
       // Prevent cutting through wall corners on diagonals.
       if (dx !== 0 && dy !== 0) {
-        if (!world.isWalkable(cur.x + dx, cur.y) && !world.isWalkable(cur.x, cur.y + dy)) continue;
+        if (!world.isWalkable(cur.x + dx, cur.y, outsider) && !world.isWalkable(cur.x, cur.y + dy, outsider)) continue;
       }
       const ni = idx(nx, ny);
       if (closed.has(ni)) continue;
@@ -90,16 +91,17 @@ function findPath(world, sx, sy, goalTest, heuristic, opts = {}) {
   return null;
 }
 
-// Convenience: path to an exact tile.
-function pathTo(world, sx, sy, tx, ty) {
+// Convenience: path to an exact tile. `outsider` (raiders, caravans) can't
+// pass a locked door.
+function pathTo(world, sx, sy, tx, ty, outsider = false) {
   return findPath(world, sx, sy,
     (x, y) => x === tx && y === ty,
-    (x, y) => Math.hypot(x - tx, y - ty));
+    (x, y) => Math.hypot(x - tx, y - ty), { outsider });
 }
 
 // Path to any tile ADJACENT to (tx,ty) — used for mining/chopping/building.
-function pathAdjacent(world, sx, sy, tx, ty) {
+function pathAdjacent(world, sx, sy, tx, ty, outsider = false) {
   return findPath(world, sx, sy,
     (x, y) => Math.abs(x - tx) <= 1 && Math.abs(y - ty) <= 1 && !(x === tx && y === ty),
-    (x, y) => Math.hypot(x - tx, y - ty));
+    (x, y) => Math.hypot(x - tx, y - ty), { outsider });
 }

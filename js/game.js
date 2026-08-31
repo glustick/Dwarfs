@@ -27,9 +27,12 @@ class Game {
     this.items = [];
     this.dwarves = [];
     this.enemies = [];
+    this.caravans = [];
     this.stockpileTiles = [];
     this.bedTiles = [];
     this.diningTiles = [];
+    this.depotTiles = [];
+    this.doorTiles = [];
     this._nextItemId = 1;
     this.running = true;
     this.panelTab = "colony";  // colony | schedule | log | records
@@ -57,6 +60,7 @@ class Game {
     this.migrationTimer = DAY_LENGTH * 1.5;
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
     this.raidCount = 0;
+    this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
     this.combatFx = [];               // transient hit sparks {x,y,t,bad}
 
     this.jobs = new JobManager(this);
@@ -109,6 +113,7 @@ class Game {
           t.reserved ? 1 : 0, t.item ? t.item.id : 0,
           t.zone || 0, t.furniture || 0,
           t.workshop || 0, t.workshopRecipe || 0,
+          t.doorLocked ? 1 : 0,
         ];
       }
     }
@@ -126,7 +131,7 @@ class Game {
       enemies: this.enemies.map(e => ({
         kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
       })),
-      raidTimer: this.raidTimer, raidCount: this.raidCount,
+      raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
       research: this.research, tech: this.tech,
       events: this.events.slice(-SAVED_EVENTS),
       nextItemId: this._nextItemId,
@@ -209,6 +214,7 @@ class Game {
     });
     this.raidTimer = data.raidTimer != null ? data.raidTimer : DAY_LENGTH * 3;
     this.raidCount = data.raidCount || 0;
+    this.tradeTimer = data.tradeTimer != null ? data.tradeTimer : DAY_LENGTH * 2;
     this.events = Array.isArray(data.events) ? data.events : [];
     this._eventSeq = this.events.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
     this.research = data.research || 0;
@@ -347,6 +353,14 @@ class Game {
       this.migrationTimer = DAY_LENGTH * 1.5;
       this.tryMigration();
     }
+
+    // trading caravans
+    this.tradeTimer -= dt;
+    if (this.tradeTimer <= 0) {
+      this.tradeTimer = randint(this.world.rng, DAY_LENGTH * 2, DAY_LENGTH * 3.5);
+      this.trySpawnCaravan();
+    }
+    if (this.caravans.length) this.updateCaravans(dt);
 
     // UI
     this.statTimer -= dt;
@@ -629,7 +643,7 @@ class Game {
         e.repath -= dt;
         if (!e.path || e.repath <= 0) {
           e.repath = 0.6;
-          const p = pathTo(this.world, e.tileX, e.tileY, this.world.spawnX, this.world.spawnY);
+          const p = pathTo(this.world, e.tileX, e.tileY, this.world.spawnX, this.world.spawnY, true);
           if (p) e.setPath(p);
         }
         e.move(dt);
@@ -643,7 +657,7 @@ class Game {
         e.repath -= dt;
         if (!e.path || e.repath <= 0) {
           e.repath = 0.5;
-          const p = pathAdjacent(this.world, e.tileX, e.tileY, tgt.tileX, tgt.tileY);
+          const p = pathAdjacent(this.world, e.tileX, e.tileY, tgt.tileX, tgt.tileY, true);
           if (p) e.setPath(p);
         }
         e.move(dt);
@@ -654,7 +668,7 @@ class Game {
     if (before && !this.enemies.length) this.log("The colony has repelled the attack!", "good", "combat");
   }
 
-  randomEdgeTile() {
+  randomEdgeTile(outsider = true) {
     const w = this.world;
     for (let t = 0; t < 40; t++) {
       const side = randint(w.rng, 0, 3);
@@ -663,7 +677,7 @@ class Game {
       else if (side === 1) { x = randint(w.rng, 0, w.w - 1); y = w.h - 2; }
       else if (side === 2) { x = 1; y = randint(w.rng, 0, w.h - 1); }
       else { x = w.w - 2; y = randint(w.rng, 0, w.h - 1); }
-      if (w.isWalkable(x, y) && pathTo(w, x, y, w.spawnX, w.spawnY)) return { x, y };
+      if (w.isWalkable(x, y, outsider) && pathTo(w, x, y, w.spawnX, w.spawnY, outsider)) return { x, y };
     }
     return null;
   }
@@ -692,9 +706,95 @@ class Game {
     if (colonyDB) colonyDB.logEvent(`Raid of ${spawned} ${label} attacked`, day);
   }
 
+  // ---- trade caravans ----
+  trySpawnCaravan() {
+    if (!this.depotTiles.length) return;
+    const edge = this.randomEdgeTile(true);
+    if (!edge) return;
+    const depot = this.jobs.nearestTile(this.depotTiles, edge.x, edge.y);
+    const path = pathTo(this.world, edge.x, edge.y, depot.x, depot.y, true);
+    if (!path) return;
+    const car = new Caravan(edge.x, edge.y);
+    car.setPath(path);
+    car.depot = depot;
+    this.caravans.push(car);
+    this.log("🐎 A trading caravan approaches the depot!", "good", "colony");
+    if (window.App) window.App.toast("🐎 A caravan has arrived to trade!");
+  }
+
+  updateCaravans(dt) {
+    for (const car of this.caravans) {
+      if (car.state === "approach") {
+        if (car.move(dt)) { car.state = "trading"; car.tradeTimer = 3; this.doTrade(car); }
+      } else if (car.state === "trading") {
+        car.tradeTimer -= dt;
+        if (car.tradeTimer <= 0) {
+          const edge = this.randomEdgeTile(true);
+          car.state = "leave";
+          car.setPath(edge ? pathTo(this.world, car.tileX, car.tileY, edge.x, edge.y, true) : null);
+          car._stuckTimer = 5; // fallback despawn if no path home
+        }
+      } else { // leave
+        if (!car.path) { car._stuckTimer -= dt; if (car._stuckTimer <= 0) car._gone = true; }
+        else if (car.move(dt)) car._gone = true;
+      }
+    }
+    this.caravans = this.caravans.filter(c => !c._gone);
+  }
+
+  // Sell whatever sellable goods are sitting on depot tiles, then spend the
+  // proceeds on whichever staple (food/wood/ore) the colony is shortest on.
+  doTrade(car) {
+    const w = this.world;
+    let value = 0, sold = 0;
+    for (const [x, y] of this.depotTiles) {
+      const t = w.tiles[y][x];
+      const it = t.item;
+      if (!it) continue;
+      const price = tradeSellPrice(it);
+      if (price == null) continue;
+      value += price; sold++;
+      t.item = null;
+      const idx = this.items.indexOf(it);
+      if (idx >= 0) this.items.splice(idx, 1);
+    }
+    if (!sold) { this.log("The caravan found nothing to trade and moved on.", "", "colony"); return; }
+
+    let cha = 0;
+    for (const d of this.dwarves) cha = Math.max(cha, d.skillLevel("charisma"));
+    value *= 1 + cha * 0.03;
+
+    const needs = [
+      { kind: ITEM.FOOD, cost: 2, have: this.countItems(ITEM.FOOD) },
+      { kind: ITEM.WOOD, cost: 2, have: this.countItems(ITEM.WOOD) },
+      { kind: ITEM.ORE, sub: "iron", cost: 4, have: this.countItems(ITEM.ORE) },
+    ];
+    const bought = {};
+    let guard = 0;
+    while (value > 0 && guard++ < 300) {
+      needs.sort((a, b) => a.have - b.have);
+      const pick = needs[0];
+      if (value < pick.cost) break;
+      value -= pick.cost; pick.have++;
+      bought[pick.kind] = (bought[pick.kind] || 0) + 1;
+    }
+    for (const kind in bought) {
+      const sub = kind === ITEM.ORE ? "iron" : null;
+      for (let i = 0; i < bought[kind]; i++) {
+        const spot = this.depotTiles[Math.floor(this.world.rng() * this.depotTiles.length)];
+        this.jobs.spawnItem(kind, spot[0], spot[1], sub);
+      }
+    }
+    const boughtTxt = Object.keys(bought).length
+      ? Object.entries(bought).map(([k, n]) => `${n} ${ITEM_LABEL[k]}`).join(", ") : "nothing";
+    this.log(`Traded ${sold} good${sold > 1 ? "s" : ""} with the caravan for ${boughtTxt}.`, "good", "colony");
+    if (colonyDB) colonyDB.logEvent(`Traded with a caravan for ${boughtTxt}`, Math.floor(this.time / DAY_LENGTH) + 1);
+  }
+
   rebuildZones() {
     this.bedTiles = []; this.diningTiles = [];
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = [];
+    this.depotTiles = []; this.doorTiles = [];
     this.tableCount = 0;
     for (let y = 0; y < this.world.h; y++)
       for (let x = 0; x < this.world.w; x++) {
@@ -705,7 +805,17 @@ class Game {
         else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y]);
         else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y]);
         else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y]);
+        else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y]);
+        if (t.built === B.DOOR) this.doorTiles.push([x, y]);
       }
+  }
+
+  // ---- doors ----
+  setDoorsLocked(locked) {
+    if (!this.doorTiles.length) return;
+    for (const [x, y] of this.doorTiles) this.world.tiles[y][x].doorLocked = locked;
+    this.log(locked ? "All doors locked." : "All doors unlocked.", "", "order");
+    this.updateStats();
   }
 
   // Migrants arrive randomly — better odds when the colony is thriving, but
@@ -814,6 +924,8 @@ class Game {
         threat.style.display = "none";
       }
     }
+    const doorCtl = document.getElementById("door-ctl");
+    if (doorCtl) doorCtl.style.display = this.doorTiles.length ? "" : "none";
   }
 
   setPanelTab(tab) {
@@ -959,6 +1071,14 @@ class Game {
           this.updatePanel();
         };
       });
+      const doorBtn = c.querySelector("#insp-door-lock");
+      if (doorBtn && tile.built === B.DOOR) {
+        doorBtn.onclick = () => {
+          tile.doorLocked = !tile.doorLocked;
+          this.log(`Door ${tile.doorLocked ? "locked" : "unlocked"}.`, "", "order");
+          this.updatePanel();
+        };
+      }
     }
   }
 
@@ -988,7 +1108,7 @@ class Game {
       const t = this.selectedTile;
       const tile = this.world.tiles[t.y][t.x];
       const parts = [`<b>Tile ${t.x}, ${t.y}</b>`];
-      parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.kind}</span>`);
+      parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.built === B.DOOR ? "door" : tile.kind}</span>`);
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
@@ -998,6 +1118,10 @@ class Game {
         parts.push(`<div class="mini">Making: <b>${(list[tile.workshopRecipe] || {}).name || "—"}</b></div>`);
         parts.push(`<div class="recipe-row">` + list.map((r, i) =>
           `<button class="recipe-btn${i === (tile.workshopRecipe || 0) ? " on" : ""}" data-recipe="${i}">${r.name}</button>`).join("") + `</div>`);
+      }
+      if (tile.built === B.DOOR) {
+        parts.push(`Door: <span class="tag">${tile.doorLocked ? "🔒 locked" : "🔓 unlocked"}</span>`);
+        parts.push(`<button class="mini-btn" id="insp-door-lock">${tile.doorLocked ? "Unlock" : "Lock"} door</button>`);
       }
       if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
       if (tile.designation) parts.push(`Designated: <span class="tag">${tile.designation}</span>`);

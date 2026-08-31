@@ -3,8 +3,8 @@
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
   dig: "designate", chop: "designate", gather: "designate",
-  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build",
-  stockpile: "zone", bedroom: "zone", dining: "zone",
+  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build",
+  stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
 
 class Input {
@@ -77,6 +77,12 @@ class Input {
         this.game.setSpeed(v === "pause" ? 0 : parseInt(v, 10));
       });
     });
+
+    // Door lock/unlock-all controls
+    const lockBtn = document.getElementById("lock-doors-btn");
+    if (lockBtn) lockBtn.addEventListener("click", () => this.game.setDoorsLocked(true));
+    const unlockBtn = document.getElementById("unlock-doors-btn");
+    if (unlockBtn) unlockBtn.addEventListener("click", () => this.game.setDoorsLocked(false));
 
     // Right-panel tabs
     document.querySelectorAll(".ptab").forEach(btn => {
@@ -158,7 +164,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", r: "bedroom", t: "dining", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -227,6 +233,12 @@ class Input {
           case "forge":
             if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
+          case "door":
+            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; count++; }
+            break;
+          case "depot":
+            if (w.isWalkable(x, y) && !(t.stockpile && t.zone === ZONE.TRADE)) { t.stockpile = true; t.zone = ZONE.TRADE; count++; }
+            break;
           case "bedroom":
             if (w.isWalkable(x, y) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
             break;
@@ -246,11 +258,12 @@ class Input {
             if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
             break;
           case "erase":
-            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop) {
+            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR) {
               t.designation = null; t.buildJob = false; t.buildKind = null;
               t.stockpile = false; t.zone = null; t.reserved = false;
               if (t.furniture === FURN.BED) t.furniture = null; // deconstruct
               t.workshop = null; // deconstruct workshop
+              if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; } // deconstruct door
               count++;
             }
             break;
@@ -258,15 +271,15 @@ class Input {
       }
     }
 
-    if (this.tool === "stockpile" || this.tool === "erase") g.rebuildStockpiles();
-    if (["bedroom", "dining", "farm", "study", "hospital", "erase", "bed"].includes(this.tool)) g.rebuildZones();
+    if (this.tool === "stockpile" || this.tool === "depot" || this.tool === "erase") g.rebuildStockpiles();
+    if (["bedroom", "dining", "farm", "study", "hospital", "erase", "bed", "depot"].includes(this.tool)) g.rebuildZones();
     g.jobs.reindex();
     if (count) {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
-        bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued",
-        table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned",
+        bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
+        table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
