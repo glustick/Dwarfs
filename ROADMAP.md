@@ -12,7 +12,8 @@ categorized build menus · filterable event chronicle · **procedural audio**
 **doors & gates** (passable, lockable-during-raids barriers; global lock/unlock
 in the top bar) · **trade & economy** (Trade Depot zone, periodic caravans that
 buy surplus gold bars/weapons/armor and sell food/wood/iron ore, Charisma-boosted
-prices, coal now consumed as smelter fuel).
+prices, coal now consumed as smelter fuel) · **real farming** (plant → grow →
+harvest jobs in the Farm zone, driven by a 4-season year).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -26,8 +27,9 @@ prices, coal now consumed as smelter fuel).
 
 ## Tier 2 — deepen thin systems
 
-- [ ] **Real farming** — replace the auto-producing Farm zone with
-      plant → grow → harvest jobs (+ seasons) so the Farming labor/skill matters.
+- [x] ~~Real farming~~ — Farm zone tiles are now plant → grow → harvest jobs
+      worked by the Farming labor/skill, with a 4-season cycle (Spring/Summer/
+      Autumn/Winter, shown in the top bar) driving how fast crops mature.
 - [ ] **Injuries & the Hospital** — combat **wounds** that require bed rest and a
       doctor (Medicine skill), giving Hospital/Medicine real teeth.
 - [ ] **Thirst + wells/brewing** — a second survival need tied to farming and a
@@ -53,9 +55,9 @@ prices, coal now consumed as smelter fuel).
 ---
 
 ### Notes
-- With **Trade + Doors** now shipped, the economy and defense loops are closed.
-  Recommended next: **Real farming** (Tier 2) — the deepest remaining thin
-  system and the one most players will notice first.
+- With **Trade + Doors** and now **Real farming** shipped, recommended next:
+  **Injuries & the Hospital** (Tier 2) — the other thin system, and it pairs
+  naturally with the existing combat/raid loop.
 - Cheapest immediate polish: **Minimap + Auto-pause alerts** (Tier 3).
 - With **audio now shipped**, the remaining Tier 3 sound work is optional polish
   rather than a gap.

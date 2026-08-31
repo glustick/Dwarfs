@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -52,13 +52,13 @@ class Job {
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [] };
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const t = w.tiles[y][x];
@@ -68,6 +68,10 @@ class JobManager {
         else if (t.designation === "gather" && w.hasWalkableNeighbor(x, y)) c.gather.push([x, y]);
         if (t.buildJob && w.hasWalkableNeighbor(x, y)) c.build.push([x, y]);
         if (t.workshop && this.recipeAvailable(t) && w.hasWalkableNeighbor(x, y)) c.craft.push([x, y]);
+        if (t.zone === ZONE.FARM && w.hasWalkableNeighbor(x, y)) {
+          if (t.feature === F.NONE) c.plant.push([x, y]);
+          else if (t.feature === F.CROP && t.growth >= 1) c.harvest.push([x, y]);
+        }
       }
     }
     this.candidates = c;
@@ -233,6 +237,7 @@ class JobManager {
       ["dig", this.candidates.dig], ["chop", this.candidates.chop],
       ["gather", this.candidates.gather], ["build", this.candidates.build],
       ["craft", this.candidates.craft],
+      ["plant", this.candidates.plant], ["harvest", this.candidates.harvest],
     ];
     let best = null, bestD = Infinity;
     for (const [type, list] of pools) {
@@ -245,6 +250,8 @@ class JobManager {
           if (!this.findAnyItem(this.buildMaterialKind(t), dx, dy)) continue;
         } else if (type === "craft") {
           if (!t.workshop || !this.recipeAvailable(t)) continue;
+        } else if (type === "plant" || type === "harvest") {
+          // candidate lists from reindex() are already precise — no extra check
         } else if (t.designation !== type) continue;
         const d = manhattan(x, y, dx, dy);
         if (d >= bestD) continue;
@@ -271,6 +278,7 @@ class JobManager {
       dwarf.thought = {
         dig: "Off to mine", chop: "Off to chop", gather: "Gathering plants",
         craft: `Off to the ${WORKSHOP_INFO[t.workshop] ? WORKSHOP_INFO[t.workshop].name.toLowerCase() : "workshop"}`,
+        plant: "Off to plant a crop", harvest: "Off to harvest the farm",
       }[best.type];
     }
     dwarf.job = job; dwarf.state = "goto";
@@ -577,6 +585,18 @@ class JobManager {
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y);
       g.log(`${dwarf.name} gathered ${food} food.`, "", "labor");
       g.awardXp(dwarf, "farming", 9);
+    } else if (job.type === "plant" && t) {
+      t.reserved = false;
+      t.feature = F.CROP; t.growth = 0;
+      g.log(`${dwarf.name} planted a crop.`, "", "labor");
+      g.awardXp(dwarf, "farming", 6);
+    } else if (job.type === "harvest" && t) {
+      t.reserved = false;
+      const food = randint(w.rng, 2, 4) + Math.floor(dwarf.skillLevel("farming") / 6) + (g.hasTech("rations") ? 1 : 0);
+      t.feature = F.NONE; t.growth = 0;
+      for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y);
+      g.log(`${dwarf.name} harvested ${food} food from the farm.`, "", "labor");
+      g.awardXp(dwarf, "farming", 14);
     } else if (job.type === "build" && t) {
       t.reserved = false; t.buildJob = false;
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }

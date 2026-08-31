@@ -6,7 +6,7 @@ const BASE_TS = 22; // base tile size in px
 const ZONE_STYLE = {
   bedroom:  { fill: "rgba(90,140,220,0.14)",  stroke: "rgba(120,170,240,0.45)", glyph: "" },
   dining:   { fill: "rgba(220,150,60,0.13)",  stroke: "rgba(230,170,80,0.40)",  glyph: "" },
-  farm:     { fill: "rgba(120,190,70,0.16)",  stroke: "rgba(150,210,90,0.50)",  glyph: "🌾" },
+  farm:     { fill: "rgba(120,190,70,0.16)",  stroke: "rgba(150,210,90,0.50)",  glyph: "" },
   study:    { fill: "rgba(150,110,220,0.15)", stroke: "rgba(180,150,240,0.50)", glyph: "📖" },
   hospital: { fill: "rgba(220,80,80,0.13)",   stroke: "rgba(240,120,120,0.50)", glyph: "✚" },
   trade:    { fill: "rgba(210,120,220,0.15)", stroke: "rgba(230,150,240,0.50)", glyph: "🐎" },
@@ -170,6 +170,7 @@ class Renderer {
     else if (t.feature === F.BUSH) this.drawBush(ctx, sx, sy, ts);
     else if (t.feature === F.MUSHROOM) this.drawMushroom(ctx, sx, sy, ts);
     else if (t.feature === F.BOULDER) this.drawBoulder(ctx, sx, sy, ts);
+    else if (t.feature === F.CROP) this.drawCrop(ctx, sx, sy, ts, t.growth);
   }
 
   drawWater(ctx, sx, sy, s, gx, gy) {
@@ -295,6 +296,26 @@ class Renderer {
     ctx.fillStyle = "#f0d8c8";
     ctx.beginPath(); ctx.arc(cx - ts * 0.05, cy - ts * 0.08, ts * 0.02, 0, 7); ctx.fill();
     ctx.beginPath(); ctx.arc(cx + ts * 0.05, cy - ts * 0.06, ts * 0.02, 0, 7); ctx.fill();
+  }
+
+  drawCrop(ctx, sx, sy, ts, growth) {
+    const cx = sx + ts / 2, cy = sy + ts * 0.68;
+    const ripe = growth >= 1;
+    const h = ts * 0.4 * (0.25 + growth * 0.75);
+    ctx.strokeStyle = ripe ? "#d8b84a" : "#4a8a3a";
+    ctx.lineWidth = Math.max(1, ts * 0.05);
+    for (let i = -1; i <= 1; i++) {
+      ctx.beginPath();
+      ctx.moveTo(cx + i * ts * 0.12, cy);
+      ctx.lineTo(cx + i * ts * 0.12 * 0.6, cy - h);
+      ctx.stroke();
+    }
+    if (ripe) {
+      ctx.fillStyle = "#e8cf6a";
+      for (let i = -1; i <= 1; i++) {
+        ctx.beginPath(); ctx.arc(cx + i * ts * 0.07, cy - h, ts * 0.07, 0, 7); ctx.fill();
+      }
+    }
   }
 
   drawBoulder(ctx, sx, sy, ts) {

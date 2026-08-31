@@ -30,12 +30,12 @@ class Item {
 const LABORS = [
   { id: "mining",      job: "dig",    name: "Mining",      icon: "⛏️" },
   { id: "woodcutting", job: "chop",   name: "Woodcutting", icon: "🪓" },
-  { id: "farming",     job: "gather", name: "Gathering",   icon: "🌿" },
+  { id: "farming",     job: "gather", name: "Farming",     icon: "🌿" },
   { id: "building",    job: "build",  name: "Building",    icon: "🧱" },
   { id: "crafting",    job: "craft",  name: "Crafting",    icon: "🔨" },
   { id: "hauling",     job: "haul",   name: "Hauling",     icon: "📦" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [

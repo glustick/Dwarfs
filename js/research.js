@@ -24,7 +24,7 @@ const TECHS = [
   },
   {
     id: "agriculture", name: "Agriculture", icon: "🌾", tier: 2, cost: 150, requires: ["rations"],
-    desc: "Unlocks the Farm zone — tended plots grow food over time.",
+    desc: "Unlocks the Farm zone — elves plant, tend, and harvest crops for food. Growth speed depends on the season.",
     unlock: "farm",
   },
   {

@@ -99,8 +99,14 @@ across games as a hall of records.
 - **Research tree** (Research tab): points accrue from your elves' *Intelligence*
   and from **Study zones**. Spend them on a tree of techs that make elves more
   efficient (faster mining/chopping/smithing, slower hunger, comfier beds) and
-  **unlock new build/zone options** — **Farm** (grows food), **Study** (more
-  research), **Hospital** (faster healing) and **Tables** (happier dining halls).
+  **unlock new build/zone options** — **Farm** (plant/grow/harvest crops),
+  **Study** (more research), **Hospital** (faster healing) and **Tables**
+  (happier dining halls).
+- **🌾 Farm** — once Agriculture is researched, paint a Farm zone. Elves with
+  the **Farming** labor plant empty plots, then harvest them once ripe for food.
+  Growth speed follows a 4-season year (🌱 Spring, 🌻 Summer, 🍂 Autumn, ❄️
+  Winter — shown in the top bar), so plan your food stores for the slow winter
+  stretch.
 - **Happiness** — each colonist has an overall happiness gauge combining health,
   mood, and satisfied needs (food, rest). Shown as a face + bar in the roster.
 - **Growth** — migrants arrive at random; the odds rise when the colony is happy

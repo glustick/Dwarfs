@@ -24,7 +24,7 @@ const SKILL_IDS = Object.keys(SKILLS);
 const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building", "hauling", "fighting"];
 
 // Map a job type to the skill it trains.
-const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing" };
+const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing", plant: "farming", harvest: "farming" };
 
 // Classic roguelike-style proficiency titles.
 const SKILL_TITLES = [

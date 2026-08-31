@@ -7,6 +7,15 @@ const SPEEDS = [0, 1, 2, 4];
 const DAY_START = 0.25;        // 06:00
 const DAY_END = 0.75;          // 18:00
 
+// Seasons affect crop growth in Farm zones. A year is 4 * SEASON_DAYS days.
+const SEASON_DAYS = 15;
+const SEASONS = [
+  { name: "Spring", icon: "🌱", growth: 1.3 },
+  { name: "Summer", icon: "🌻", growth: 1.6 },
+  { name: "Autumn", icon: "🍂", growth: 1.0 },
+  { name: "Winter", icon: "❄️", growth: 0.2 },
+];
+
 // Event chronicle categories (for the filterable Log panel).
 const LOG_CATS = {
   order:  { name: "Orders",   icon: "📋" },
@@ -312,18 +321,16 @@ class Game {
     // research accrues over time
     this.research += this.researchRate() * dt;
 
-    // farm zones grow food (once Agriculture is researched)
-    if (this.hasTech("agriculture") && this.farmTiles.length) {
+    // farm zones: planted crops mature over time (rate depends on the season);
+    // elves with the Farming labor handle the actual plant/harvest jobs.
+    if (this.farmTiles.length) {
       this.farmTimer -= dt;
       if (this.farmTimer <= 0) {
-        this.farmTimer = 3;
-        const yieldN = Math.max(1, Math.round(this.farmTiles.length * 0.15));
-        const foodCap = 30 + this.dwarves.length * 6;   // don't let food run away
-        if (this.countItems(ITEM.FOOD) < foodCap) {
-          for (let k = 0; k < yieldN; k++) {
-            const [fx, fy] = this.farmTiles[Math.floor(this.world.rng() * this.farmTiles.length)];
-            if (!this.world.tiles[fy][fx].item) this.jobs.spawnItem(ITEM.FOOD, fx, fy);
-          }
+        this.farmTimer = 1;
+        const mult = this.season().growth;
+        for (const [fx, fy] of this.farmTiles) {
+          const t = this.world.tiles[fy][fx];
+          if (t.feature === F.CROP && t.growth < 1) t.growth = Math.min(1, t.growth + mult / 120);
         }
       }
     }
@@ -372,6 +379,10 @@ class Game {
   }
 
   shift() { const f = this.dayFraction(); return (f >= DAY_START && f < DAY_END) ? "day" : "night"; }
+
+  // ---- seasons ----
+  seasonIndex() { return Math.floor(Math.floor(this.time / DAY_LENGTH) / SEASON_DAYS) % 4; }
+  season() { return SEASONS[this.seasonIndex()]; }
 
   // Resolve what a dwarf should be doing right now (critical needs override schedule).
   resolveActivity(d) {
@@ -906,7 +917,8 @@ class Game {
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const icon = this.shift() === "day" ? "☀️" : "🌙";
-    document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm}`;
+    const seas = this.season();
+    document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm} · ${seas.icon} ${seas.name}`;
     const rEl = document.getElementById("stat-research");
     if (rEl) rEl.innerHTML = `🔬 <b>${Math.floor(this.research)}</b>`;
     // highlight the active speed button
@@ -1111,6 +1123,7 @@ class Game {
       parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.built === B.DOOR ? "door" : tile.kind}</span>`);
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
+      if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
       if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
       if (tile.workshop) {
         const list = RECIPES[tile.workshop] || [];
@@ -1205,7 +1218,7 @@ class Game {
     const map = {
       dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
       haul: "Hauling", eat: "Eating", sleep: "Sleeping", train: "Training", socialize: "Socialising",
-      craft: "Crafting", equip: "Arming up",
+      craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
     };
     return map[d.job.type] || "Working";
   }

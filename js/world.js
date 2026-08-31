@@ -18,6 +18,7 @@ const F = {
   BUSH: "bush",
   MUSHROOM: "mushroom",
   BOULDER: "boulder",
+  CROP: "crop",       // planted in a Farm zone; matures via growth, then harvested
 };
 
 // Ores embedded in stone
