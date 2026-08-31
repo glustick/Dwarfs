@@ -60,6 +60,9 @@ Your seven elves have arrived in a procedurally-generated wilderness. *Raise the
   labor and they'll tend wounded elves resting in a bed, healing them far
   faster (trains the *Medicine* skill) — especially inside a **⚕️ Hospital**
   zone (needs the Medicine tech).
+- **🛡️ Toughness** — a combat attribute (trained by sparring and by surviving
+  hits) that cuts incoming damage and raises max hp, so seasoned veterans take
+  a lot more punishment before going down and before being wounded at all.
 
 Keep your elves fed — hungry elves eat from your food stores, and starving ones
 can die. A healthy, well-fed colony attracts **migrants** over time.
@@ -79,7 +82,7 @@ can die. A healthy, well-fed colony attracts **migrants** over time.
 
 Every elf is an individual with **skills** that improve through work:
 Mining, Woodcutting, Farming, Building, Hauling, Cooking, Smithing, Medicine,
-plus the attributes Fitness, Fighting, Charisma and Intelligence. Higher skill = faster work and
+plus the attributes Fitness, Fighting, Toughness, Charisma and Intelligence. Higher skill = faster work and
 better yields; Intelligence speeds all learning; Fitness speeds movement;
 Charisma draws more migrants. Elves start with random specialties fitting the
 woodland world, and earn classic roguelike-style titles (Novice → Legendary).

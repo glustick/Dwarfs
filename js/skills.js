@@ -15,6 +15,7 @@ const SKILLS = {
   medicine:     { name: "Medicine",     noun: "Healer",     icon: "⚕️", jobs: ["doctor"], attr: false },
   fitness:      { name: "Fitness",      noun: "Athlete",    icon: "💪", attr: true },  // move speed / stamina
   fighting:     { name: "Fighting",     noun: "Warrior",    icon: "⚔️", attr: true },  // trained by 'train'
+  toughness:    { name: "Toughness",    noun: "Bulwark",    icon: "🛡️", attr: true },  // resists & shrugs off wounds
   charisma:     { name: "Charisma",     noun: "Diplomat",   icon: "💬", attr: true },  // social, migration
   intelligence: { name: "Intelligence", noun: "Scholar",    icon: "🧠", attr: true },  // multiplies XP gain
 };
@@ -22,7 +23,7 @@ const SKILLS = {
 const SKILL_IDS = Object.keys(SKILLS);
 
 // Which skills are sensible starting specialties for this mountain-forest world.
-const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building", "hauling", "fighting"];
+const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building", "hauling", "fighting", "toughness"];
 
 // Map a job type to the skill it trains.
 const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing", plant: "farming", harvest: "farming", doctor: "medicine" };

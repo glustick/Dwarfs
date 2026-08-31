@@ -722,7 +722,7 @@ class JobManager {
         dwarf.thought = "No patient to treat";
       }
     } else if (job.type === "train") {
-      g.awardXp(dwarf, "fighting", 10); g.awardXp(dwarf, "fitness", 6);
+      g.awardXp(dwarf, "fighting", 10); g.awardXp(dwarf, "fitness", 6); g.awardXp(dwarf, "toughness", 7);
       dwarf.mood = clamp(dwarf.mood + 1, 0, 100);
       dwarf.thought = "Sparring in the barracks";
     } else if (job.type === "socialize") {

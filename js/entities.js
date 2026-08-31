@@ -83,8 +83,9 @@ class Dwarf {
     this.bed = null;         // {x,y} of an assigned bed while sleeping
 
     // ---- health & military ----
-    this.hp = 100;           // 0 = dead
-    this.maxhp = 100;
+    // Toughness raises the hp pool itself — 2 per level, up to +40 at max.
+    this.maxhp = 100 + this.skillLevel("toughness") * 2;
+    this.hp = this.maxhp;    // 0 = dead
     this.military = false;   // enlisted soldier?
     this.weapon = null;      // equipped weapon sub (sword/axe)
     this.armor = null;       // equipped armor sub (shield/mail)
@@ -104,10 +105,11 @@ class Dwarf {
 
   // Damage this dwarf deals per swing (weapon + fighting skill).
   attackDamage() { return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? 1.9 : 1); }
-  // Incoming damage after armor + skill-based dodge.
+  // Incoming damage after armor, skill-based dodge, and Toughness (raw resilience).
   damageTaken(raw) {
     const dodge = 1 - Math.min(0.5, this.skillLevel("fighting") * 0.02);
-    return raw * (this.armor ? 0.5 : 1) * dodge;
+    const tough = 1 - Math.min(0.4, this.skillLevel("toughness") * 0.02);
+    return raw * (this.armor ? 0.5 : 1) * dodge * tough;
   }
 
   get tileX() { return Math.round(this.x); }

@@ -471,6 +471,7 @@ class Game {
   awardXp(d, skillId, amount) {
     const leveled = grantXp(d, skillId, amount);
     if (leveled) {
+      if (leveled === "toughness") { d.maxhp += 2; d.hp = clamp(d.hp + 2, 0, d.maxhp); }
       this.log(`${d.name} is now ${skillTitle(d.skills[leveled].level)} ${SKILLS[leveled].name}.`, "good", "skill");
       this.flushDwarfToDB(d);
       if (colonyDB) colonyDB.logEvent(`${d.name} became ${skillTitle(d.skills[leveled].level)} at ${SKILLS[leveled].name}`, Math.floor(this.time / DAY_LENGTH) + 1);
@@ -651,6 +652,7 @@ class Game {
     this.addFx(d.x, d.y, true);
     if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 2);
+    this.awardXp(d, "toughness", 3); // enduring a hit builds resilience
     if (d.hp <= 0) { this.recordDeath(d, `slain by a ${e.name}`); return; }
     if (!d.wounded && d.hp < d.maxhp * 0.6) {
       d.wounded = true;
