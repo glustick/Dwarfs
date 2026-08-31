@@ -45,7 +45,7 @@ const TECHS = [
   // ---- Tier 3 ----
   {
     id: "medicine", name: "Medicine", icon: "⚕️", tier: 3, cost: 260, requires: ["scholarship"],
-    desc: "Unlocks the Hospital zone; the wounded heal far faster everywhere.",
+    desc: "Unlocks the Hospital zone. Badly wounded elves recover far faster there — especially with a dedicated Doctor (Medicine labor) tending them.",
     unlock: "hospital",
   },
   {

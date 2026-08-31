@@ -587,7 +587,7 @@ class Renderer {
     if (d.state === "work") {
       const t = this.game.time;
       const jt = d.job ? d.job.type : null;
-      const col = jt === "train" ? "180,200,255" : jt === "eat" ? "160,220,140" : jt === "socialize" ? "230,180,240" : "255,220,120";
+      const col = jt === "train" ? "180,200,255" : jt === "eat" ? "160,220,140" : jt === "socialize" ? "230,180,240" : jt === "doctor" ? "230,120,120" : "255,220,120";
       ctx.strokeStyle = `rgba(${col},${0.5 + Math.sin(t * 20) * 0.4})`;
       ctx.lineWidth = Math.max(1, ts * 0.08);
       const a = t * 8;
@@ -607,6 +607,16 @@ class Renderer {
       ctx.font = `${Math.floor(ts * 0.3)}px serif`;
       ctx.fillText("z", cx + r * 1.4, cy - r * 1.5);
       ctx.textAlign = "start";
+    }
+
+    // resting to recover from a wound
+    if (d.state === "recover") {
+      const t = this.game.time;
+      ctx.fillStyle = `rgba(230,110,110,${0.6 + Math.sin(t * 3) * 0.3})`;
+      ctx.font = `${Math.floor(ts * 0.4)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("✚", cx + r * 0.9, cy - r * 1.1 - (Math.sin(t * 2) * ts * 0.06));
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
 
     // selection ring

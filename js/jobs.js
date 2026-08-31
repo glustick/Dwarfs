@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -46,19 +46,20 @@ class Job {
     this.dining = null;    // {x,y} dining spot (eat)
     this.buildKind = null; // wall|floor|bed|smelter|forge
     this.slot = null;      // equip slot: weapon|armor
+    this.patient = null;   // doctor: the wounded Dwarf being treated
   }
 }
 
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [] };
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
         const t = w.tiles[y][x];
@@ -73,6 +74,10 @@ class JobManager {
           else if (t.feature === F.CROP && t.growth >= 1) c.harvest.push([x, y]);
         }
       }
+    }
+    // doctor candidates are dwarves, not tiles — resting patients not yet attended
+    for (const d of g.dwarves) {
+      if (d.wounded && d.state === "recover" && !d.beingTreated) c.doctor.push(d);
     }
     this.candidates = c;
   }
@@ -184,13 +189,16 @@ class JobManager {
     return best;
   }
 
-  nearestFreeBed(x, y) {
+  // `preferHospital` biases the pick toward a Hospital-zoned bed (still the
+  // nearest among those) when one exists, for wounded elves seeking care.
+  nearestFreeBed(x, y, preferHospital = false) {
     const g = this.game;
     let best = null, bd = Infinity;
     for (const [bx, by] of g.bedTiles) {
       const t = g.world.tiles[by][bx];
       if (t.furniture !== FURN.BED || t.reserved) continue;
-      const d = manhattan(bx, by, x, y);
+      let d = manhattan(bx, by, x, y);
+      if (preferHospital && t.zone === ZONE.HOSPITAL) d -= 1000;
       if (d < bd) { bd = d; best = { x: bx, y: by }; }
     }
     return best;
@@ -219,6 +227,7 @@ class JobManager {
 
     const act = dwarf.activity || "work";
     if (act === "sleep") return this.assignSleep(dwarf);
+    if (act === "recover") return this.assignRecover(dwarf);
     if (act === "train") return this.assignTrain(dwarf);
     if (act === "eat") {
       if (dwarf.hunger > 35 && this.assignEat(dwarf, true)) return true;
@@ -228,7 +237,7 @@ class JobManager {
 
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
-    return this.assignWork(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   assignWork(dwarf) {
@@ -414,6 +423,49 @@ class JobManager {
     return true;
   }
 
+  // A badly wounded elf seeks a bed (a Hospital bed if one's free) to rest and heal.
+  assignRecover(dwarf) {
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
+    const bed = this.nearestFreeBed(dx, dy, true);
+    const job = new Job("recover", bed ? bed.x : dx, bed ? bed.y : dy);
+    job.phase = "move";
+    if (bed) {
+      const path = pathTo(g.world, dx, dy, bed.x, bed.y);
+      if (path) {
+        g.world.tiles[bed.y][bed.x].reserved = true;
+        dwarf.bed = { x: bed.x, y: bed.y };
+        dwarf.setPath(path); dwarf.thought = "Wounded — heading to recover";
+      } else { dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Resting where they lie"; }
+    } else {
+      dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Resting where they lie";
+    }
+    dwarf.job = job; dwarf.state = "goto";
+    return true;
+  }
+
+  // A dwarf with the Medicine labor tends the nearest untreated, resting patient.
+  assignDoctor(dwarf) {
+    if (!dwarf.labors.has("medicine")) return false;
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY;
+    const list = this.candidates.doctor;
+    if (!list.length) return false;
+    let patient = null, bd = Infinity;
+    for (const p of list) {
+      if (p === dwarf) continue;
+      const d = manhattan(p.tileX, p.tileY, dx, dy);
+      if (d < bd) { bd = d; patient = p; }
+    }
+    if (!patient) return false;
+    const path = pathAdjacent(g.world, dx, dy, patient.tileX, patient.tileY) || pathTo(g.world, dx, dy, patient.tileX, patient.tileY);
+    if (!path) return false;
+    patient.beingTreated = true;
+    const job = new Job("doctor", patient.tileX, patient.tileY);
+    job.patient = patient; job.phase = "move";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = `Off to treat ${patient.name}`;
+    return true;
+  }
+
   assignTrain(dwarf) {
     const job = new Job("train", dwarf.tileX, dwarf.tileY);
     job.phase = "move"; dwarf.setPath(null);
@@ -471,6 +523,13 @@ class JobManager {
           this.finishSleep(dwarf);
         break;
       }
+      case "recover": {
+        // Actual healing happens in Game.updateDwarf's ambient-heal pass (it
+        // reads d.state === "recover" for the bed-rest bonus); this just
+        // watches for the wound to close so the elf can get back to work.
+        if (!dwarf.wounded || dwarf.hp >= dwarf.maxhp) this.finishRecover(dwarf);
+        break;
+      }
       default: dwarf.state = "idle";
     }
   }
@@ -503,6 +562,12 @@ class JobManager {
         break;
       case "sleep":
         dwarf.state = "sleep";
+        break;
+      case "recover":
+        dwarf.state = "recover";
+        break;
+      case "doctor":
+        dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "doctor");
         break;
       case "train":
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "train");
@@ -646,6 +711,16 @@ class JobManager {
       g.awardXp(dwarf, "cooking", 5);
       if (inDining) g.awardXp(dwarf, "charisma", 4);
       dwarf.thought = inDining ? "Dined well in the hall" : "Ate a meal";
+    } else if (job.type === "doctor") {
+      const patient = job.patient;
+      if (patient) patient.beingTreated = false;
+      if (patient && patient.hp > 0 && patient.wounded) {
+        g.awardXp(dwarf, "medicine", 14);
+        dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
+        g.log(`${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
+      } else {
+        dwarf.thought = "No patient to treat";
+      }
     } else if (job.type === "train") {
       g.awardXp(dwarf, "fighting", 10); g.awardXp(dwarf, "fitness", 6);
       dwarf.mood = clamp(dwarf.mood + 1, 0, 100);
@@ -667,6 +742,20 @@ class JobManager {
       dwarf.bed = null;
     }
     dwarf.thought = "Well rested";
+    this.cancel(dwarf, true);
+  }
+
+  finishRecover(dwarf) {
+    const g = this.game;
+    if (dwarf.bed) {
+      const t = g.world.tiles[dwarf.bed.y][dwarf.bed.x];
+      if (t) t.reserved = false;
+      dwarf.bed = null;
+    }
+    if (!dwarf.wounded) {
+      dwarf.thought = "Recovered";
+      g.log(`${dwarf.name} has recovered from their wounds.`, "good", "colony");
+    }
     this.cancel(dwarf, true);
   }
 
@@ -706,10 +795,13 @@ class JobManager {
   cancel(dwarf, completed = false) {
     const job = dwarf.job;
     if (job) {
-      const t = this.game.world.get(job.x, job.y);
+      // A doctor's job.x/y is the patient's tile (their bed) — never owned by
+      // this job, so don't clear its reservation on cancel.
+      const t = job.type === "doctor" ? null : this.game.world.get(job.x, job.y);
       if (t && !completed) t.reserved = false;
       if (!completed && job.item) job.item.hauled = false;
-      if (!completed && job.type === "sleep" && dwarf.bed) {
+      if (!completed && job.type === "doctor" && job.patient) job.patient.beingTreated = false;
+      if (!completed && (job.type === "sleep" || job.type === "recover") && dwarf.bed) {
         const bt = this.game.world.get(dwarf.bed.x, dwarf.bed.y);
         if (bt) bt.reserved = false;
         dwarf.bed = null;

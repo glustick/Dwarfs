@@ -154,6 +154,7 @@ class Game {
       name: d.name, x: d.x, y: d.y, color: d.color,
       hunger: d.hunger, energy: d.energy, mood: d.mood, facing: d.facing,
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
+      wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
       weapon: d.weapon, armor: d.armor,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0,
@@ -195,6 +196,7 @@ class Game {
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
+      d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0;
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
@@ -387,6 +389,7 @@ class Game {
   // Resolve what a dwarf should be doing right now (critical needs override schedule).
   resolveActivity(d) {
     if (d.hunger > 85) return "eat";
+    if (d.wounded) return "recover";
     if (d.energy < 15) return "sleep";
     return d.schedule[this.shift()] || "work";
   }
@@ -409,13 +412,30 @@ class Game {
     if (d.energy < 18) d.mood = clamp(d.mood - dt * 1.5, 0, 100);
     else if (d.hunger < 50 && d.state === "idle") d.mood = clamp(d.mood + dt * 0.3, 0, 100);
 
-    // slow healing when no threat is present (faster with Medicine / in a Hospital)
-    if (!this.enemies.length && d.hp < d.maxhp && (d.hunger < 85 || this.hasTech("medicine"))) {
-      let heal = 3;
-      if (this.hasTech("medicine")) heal *= 2.5;
+    // Slow healing when no threat is present. A badly wounded elf (d.wounded)
+    // only heals while actively in "recover" state — minor scrapes still
+    // shrug off on their own during normal work.
+    if (!this.enemies.length && d.hp < d.maxhp && (d.hunger < 85 || this.hasTech("medicine"))
+        && (!d.wounded || d.state === "recover")) {
       const here = this.world.tiles[d.tileY] && this.world.tiles[d.tileY][d.tileX];
-      if (here && here.zone === ZONE.HOSPITAL) heal *= 2;
+      let heal;
+      if (!d.wounded) {
+        // minor scrape: unchanged gentle ambient regen
+        heal = 3;
+        if (this.hasTech("medicine")) heal *= 2.5;
+        if (here && here.zone === ZONE.HOSPITAL) heal *= 2;
+      } else {
+        // serious wound: modest baseline bed rest, with each of a proper bed,
+        // a Hospital, Medicine research, and a doctor's care adding on top —
+        // additive, so no single upgrade trivializes recovery by itself.
+        heal = 1.5;
+        if (d.bed) heal += 1.5;
+        if (here && here.zone === ZONE.HOSPITAL) heal += 2;
+        if (this.hasTech("medicine")) heal += 1.5;
+        if (d.beingTreated) heal += 3;
+      }
       d.hp = clamp(d.hp + heal * dt, 0, d.maxhp);
+      if (d.wounded && d.hp >= d.maxhp) d.wounded = false;
     }
 
     // overall happiness gauge (health + mood + satisfied needs)
@@ -631,7 +651,12 @@ class Game {
     this.addFx(d.x, d.y, true);
     if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 2);
-    if (d.hp <= 0) this.recordDeath(d, `slain by a ${e.name}`);
+    if (d.hp <= 0) { this.recordDeath(d, `slain by a ${e.name}`); return; }
+    if (!d.wounded && d.hp < d.maxhp * 0.6) {
+      d.wounded = true;
+      d.mood = clamp(d.mood - 8, 0, 100);
+      this.log(`${d.name} has been badly wounded!`, "bad", "combat");
+    }
   }
 
   killEnemy(foe, byDwarf) {
@@ -1044,7 +1069,7 @@ class Game {
       html += `
         <div class="dwarf-row${sel}" data-idx="${i}">
           <span class="swatch" style="background:${d.color}"></span>
-          <span class="dname">${d.name} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
+          <span class="dname">${d.name}${d.wounded ? " 🩹" : ""} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
             <div class="dtask">${professionOf(d)} · ${this.taskLabel(d)}</div>
             <div class="bar" title="Happiness ${Math.round(hap)}"><i style="width:${hap}%;background:${hapColor}"></i></div>
           </span>
@@ -1107,7 +1132,7 @@ class Game {
       sk += `</div>`;
       const gear = [d.weapon ? "🗡 " + d.weapon : null, d.armor ? "🛡 " + d.armor : null].filter(Boolean).join(" · ");
       return `
-        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}<br/>
+        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}${d.wounded ? ' <span class="tag" style="background:#6b2f2f">🩹 wounded</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Energy ${Math.round(d.energy)}</div>
         ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
@@ -1219,6 +1244,7 @@ class Game {
       dig: "Mining", chop: "Chopping", gather: "Gathering", build: "Building",
       haul: "Hauling", eat: "Eating", sleep: "Sleeping", train: "Training", socialize: "Socialising",
       craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
+      recover: "Recovering", doctor: "Treating patient",
     };
     return map[d.job.type] || "Working";
   }

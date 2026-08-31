@@ -34,8 +34,9 @@ const LABORS = [
   { id: "building",    job: "build",  name: "Building",    icon: "🧱" },
   { id: "crafting",    job: "craft",  name: "Crafting",    icon: "🔨" },
   { id: "hauling",     job: "haul",   name: "Hauling",     icon: "📦" },
+  { id: "medicine",    job: "doctor", name: "Doctoring",   icon: "⚕️" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [
@@ -90,6 +91,10 @@ class Dwarf {
     this.attackCd = 0;       // swing cooldown
     this.combatRepath = 0;   // throttle for chasing/fleeing pathing
     this.fleeing = false;
+
+    // ---- injuries ----
+    this.wounded = false;      // hp dropped low enough to need bed rest to heal
+    this.beingTreated = false; // a doctor is currently attending them
   }
 
   skillLevel(id) { return this.skills[id] ? this.skills[id].level : 0; }
