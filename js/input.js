@@ -2,7 +2,7 @@
 
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
-  dig: "designate", chop: "designate", gather: "designate", forest: "designate",
+  dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate",
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
   doublebed: "build", painting: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
@@ -103,6 +103,12 @@ class Input {
     const autoPauseBtn = document.getElementById("autopause-btn");
     if (autoPauseBtn) autoPauseBtn.addEventListener("click", () => this.game.toggleAutoPause());
 
+    // Z-level (floor) navigation
+    const zUpBtn = document.getElementById("zlevel-up");
+    if (zUpBtn) zUpBtn.addEventListener("click", () => this.game.setViewZ(this.game.viewZ + 1));
+    const zDownBtn = document.getElementById("zlevel-down");
+    if (zDownBtn) zDownBtn.addEventListener("click", () => this.game.setViewZ(this.game.viewZ - 1));
+
     // Right-panel tabs
     document.querySelectorAll(".ptab").forEach(btn => {
       btn.addEventListener("click", () => this.game.setPanelTab(btn.dataset.tab));
@@ -184,10 +190,12 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
+      if (e.key === "[" || e.key === "PageUp") { g.setViewZ(g.viewZ + 1); e.preventDefault(); }
+      if (e.key === "]" || e.key === "PageDown") { g.setViewZ(g.viewZ - 1); e.preventDefault(); }
     });
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
   }
@@ -200,9 +208,10 @@ class Input {
 
   handleSelect(t, ev) {
     const g = this.game;
-    // Did we click on a dwarf?
+    // Did we click on a dwarf on the currently viewed floor?
     let picked = null, bd = 0.7;
     for (const d of g.dwarves) {
+      if ((d.z || 0) !== (g.viewZ || 0)) continue;
       const dd = Math.hypot(d.x + 0.5 - (t.x + 0.5), d.y + 0.5 - (t.y + 0.5));
       if (dd < bd) { bd = dd; picked = d; }
     }
@@ -211,13 +220,14 @@ class Input {
       g.selectedTile = null;
     } else {
       g.selectedDwarf = null;
-      g.selectedTile = g.world.inBounds(t.x, t.y) ? t : null;
+      g.selectedTile = g.world.inBounds(t.x, t.y) ? { x: t.x, y: t.y, z: g.viewZ || 0 } : null;
     }
     g.updatePanel();
   }
 
   applyTool(a, b) {
-    const g = this.game, w = g.world;
+    const g = this.game, w = g.world, z = g.viewZ || 0;
+    const tiles = w.getLevel(z);
     const minX = Math.max(0, Math.min(a.x, b.x));
     const minY = Math.max(0, Math.min(a.y, b.y));
     const maxX = Math.min(w.w - 1, Math.max(a.x, b.x));
@@ -226,10 +236,10 @@ class Input {
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
-        const t = w.tiles[y][x];
+        const t = tiles[y][x];
         switch (this.tool) {
           case "dig":
-            if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y)) { t.designation = "dig"; count++; }
+            if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y, z)) { t.designation = "dig"; count++; }
             break;
           case "chop":
             if (t.feature === F.TREE) { t.designation = "chop"; count++; }
@@ -240,53 +250,56 @@ class Input {
           case "forest":
             if ((t.kind === K.GRASS || t.kind === K.SOIL) && t.feature === F.NONE && !t.designation) { t.designation = "forest"; count++; }
             break;
+          case "stairsdown":
+            if (t.built !== B.STAIRS && t.kind !== K.WATER && !t.designation && w.hasWalkableNeighbor(x, y, z)) { t.designation = "stairsdown"; count++; }
+            break;
           case "stockpile":
-            if (w.isWalkable(x, y) && !t.stockpile) { t.stockpile = true; count++; }
+            if (w.isWalkable(x, y, z) && !t.stockpile) { t.stockpile = true; count++; }
             break;
           case "build":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "wall"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "wall"; count++; }
             break;
           case "floor":
-            if (w.isWalkable(x, y) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; count++; }
+            if (w.isWalkable(x, y, z) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; count++; }
             break;
           case "bed":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; count++; }
             break;
           case "doublebed":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; count++; }
             break;
           case "painting":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; count++; }
             break;
           case "smelter":
           case "forge":
           case "well":
           case "brewery":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "door":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; count++; }
             break;
           case "depot":
-            if (w.isWalkable(x, y) && !(t.stockpile && t.zone === ZONE.TRADE)) { t.stockpile = true; t.zone = ZONE.TRADE; count++; }
+            if (w.isWalkable(x, y, z) && !(t.stockpile && t.zone === ZONE.TRADE)) { t.stockpile = true; t.zone = ZONE.TRADE; count++; }
             break;
           case "bedroom":
-            if (w.isWalkable(x, y) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
             break;
           case "dining":
-            if (w.isWalkable(x, y) && t.zone !== ZONE.DINING) { t.zone = ZONE.DINING; count++; }
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.DINING) { t.zone = ZONE.DINING; count++; }
             break;
           case "farm":
-            if (w.isWalkable(x, y) && t.zone !== ZONE.FARM) { t.zone = ZONE.FARM; count++; }
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.FARM) { t.zone = ZONE.FARM; count++; }
             break;
           case "study":
-            if (w.isWalkable(x, y) && t.zone !== ZONE.STUDY) { t.zone = ZONE.STUDY; count++; }
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.STUDY) { t.zone = ZONE.STUDY; count++; }
             break;
           case "hospital":
-            if (w.isWalkable(x, y) && t.zone !== ZONE.HOSPITAL) { t.zone = ZONE.HOSPITAL; count++; }
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.HOSPITAL) { t.zone = ZONE.HOSPITAL; count++; }
             break;
           case "table":
-            if (w.isWalkable(x, y) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
             break;
           case "erase":
             if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR) {
@@ -308,7 +321,7 @@ class Input {
     if (count) {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
-        forest: "Marked to plant trees",
+        forest: "Marked to plant trees", stairsdown: "Marked to dig stairs down",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
         well: "Well queued", brewery: "Brewery queued", doublebed: "Double beds queued", painting: "Paintings queued",

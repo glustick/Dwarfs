@@ -36,11 +36,12 @@ const STOCKPILE_CATEGORY_OF = {
 };
 
 class Item {
-  constructor(kind, x, y, sub = null) {
+  constructor(kind, x, y, sub = null, z = 0) {
     this.kind = kind;
     this.sub = sub;      // e.g. ore type
     this.x = x;
     this.y = y;
+    this.z = z;          // which level this item rests on
     this.hauled = false; // currently carried / claimed
     this.stored = false; // resting in a stockpile
   }
@@ -57,7 +58,7 @@ const LABORS = [
   { id: "medicine",    job: "doctor", name: "Doctoring",   icon: "⚕️" },
   { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [
@@ -84,6 +85,7 @@ class Dwarf {
     this.name = name;
     this.x = x;            // tile coords (float during movement)
     this.y = y;
+    this.z = 0;            // level (0 = surface, negative = underground)
     this.tx = x;           // current target tile of movement
     this.ty = y;
     this.color = color;
@@ -166,7 +168,7 @@ class Dwarf {
     const dx = step.x - this.x, dy = step.y - this.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.02) {
-      this.x = step.x; this.y = step.y;
+      this.x = step.x; this.y = step.y; this.z = step.z;
       this.pathIdx++;
       if (this.pathIdx >= this.path.length) { this.path = null; return true; }
       return false;
@@ -194,7 +196,7 @@ class Enemy {
     const t = ENEMY_TYPES[kind] || ENEMY_TYPES.goblin;
     this.kind = kind;
     this.name = t.name;
-    this.x = x; this.y = y;
+    this.x = x; this.y = y; this.z = 0;
     this.hp = t.hp; this.maxhp = t.hp;
     this.atk = t.atk; this.speed = t.speed; this.color = t.color;
     this.path = null; this.pathIdx = 0;
@@ -229,7 +231,7 @@ class Enemy {
 // ---- Trading caravan (friendly, non-combatant) ------------------------------
 class Caravan {
   constructor(x, y) {
-    this.x = x; this.y = y;
+    this.x = x; this.y = y; this.z = 0;
     this.speed = 3.0;
     this.path = null; this.pathIdx = 0;
     this.state = "approach"; // approach | trading | leave

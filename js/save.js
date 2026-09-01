@@ -2,7 +2,7 @@
 
 const SAVE_PREFIX = "df_save_";
 const AUTOSAVE_NAME = "Autosave";
-const SAVE_VERSION = 4;
+const SAVE_VERSION = 5;
 
 const SaveManager = {
   key(name) { return SAVE_PREFIX + name; },

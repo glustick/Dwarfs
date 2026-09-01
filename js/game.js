@@ -69,6 +69,7 @@ class Game {
     this.statTimer = 0;
     this.relTimer = 0;
     this.decorCount = {};
+    this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.migrationTimer = DAY_LENGTH * 1.5;
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
@@ -114,12 +115,43 @@ class Game {
   // ---- serialization ----
   serialize() {
     const w = this.world;
-    const tiles = new Array(w.w * w.h);
+    const levels = {};
+    for (const [z, tiles] of w.levels) levels[z] = this.serializeLevelTiles(tiles);
+    return {
+      version: SAVE_VERSION,
+      release: RELEASE_VERSION, build: BUILD_NUMBER, // informational: which release/build made this save
+      savedAt: Date.now(),
+      day: Math.floor(this.time / DAY_LENGTH) + 1,
+      pop: this.dwarves.length,
+      world: { w: w.w, h: w.h, seed: w.seed, spawnX: w.spawnX, spawnY: w.spawnY, minZ: w.minZ, levels },
+      items: this.items.map(it => ({
+        id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y, z: it.z || 0,
+        hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
+      })),
+      dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
+      enemies: this.enemies.map(e => ({
+        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
+      })),
+      raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
+      research: this.research, tech: this.tech,
+      events: this.events.slice(-SAVED_EVENTS),
+      nextItemId: this._nextItemId,
+      cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
+      viewZ: this.viewZ,
+      time: this.time, speedIdx: this.speedIdx, paused: this.paused,
+    };
+  }
+
+  // Flatten one level's Tile[][] into the per-tile array format shared with
+  // world.js's loadLevelTiles.
+  serializeLevelTiles(tiles) {
+    const w = this.world;
+    const out = new Array(w.w * w.h);
     let i = 0;
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
-        const t = w.tiles[y][x];
-        tiles[i++] = [
+        const t = tiles[y][x];
+        out[i++] = [
           t.kind, t.feature, t.ore, Math.round(t.growth * 100) / 100,
           t.designation, t.built,
           t.buildJob ? 1 : 0, t.buildKind || 0, t.stockpile ? 1 : 0,
@@ -132,33 +164,12 @@ class Game {
         ];
       }
     }
-    return {
-      version: SAVE_VERSION,
-      release: RELEASE_VERSION, build: BUILD_NUMBER, // informational: which release/build made this save
-      savedAt: Date.now(),
-      day: Math.floor(this.time / DAY_LENGTH) + 1,
-      pop: this.dwarves.length,
-      world: { w: w.w, h: w.h, seed: w.seed, spawnX: w.spawnX, spawnY: w.spawnY, tiles },
-      items: this.items.map(it => ({
-        id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y,
-        hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
-      })),
-      dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
-      enemies: this.enemies.map(e => ({
-        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
-      })),
-      raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
-      research: this.research, tech: this.tech,
-      events: this.events.slice(-SAVED_EVENTS),
-      nextItemId: this._nextItemId,
-      cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
-      time: this.time, speedIdx: this.speedIdx, paused: this.paused,
-    };
+    return out;
   }
 
   serializeDwarf(d) {
     return {
-      name: d.name, x: d.x, y: d.y, color: d.color,
+      name: d.name, x: d.x, y: d.y, z: d.z || 0, color: d.color,
       hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing,
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
@@ -172,7 +183,7 @@ class Game {
       bed: d.bed,
       path: d.path, pathIdx: d.pathIdx,
       job: d.job ? {
-        type: d.job.type, x: d.job.x, y: d.job.y, phase: d.job.phase,
+        type: d.job.type, x: d.job.x, y: d.job.y, z: d.job.z || 0, phase: d.job.phase,
         item: d.job.item ? d.job.item.id : 0,
         dest: d.job.dest, dining: d.job.dining, buildKind: d.job.buildKind || null,
         slot: d.job.slot || null,
@@ -188,7 +199,7 @@ class Game {
     // rebuild items first so tiles/dwarves can reference them by id
     const byId = new Map();
     this.items = data.items.map(o => {
-      const it = new Item(o.kind, o.x, o.y, o.sub);
+      const it = new Item(o.kind, o.x, o.y, o.sub, o.z || 0);
       it.id = o.id; it.hauled = !!o.hauled; it.stored = !!o.stored;
       byId.set(o.id, it);
       return it;
@@ -196,10 +207,17 @@ class Game {
     this._nextItemId = data.nextItemId ||
       (this.items.reduce((m, it) => Math.max(m, it.id), 0) + 1);
 
-    this.world.loadTiles(wd.tiles, byId);
+    if (wd.levels) {
+      for (const k of Object.keys(wd.levels)) this.world.loadLevelTiles(parseInt(k, 10), wd.levels[k], byId);
+    } else {
+      // Pre-Z-levels save: a single flat `tiles` array is level 0.
+      this.world.loadTiles(wd.tiles, byId);
+    }
+    if (wd.minZ != null && wd.minZ < this.world.minZ) this.world.minZ = wd.minZ;
 
     this.dwarves = data.dwarves.map(o => {
       const d = new Dwarf(o.name, o.x, o.y, o.color, o.skills);
+      d.z = o.z || 0;
       d.hunger = o.hunger; d.thirst = o.thirst != null ? o.thirst : 0; d.mood = o.mood; d.facing = o.facing;
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
@@ -216,7 +234,7 @@ class Game {
       d.bed = o.bed || null;
       d.path = o.path || null; d.pathIdx = o.pathIdx || 0;
       if (o.job) {
-        const j = new Job(o.job.type, o.job.x, o.job.y);
+        const j = new Job(o.job.type, o.job.x, o.job.y, o.job.z || 0);
         j.phase = o.job.phase;
         j.item = o.job.item ? byId.get(o.job.item) : null;
         j.dest = o.job.dest; j.dining = o.job.dining; j.buildKind = o.job.buildKind;
@@ -241,6 +259,7 @@ class Game {
     this.tech = data.tech || {};
 
     this.cam = { x: data.cam.x, y: data.cam.y, zoom: data.cam.zoom };
+    this.viewZ = data.viewZ || 0;
     this.time = data.time;
     this.speedIdx = data.speedIdx != null ? data.speedIdx : 1;
     // Always resume running: manual saves are taken from the (paused) menu, so a
@@ -298,20 +317,40 @@ class Game {
     this.updateStats();
   }
 
+  // ---- z-levels (floors) ----
+  // Switches which floor the camera/UI/tools are showing. Clamped to floors
+  // that actually exist (level 0, the surface, down to however deep a
+  // stairwell has been dug).
+  setViewZ(z) {
+    const w = this.world;
+    z = clamp(Math.round(z), w.minZ, 0);
+    if (!w.levels.has(z) || z === this.viewZ) return;
+    this.viewZ = z;
+    this.selectedTile = null;
+    this.updateStats();
+  }
+
   dayFraction() { return (this.time % DAY_LENGTH) / DAY_LENGTH; }
 
   rebuildStockpiles() {
     this.stockpileTiles = [];
-    for (let y = 0; y < this.world.h; y++)
-      for (let x = 0; x < this.world.w; x++)
-        if (this.world.tiles[y][x].stockpile) this.stockpileTiles.push([x, y]);
+    const w = this.world;
+    for (let z = 0; z >= w.minZ; z--) {
+      const tiles = w.getLevel(z);
+      if (!tiles) continue;
+      for (let y = 0; y < w.h; y++)
+        for (let x = 0; x < w.w; x++)
+          if (tiles[y][x].stockpile) this.stockpileTiles.push([x, y, z]);
+    }
   }
 
   // Set an item-type filter across a whole contiguous stockpile (flood-fill
-  // over 4-connected stockpile tiles from x,y), not just the one clicked tile.
-  setStockpileFilter(x, y, filter) {
+  // over 4-connected stockpile tiles from x,y on level z), not just the one
+  // clicked tile.
+  setStockpileFilter(x, y, z, filter) {
     const w = this.world;
-    const start = w.tiles[y] && w.tiles[y][x];
+    const tiles = w.getLevel(z);
+    const start = tiles && tiles[y] && tiles[y][x];
     if (!start || !start.stockpile) return;
     const seen = new Set();
     const key = (px, py) => py * w.w + px;
@@ -319,13 +358,13 @@ class Game {
     seen.add(key(x, y));
     while (stack.length) {
       const [cx, cy] = stack.pop();
-      w.tiles[cy][cx].stockpileFilter = filter;
+      tiles[cy][cx].stockpileFilter = filter;
       for (const [dx, dy] of NEIGHBORS4) {
         const nx = cx + dx, ny = cy + dy;
         if (!w.inBounds(nx, ny)) continue;
         const k = key(nx, ny);
         if (seen.has(k)) continue;
-        if (!w.tiles[ny][nx].stockpile) continue;
+        if (!tiles[ny][nx].stockpile) continue;
         seen.add(k);
         stack.push([nx, ny]);
       }
@@ -383,9 +422,9 @@ class Game {
       if (this.farmTimer <= 0) {
         this.farmTimer = 1;
         const mult = this.season().growth;
-        for (const [fx, fy] of this.farmTiles) {
-          const t = this.world.tiles[fy][fx];
-          if (t.feature === F.CROP && t.growth < 1) t.growth = Math.min(1, t.growth + mult / 120);
+        for (const [fx, fy, fz] of this.farmTiles) {
+          const t = this.world.get(fx, fy, fz || 0);
+          if (t && t.feature === F.CROP && t.growth < 1) t.growth = Math.min(1, t.growth + mult / 120);
         }
       }
     }
@@ -479,7 +518,7 @@ class Game {
     // shrug off on their own during normal work.
     if (!this.enemies.length && d.hp < d.maxhp && (d.hunger < 85 || this.hasTech("medicine"))
         && (!d.wounded || d.state === "recover")) {
-      const here = this.world.tiles[d.tileY] && this.world.tiles[d.tileY][d.tileX];
+      const here = this.world.get(d.tileX, d.tileY, d.z);
       let heal;
       if (!d.wounded) {
         // minor scrape: unchanged gentle ambient regen
@@ -503,8 +542,9 @@ class Game {
     // overall happiness gauge (health + mood + satisfied needs)
     d.happiness = this.computeHappiness(d);
 
-    // combat takes over whenever enemies are on the map
-    if (this.enemies.length && this.handleCombat(d, dt)) return;
+    // combat takes over whenever enemies are on the map — raiders are
+    // surface-only in this release, so an elf underground stays safely at work.
+    if (this.enemies.length && d.z === 0 && this.handleCombat(d, dt)) return;
 
     if (d.job) {
       this.jobs.execute(d, dt);
@@ -517,8 +557,8 @@ class Game {
           if (Math.random() < 0.5) {
             const nx = d.tileX + randint(this.world.rng, -3, 3);
             const ny = d.tileY + randint(this.world.rng, -3, 3);
-            if (this.world.isWalkable(nx, ny)) {
-              const p = pathTo(this.world, d.tileX, d.tileY, nx, ny);
+            if (this.world.isWalkable(nx, ny, d.z)) {
+              const p = pathTo(this.world, d.tileX, d.tileY, d.z, nx, ny, d.z);
               if (p) { d.setPath(p); d.state = "wander"; d.thought = "Wandering about"; }
             }
           }
@@ -706,10 +746,11 @@ class Game {
     return best;
   }
 
+  // Raiders are surface-only this release, so only z=0 elves are valid targets.
   nearestDwarf(x, y) {
     let best = null, bd = Infinity;
     for (const d of this.dwarves) {
-      if (d.hp <= 0) continue;
+      if (d.hp <= 0 || d.z !== 0) continue;
       const dd = dist2(d.x, d.y, x, y) * (d.military ? 0.55 : 1); // enemies favour soldiers
       if (dd < bd) { bd = dd; best = d; }
     }
@@ -734,7 +775,7 @@ class Game {
         d.combatRepath -= dt;
         if (!d.path || d.combatRepath <= 0) {
           d.combatRepath = 0.4;
-          const p = pathAdjacent(this.world, d.tileX, d.tileY, foe.tileX, foe.tileY);
+          const p = pathAdjacent(this.world, d.tileX, d.tileY, 0, foe.tileX, foe.tileY, 0);
           if (p) d.setPath(p);
         }
         d.state = "goto"; d.move(dt);
@@ -751,7 +792,7 @@ class Game {
       d.combatRepath -= dt;
       if (!d.path || d.combatRepath <= 0) {
         d.combatRepath = 0.5;
-        const p = pathTo(this.world, d.tileX, d.tileY, this.world.spawnX, this.world.spawnY);
+        const p = pathTo(this.world, d.tileX, d.tileY, 0, this.world.spawnX, this.world.spawnY, 0);
         if (p) d.setPath(p);
       }
       d.state = "goto"; d.move(dt);
@@ -803,7 +844,7 @@ class Game {
         e.repath -= dt;
         if (!e.path || e.repath <= 0) {
           e.repath = 0.6;
-          const p = pathTo(this.world, e.tileX, e.tileY, this.world.spawnX, this.world.spawnY, true);
+          const p = pathTo(this.world, e.tileX, e.tileY, 0, this.world.spawnX, this.world.spawnY, 0, true);
           if (p) e.setPath(p);
         }
         e.move(dt);
@@ -817,7 +858,7 @@ class Game {
         e.repath -= dt;
         if (!e.path || e.repath <= 0) {
           e.repath = 0.5;
-          const p = pathAdjacent(this.world, e.tileX, e.tileY, tgt.tileX, tgt.tileY, true);
+          const p = pathAdjacent(this.world, e.tileX, e.tileY, 0, tgt.tileX, tgt.tileY, 0, true);
           if (p) e.setPath(p);
         }
         e.move(dt);
@@ -837,7 +878,7 @@ class Game {
       else if (side === 1) { x = randint(w.rng, 0, w.w - 1); y = w.h - 2; }
       else if (side === 2) { x = 1; y = randint(w.rng, 0, w.h - 1); }
       else { x = w.w - 2; y = randint(w.rng, 0, w.h - 1); }
-      if (w.isWalkable(x, y, outsider) && pathTo(w, x, y, w.spawnX, w.spawnY, outsider)) return { x, y };
+      if (w.isWalkable(x, y, 0, outsider) && pathTo(w, x, y, 0, w.spawnX, w.spawnY, 0, outsider)) return { x, y };
     }
     return null;
   }
@@ -869,11 +910,14 @@ class Game {
 
   // ---- trade caravans ----
   trySpawnCaravan() {
-    if (!this.depotTiles.length) return;
+    // Caravans are surface-only this release — only a Trade Depot on level 0
+    // can receive one.
+    const surfaceDepots = this.depotTiles.filter(t => !t[2]);
+    if (!surfaceDepots.length) return;
     const edge = this.randomEdgeTile(true);
     if (!edge) return;
-    const depot = this.jobs.nearestTile(this.depotTiles, edge.x, edge.y);
-    const path = pathTo(this.world, edge.x, edge.y, depot.x, depot.y, true);
+    const depot = this.jobs.nearestTile(surfaceDepots, edge.x, edge.y, 0);
+    const path = pathTo(this.world, edge.x, edge.y, 0, depot.x, depot.y, 0, true);
     if (!path) return;
     const car = new Caravan(edge.x, edge.y);
     car.setPath(path);
@@ -892,7 +936,7 @@ class Game {
         if (car.tradeTimer <= 0) {
           const edge = this.randomEdgeTile(true);
           car.state = "leave";
-          car.setPath(edge ? pathTo(this.world, car.tileX, car.tileY, edge.x, edge.y, true) : null);
+          car.setPath(edge ? pathTo(this.world, car.tileX, car.tileY, 0, edge.x, edge.y, 0, true) : null);
           car._stuckTimer = 5; // fallback despawn if no path home
         }
       } else { // leave
@@ -908,8 +952,8 @@ class Game {
   doTrade(car) {
     const w = this.world;
     let value = 0, sold = 0;
-    for (const [x, y] of this.depotTiles) {
-      const t = w.tiles[y][x];
+    for (const [x, y, z] of this.depotTiles) {
+      const t = w.get(x, y, z || 0);
       const it = t.item;
       if (!it) continue;
       const price = tradeSellPrice(it);
@@ -939,11 +983,12 @@ class Game {
       value -= pick.cost; pick.have++;
       bought[pick.kind] = (bought[pick.kind] || 0) + 1;
     }
+    const surfaceDepots = this.depotTiles.filter(t => !t[2]);
     for (const kind in bought) {
       const sub = kind === ITEM.ORE ? "iron" : null;
       for (let i = 0; i < bought[kind]; i++) {
-        const spot = this.depotTiles[Math.floor(this.world.rng() * this.depotTiles.length)];
-        this.jobs.spawnItem(kind, spot[0], spot[1], sub);
+        const spot = surfaceDepots[Math.floor(this.world.rng() * surfaceDepots.length)];
+        this.jobs.spawnItem(kind, spot[0], spot[1], sub, 0);
       }
     }
     const boughtTxt = Object.keys(bought).length
@@ -957,25 +1002,30 @@ class Game {
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = [];
     this.depotTiles = []; this.doorTiles = [];
     this.tableCount = 0; this.decorCount = {};
-    for (let y = 0; y < this.world.h; y++)
-      for (let x = 0; x < this.world.w; x++) {
-        const t = this.world.tiles[y][x];
-        if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y]);
-        else if (t.furniture === FURN.TABLE) this.tableCount++;
-        else if (t.furniture === FURN.PAINTING && t.zone) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + 1;
-        if (t.zone === ZONE.DINING) this.diningTiles.push([x, y]);
-        else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y]);
-        else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y]);
-        else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y]);
-        else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y]);
-        if (t.built === B.DOOR) this.doorTiles.push([x, y]);
-      }
+    const w = this.world;
+    for (let z = 0; z >= w.minZ; z--) {
+      const tiles = w.getLevel(z);
+      if (!tiles) continue;
+      for (let y = 0; y < w.h; y++)
+        for (let x = 0; x < w.w; x++) {
+          const t = tiles[y][x];
+          if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y, z]);
+          else if (t.furniture === FURN.TABLE) this.tableCount++;
+          else if (t.furniture === FURN.PAINTING && t.zone) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + 1;
+          if (t.zone === ZONE.DINING) this.diningTiles.push([x, y, z]);
+          else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y, z]);
+          else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y, z]);
+          else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y, z]);
+          else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y, z]);
+          if (t.built === B.DOOR) this.doorTiles.push([x, y, z]);
+        }
+    }
   }
 
   // ---- doors ----
   setDoorsLocked(locked) {
     if (!this.doorTiles.length) return;
-    for (const [x, y] of this.doorTiles) this.world.tiles[y][x].doorLocked = locked;
+    for (const [x, y, z] of this.doorTiles) this.world.get(x, y, z || 0).doorLocked = locked;
     this.log(locked ? "All doors locked." : "All doors unlocked.", "", "order");
     this.updateStats();
   }
@@ -1095,6 +1145,15 @@ class Game {
       apBtn.classList.toggle("on", this.autoPause);
       apBtn.textContent = this.autoPause ? "🔔" : "🔕";
     }
+    const zCtl = document.getElementById("zlevel-ctl");
+    if (zCtl) {
+      zCtl.style.display = this.world.minZ < 0 ? "" : "none";
+      const zLabel = document.getElementById("stat-zlevel");
+      if (zLabel) zLabel.textContent = this.viewZ === 0 ? "⛰️ Surface" : `⛰️ B${-this.viewZ}`;
+      const zUp = document.getElementById("zlevel-up"), zDown = document.getElementById("zlevel-down");
+      if (zUp) zUp.disabled = this.viewZ >= 0;
+      if (zDown) zDown.disabled = !this.world.levels.has(this.viewZ - 1);
+    }
   }
 
   setPanelTab(tab) {
@@ -1213,6 +1272,7 @@ class Game {
       row.onclick = () => {
         const d = this.dwarves[+row.dataset.idx];
         this.selectedDwarf = d; this.selectedTile = null;
+        this.setViewZ(d.z);
         this.cam.x = d.x; this.cam.y = d.y; this.updatePanel();
       };
     });
@@ -1232,7 +1292,7 @@ class Game {
       };
     }
     if (this.selectedTile) {
-      const tile = this.world.tiles[this.selectedTile.y][this.selectedTile.x];
+      const tile = this.world.get(this.selectedTile.x, this.selectedTile.y, this.selectedTile.z || 0);
       c.querySelectorAll(".recipe-btn").forEach(btn => {
         btn.onclick = () => {
           tile.workshopRecipe = +btn.dataset.recipe;
@@ -1250,7 +1310,7 @@ class Game {
       }
       c.querySelectorAll(".stockfilter-btn").forEach(btn => {
         btn.onclick = () => {
-          this.setStockpileFilter(this.selectedTile.x, this.selectedTile.y, btn.dataset.filter || null);
+          this.setStockpileFilter(this.selectedTile.x, this.selectedTile.y, this.selectedTile.z || 0, btn.dataset.filter || null);
           this.updatePanel();
         };
       });
@@ -1297,8 +1357,8 @@ class Game {
     }
     if (this.selectedTile) {
       const t = this.selectedTile;
-      const tile = this.world.tiles[t.y][t.x];
-      const parts = [`<b>Tile ${t.x}, ${t.y}</b>`];
+      const tile = this.world.get(t.x, t.y, t.z || 0);
+      const parts = [`<b>Tile ${t.x}, ${t.y}</b>${t.z ? ` <span class="tag">B${-t.z}</span>` : ""}`];
       parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.built === B.DOOR ? "door" : tile.kind}</span>`);
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
@@ -1407,6 +1467,7 @@ class Game {
       haul: "Hauling", eat: "Eating", drink: "Drinking", sleep: "Sleeping", train: "Training", socialize: "Socialising",
       craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
       recover: "Recovering", doctor: "Treating patient", forest: "Foresting",
+      stairsdown: "Carving stairs",
     };
     return map[d.job.type] || "Working";
   }

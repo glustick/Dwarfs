@@ -22,9 +22,11 @@ Brewery turns water + food into mood-boosting Ale) · **relationships**
 (elves develop love/hate opinions of each other, any pairing; partners get a
 mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
 (a Forester labor plants saplings to deliberately regrow logged forest) ·
-**minimap**, **auto-pause alerts**, **stockpile categories**, and **audio
+**minimap**, **auto-pause alerts**, **stockpile categories**, **audio
 polish** (combat tension music, per-workshop crafting tones, birdsong,
-volume sliders).
+volume sliders), and **Z-levels** (dig a stairwell down to a new floor of
+dense stone and ore; every system — jobs, hauling, beds, farms, workshops,
+save/load — works across floors; raids/trade/migration stay surface-only).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -68,14 +70,21 @@ volume sliders).
 
 ## Tier 4 — the big one
 
-- [ ] **Z-levels (dig down)** — the signature "dig ever deeper" feature and the
-      largest single upgrade; touches the world model, rendering, and
-      pathfinding. Plan toward this once the surface loop is deep.
+- [x] ~~Z-levels (dig down) — Phase 1~~ — a 🌀 Dig Stairs designation carves
+      a stairwell down to a newly-generated level below (dense stone + ore),
+      connected end-to-end for pathfinding/hauling; a ⛰️ floor indicator and
+      ▲/▼ controls (or `[`/`]`) switch which level the camera, tools, and
+      minimap act on. Every system (jobs, beds, farms, workshops, stockpile
+      filters, save/load) is floor-aware; older single-level saves still load.
+- [ ] **Z-levels — Phase 2 (future)**: ramps (not just stairs), raiders/
+      caravans/migrants reaching underground, underground water/flooding,
+      cave-ins. Surface-only for raids/trade/migration was a deliberate
+      Phase 1 scope cut, not an oversight.
 
 ---
 
 ### Notes
-- **Tiers 1–3 are all fully shipped.** Only **Z-levels** (Tier 4) remains —
-  the big one. It touches the world model, rendering, and pathfinding, so
-  it's worth planning carefully (and possibly its own sub-roadmap) rather
-  than treating it as a single round.
+- **Tiers 1–4 (Phase 1) are all shipped.** What's left is genuinely optional
+  polish: Z-levels Phase 2 (above), or returning to smaller quality-of-life
+  ideas as they come up. The surface loop and the underground loop are both
+  now real, playable game modes.

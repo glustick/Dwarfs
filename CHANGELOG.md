@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.4.0 (build 19)
+Tier 4, Phase 1 — Z-levels: the colony can dig down.
+
+- **🌀 Dig Stairs** — a new designation (Orders flyout) carves a stairwell
+  down from any tile into the level below, auto-generating fresh stone +
+  ore terrain underground the first time a stairwell reaches it. Elves,
+  hauled/dropped items, and pathfinding all move between floors through a
+  connected pair of stairs tiles.
+- **Floor navigation** — a ⛰️ indicator and ▲/▼ buttons in the top bar (also
+  `[` / `]`) switch which floor the camera, minimap, and every tool (mining,
+  building, zoning, stockpiles) act on. Selecting an elf on another floor
+  jumps the view to them automatically.
+- Every system — jobs, hauling, beds, farms, workshops, stockpile filters,
+  save/load — is floor-aware. Older saves (single-level, pre-1.4) still load
+  unchanged.
+- **Deliberately out of scope this round**: ramps (stairs only), raiders/
+  caravans/migrants (surface-only for now — the underground is safe from
+  raids), and underground water/flooding/cave-ins. Candidates for a Phase 2.
+
 ## v1.3.0 (build 18)
 Completes Tier 3 — UX and quality-of-life:
 

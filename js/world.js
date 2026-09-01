@@ -26,7 +26,7 @@ const ORES = ["iron", "gold", "coal"];
 const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
 
 // Built structures
-const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door" };
+const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs" };
 
 // Furniture placed on a tile.
 const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting" };
@@ -72,9 +72,12 @@ class World {
     this.h = h;
     this.seed = seed;
     this.rng = makeRNG(seed);
-    this.tiles = [];
+    this.tiles = [];         // level 0 (surface) — kept for backward compatibility
+    this.levels = new Map(); // z -> Tile[][], z=0 is `this.tiles`
+    this.minZ = 0;           // deepest level dug into so far
     if (gen) this.generate();
     else this.initEmpty();
+    this.levels.set(0, this.tiles);
   }
 
   // Build a blank grid (used before loading tiles from a save).
@@ -88,16 +91,66 @@ class World {
     this.spawnY = Math.floor(this.h / 2);
   }
 
-  // Restore tile state from a serialized array; `itemsById` maps item ids.
+  // Build a blank grid for a not-yet-existing sub-surface level (used while
+  // restoring a save so loadLevelTiles has something to write into).
+  blankLevel() {
+    const rows = [];
+    for (let y = 0; y < this.h; y++) {
+      const row = [];
+      for (let x = 0; x < this.w; x++) row.push(new Tile(K.STONE));
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // Get (or lazily generate) the tile grid for level `z`. z=0 is the
+  // surface, already generated; z<0 levels are dense underground stone
+  // with ore veins, generated the first time a stairwell reaches them.
+  getLevel(z) {
+    let lvl = this.levels.get(z);
+    if (!lvl) {
+      lvl = this.generateUndergroundLevel(z);
+      this.levels.set(z, lvl);
+      if (z < this.minZ) this.minZ = z;
+    }
+    return lvl;
+  }
+
+  generateUndergroundLevel(z) {
+    const noise = makeNoise(this.rng);
+    const rng = this.rng;
+    const rows = [];
+    for (let y = 0; y < this.h; y++) {
+      const row = [];
+      for (let x = 0; x < this.w; x++) {
+        const t = new Tile(K.STONE);
+        const veins = noise(x + z * 733, y - z * 411, 22, 4);
+        if (veins > 0.55 && rng() < 0.16) t.ore = choice(rng, ORES);
+        row.push(t);
+      }
+      rows.push(row);
+    }
+    return rows;
+  }
+
+  // Restore tile state from a serialized array into a specific level's
+  // grid; `itemsById` maps item ids. Level 0 defaults to `this.tiles`.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
   //                workshop,workshopRecipe,doorLocked,bedOccupants,stockpileFilter]
-  loadTiles(data, itemsById) {
+  loadLevelTiles(z, data, itemsById) {
+    let tiles = this.levels.get(z);
+    if (!tiles) {
+      tiles = this.blankLevel();
+      this.levels.set(z, tiles);
+      if (z === 0) this.tiles = tiles;
+      if (z < this.minZ) this.minZ = z;
+    }
     let i = 0;
     for (let y = 0; y < this.h; y++) {
       for (let x = 0; x < this.w; x++) {
         const a = data[i++];
-        const t = this.tiles[y][x];
+        const t = tiles[y][x];
         t.kind = a[0]; t.feature = a[1]; t.ore = a[2]; t.growth = a[3];
         t.designation = a[4]; t.built = a[5];
         t.buildJob = !!a[6]; t.buildKind = a[7] || null; t.stockpile = !!a[8];
@@ -112,8 +165,24 @@ class World {
     }
   }
 
+  // Backward-compatible alias: load into level 0.
+  loadTiles(data, itemsById) { this.loadLevelTiles(0, data, itemsById); }
+
+  // Carve a stairwell connecting (x,y,z) down to (x,y,z-1), auto-generating
+  // the level below the first time it's reached.
+  carveStairs(x, y, z) {
+    const here = this.getLevel(z)[y][x];
+    here.kind = K.FLOOR; here.built = B.STAIRS; here.ore = null; here.feature = F.NONE;
+    const below = this.getLevel(z - 1)[y][x];
+    below.kind = K.FLOOR; below.built = B.STAIRS; below.ore = null; below.feature = F.NONE;
+  }
+
   inBounds(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
-  get(x, y) { return this.inBounds(x, y) ? this.tiles[y][x] : null; }
+  get(x, y, z = 0) {
+    if (!this.inBounds(x, y)) return null;
+    const lvl = z === 0 ? this.tiles : this.levels.get(z);
+    return lvl ? lvl[y][x] : null;
+  }
 
   generate() {
     const noise = makeNoise(this.rng);
@@ -185,8 +254,9 @@ class World {
 
   // Is this tile walkable? `outsider` (raiders, caravans) is blocked by a
   // locked door; the colony's own elves always pass through their doors.
-  isWalkable(x, y, outsider = false) {
-    const t = this.get(x, y);
+  // `z` selects the level (0 = surface, negative = underground).
+  isWalkable(x, y, z = 0, outsider = false) {
+    const t = this.get(x, y, z);
     if (!t) return false;
     if (t.built === B.WALL) return false;
     if (t.built === B.DOOR && outsider && t.doorLocked) return false;
@@ -197,9 +267,9 @@ class World {
   }
 
   // Can a mining/build job stand next to this target?
-  hasWalkableNeighbor(x, y) {
+  hasWalkableNeighbor(x, y, z = 0) {
     for (const [dx, dy] of NEIGHBORS4) {
-      if (this.isWalkable(x + dx, y + dy)) return true;
+      if (this.isWalkable(x + dx, y + dy, z)) return true;
     }
     return false;
   }

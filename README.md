@@ -149,6 +149,21 @@ across games as a hall of records.
   over time — same as any other regrowth, just started deliberately instead
   of left to chance.
 
+## Z-levels — digging down
+
+- **🌀 Dig Stairs** — drag over any tile (solid stone or already-open ground)
+  to designate it for a stairwell. An elf with the Mining labor carves it,
+  which also opens up a brand-new level directly below — dense stone laced
+  with ore, generated the moment a stairwell first reaches it.
+- **⛰️ Floor indicator** (top bar) — shows which floor the camera, tools, and
+  minimap are currently showing. Click ▲/▼ (or press `[` / `]`) to switch
+  floors; selecting an elf on another floor jumps the view there for you.
+  Every system works underground too: mining, hauling, beds, farms,
+  workshops, stockpile filters, saving and loading.
+- Raiders, trading caravans, and migrants are surface-only for now — the
+  underground is safe from raids, at least until a future round takes that
+  on. Ramps, flooding, and cave-ins are similarly left for later.
+
 ### 🔬 Research & 😀 Happiness
 
 - **Research tree** (Research tab): points accrue from your elves' *Intelligence*
@@ -186,7 +201,8 @@ bar), or dial Music and SFX separately from the **⏸ Menu → Audio** sliders.
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `Z` dig stairs · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Switch floor | `[` / `]`, or the ▲/▼ buttons next to the ⛰️ floor indicator |
 
 ## Under the hood
 

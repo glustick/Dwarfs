@@ -50,6 +50,8 @@ class Renderer {
     const ts = this.ts;
     const ox = this.canvas.width / 2 - g.cam.x * ts;
     const oy = this.canvas.height / 2 - g.cam.y * ts;
+    const viewZ = g.viewZ || 0;
+    const tiles = w.getLevel(viewZ) || w.tiles;
 
     // background (deep earth)
     ctx.fillStyle = "#0a0806";
@@ -63,14 +65,14 @@ class Renderer {
     // 1) terrain
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        this.drawTile(ctx, w.tiles[y][x], x * ts + ox, y * ts + oy, ts, x, y);
+        this.drawTile(ctx, tiles[y][x], x * ts + ox, y * ts + oy, ts, x, y);
       }
     }
 
     // 2) designations & zones
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
-        const t = w.tiles[y][x];
+        const t = tiles[y][x];
         if (t.zone) this.drawZone(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts, t.stockpileFilter);
         if (t.furniture) this.drawFurniture(ctx, t, x * ts + ox, y * ts + oy, ts);
@@ -80,26 +82,27 @@ class Renderer {
       }
     }
 
-    // 3) items
+    // 3) items (only those on the floor currently being viewed)
     for (const it of g.items) {
-      if (it.hauled) continue;
+      if (it.hauled || (it.z || 0) !== viewZ) continue;
       if (it.x < x0 - 1 || it.x > x1 + 1 || it.y < y0 - 1 || it.y > y1 + 1) continue;
       this.drawItem(ctx, it, it.x * ts + ox, it.y * ts + oy, ts);
     }
 
-    // 4) dwarves
+    // 4) dwarves (only those on the floor currently being viewed)
     for (const d of g.dwarves) {
+      if ((d.z || 0) !== viewZ) continue;
       this.drawDwarf(ctx, d, ox, oy, ts);
     }
 
-    // 4b) enemies
-    for (const e of g.enemies) {
+    // 4b) enemies (surface-only this release)
+    if (viewZ === 0) for (const e of g.enemies) {
       if (e.hp <= 0) continue;
       this.drawEnemy(ctx, e, ox, oy, ts);
     }
 
-    // 4c) caravans
-    for (const car of g.caravans) this.drawCaravan(ctx, car, ox, oy, ts);
+    // 4c) caravans (surface-only this release)
+    if (viewZ === 0) for (const car of g.caravans) this.drawCaravan(ctx, car, ox, oy, ts);
 
     // 4d) combat sparks
     for (const fx of g.combatFx) {
@@ -132,22 +135,28 @@ class Renderer {
     return { x, y, w: mw * this.dpr, h: mh * this.dpr };
   }
 
-  buildMinimapTexture() {
+  // Each floor gets its own cached texture, keyed by z, since they show
+  // completely different terrain.
+  buildMinimapTexture(z) {
     const w = this.game.world;
-    if (!this.miniCanvas) {
-      this.miniCanvas = document.createElement("canvas");
-      this.miniCtx = this.miniCanvas.getContext("2d");
+    const tiles = w.getLevel(z);
+    if (!tiles) return null;
+    if (!this._miniByZ) this._miniByZ = new Map();
+    let entry = this._miniByZ.get(z);
+    if (!entry) {
+      const canvas = document.createElement("canvas");
+      canvas.width = w.w; canvas.height = w.h;
+      entry = { canvas, ctx: canvas.getContext("2d"), builtAt: 0 };
+      this._miniByZ.set(z, entry);
     }
-    if (this.miniCanvas.width !== w.w || this.miniCanvas.height !== w.h) {
-      this.miniCanvas.width = w.w; this.miniCanvas.height = w.h;
-    }
-    const mctx = this.miniCtx;
+    const mctx = entry.ctx;
     const img = mctx.createImageData(w.w, w.h);
     for (let y = 0; y < w.h; y++) {
       for (let x = 0; x < w.w; x++) {
-        const t = w.tiles[y][x];
+        const t = tiles[y][x];
         let r, gg, b;
         if (t.built === B.WALL) { r = 122; gg = 79; b = 52; }
+        else if (t.built === B.STAIRS) { r = 200; gg = 170; b = 90; }
         else if (t.workshop || t.furniture) { r = 138; gg = 120; b = 90; }
         else if (t.kind === K.WATER) { r = 45; gg = 100; b = 160; }
         else if (t.kind === K.SAND) { r = 201; gg = 184; b = 120; }
@@ -160,34 +169,41 @@ class Renderer {
       }
     }
     mctx.putImageData(img, 0, 0);
-    this._miniBuiltAt = performance.now();
+    entry.builtAt = performance.now();
+    return entry;
   }
 
   drawMinimap(ctx, x0, y0, x1, y1) {
     const g = this.game, w = g.world;
-    if (!this._miniBuiltAt || performance.now() - this._miniBuiltAt > 2000) this.buildMinimapTexture();
+    const z = g.viewZ || 0;
+    let entry = this._miniByZ && this._miniByZ.get(z);
+    if (!entry || performance.now() - entry.builtAt > 2000) entry = this.buildMinimapTexture(z);
+    if (!entry) return;
     const r = this.miniRect;
 
     ctx.fillStyle = "rgba(10,8,6,0.75)";
     ctx.fillRect(r.x - 3, r.y - 3, r.w + 6, r.h + 6);
     ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(this.miniCanvas, 0, 0, w.w, w.h, r.x, r.y, r.w, r.h);
+    ctx.drawImage(entry.canvas, 0, 0, w.w, w.h, r.x, r.y, r.w, r.h);
     ctx.imageSmoothingEnabled = true;
 
     const sx = r.w / w.w, sy = r.h / w.h;
     // viewport rectangle
     ctx.strokeStyle = "#ffcf6b"; ctx.lineWidth = Math.max(1, this.dpr);
     ctx.strokeRect(r.x + x0 * sx, r.y + y0 * sy, (x1 - x0) * sx, (y1 - y0) * sy);
-    // dwarves
+    // dwarves on this floor
     for (const d of g.dwarves) {
+      if ((d.z || 0) !== z) continue;
       ctx.fillStyle = d.color;
       ctx.fillRect(r.x + d.x * sx - 1, r.y + d.y * sy - 1, 2, 2);
     }
-    // enemies
-    ctx.fillStyle = "#e0553a";
-    for (const e of g.enemies) {
-      if (e.hp <= 0) continue;
-      ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
+    // enemies (surface-only)
+    if (z === 0) {
+      ctx.fillStyle = "#e0553a";
+      for (const e of g.enemies) {
+        if (e.hp <= 0) continue;
+        ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
+      }
     }
     ctx.strokeStyle = "rgba(180,150,100,0.6)"; ctx.lineWidth = 1;
     ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
@@ -237,6 +253,7 @@ class Renderer {
     if (t.built === B.WALL) this.drawBrickWall(ctx, sx, sy, s);
     if (t.built === B.DOOR) this.drawDoor(ctx, t, sx, sy, ts);
     if (t.kind === K.FLOOR || t.built === B.FLOOR) this.drawFloorGrid(ctx, sx, sy, ts);
+    if (t.built === B.STAIRS) this.drawStairs(ctx, sx, sy, ts);
 
     // features
     if (t.feature === F.TREE) this.drawTree(ctx, sx, sy, ts, t.growth, gx, gy);
@@ -321,6 +338,21 @@ class Renderer {
     ctx.strokeStyle = "rgba(0,0,0,0.13)";
     ctx.lineWidth = 1;
     ctx.strokeRect(sx + 0.5, sy + 0.5, ts, ts);
+  }
+
+  drawStairs(ctx, sx, sy, ts) {
+    const cx = sx + ts / 2, cy = sy + ts / 2, r = ts * 0.32;
+    ctx.fillStyle = "rgba(20,16,10,0.5)";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#d8b56a"; ctx.lineWidth = Math.max(1, ts * 0.06);
+    ctx.beginPath();
+    for (let i = 0; i <= 8; i++) {
+      const a = (i / 8) * Math.PI * 2.4;
+      const rr = r * (i / 8);
+      const px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
   }
 
   // -- features ------------------------------------------------------------
@@ -424,7 +456,7 @@ class Renderer {
 
   drawDesignation(ctx, t, sx, sy, ts) {
     const pulse = 0.4 + Math.sin(this.game.time * 4) * 0.2;
-    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})`, forest: `rgba(60,170,90,${pulse})` };
+    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})`, forest: `rgba(60,170,90,${pulse})`, stairsdown: `rgba(200,170,90,${pulse})` };
     ctx.fillStyle = colors[t.designation] || `rgba(255,255,255,${pulse})`;
     ctx.fillRect(sx, sy, ts, ts);
     ctx.strokeStyle = colors[t.designation];
@@ -434,7 +466,7 @@ class Renderer {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${Math.floor(ts * 0.5)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿", forest: "🌲" }[t.designation] || "";
+    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿", forest: "🌲", stairsdown: "🌀" }[t.designation] || "";
     ctx.fillText(glyph, sx + ts / 2, sy + ts / 2 + 1);
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
   }

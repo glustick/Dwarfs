@@ -24,6 +24,11 @@
         <button class="spd" id="lock-doors-btn" title="Lock all doors">🔒</button>
         <button class="spd" id="unlock-doors-btn" title="Unlock all doors">🔓</button>
       </span>
+      <span id="zlevel-ctl" style="display:none" title="Current floor">
+        <button class="spd" id="zlevel-up" title="Floor up ([)">▲</button>
+        <span class="stat"><b id="stat-zlevel">⛰️ Surface</b></span>
+        <button class="spd" id="zlevel-down" title="Floor down (])">▼</button>
+      </span>
       <span class="stat clock" title="Time"><span id="stat-clock">Day 1 · 06:00</span></span>
       <span id="speed-ctl" title="Game speed">
         <button class="spd" data-spd="pause" title="Pause (Space)">⏸</button>
@@ -54,6 +59,7 @@
           <button class="tool" data-tool="chop" title="Chop trees (C)"><span class="ico">🪓</span><span class="lbl">Chop</span></button>
           <button class="tool" data-tool="gather" title="Gather plants (G)"><span class="ico">🌿</span><span class="lbl">Gather</span></button>
           <button class="tool" data-tool="forest" title="Plant a tree — needs the Foresting labor (P)"><span class="ico">🌲</span><span class="lbl">Plant Tree</span></button>
+          <button class="tool" data-tool="stairsdown" title="Dig a stairwell down to the level below (Z)"><span class="ico">🌀</span><span class="lbl">Dig Stairs</span></button>
         </div>
       </div>
       <div class="fly-group" data-group="build">
