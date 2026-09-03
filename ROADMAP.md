@@ -24,9 +24,13 @@ mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
 (a Forester labor plants saplings to deliberately regrow logged forest) ·
 **minimap**, **auto-pause alerts**, **stockpile categories**, **audio
 polish** (combat tension music, per-workshop crafting tones, birdsong,
-volume sliders), and **Z-levels** (dig a stairwell down to a new floor of
+volume sliders), **Z-levels** (dig a stairwell down to a new floor of
 dense stone and ore; every system — jobs, hauling, beds, farms, workshops,
-save/load — works across floors; raids/trade/migration stay surface-only).
+save/load — works across floors; raids/trade/migration stay surface-only),
+and **the Outbreak** (raids are now zombies — Shamblers/Runners/Brutes —
+escalating with tech progress rather than day count; a bite can infect an
+elf, who races a cure via the Hospital/Doctor pipeline or turns into a new
+hostile).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -81,10 +85,29 @@ save/load — works across floors; raids/trade/migration stay surface-only).
       cave-ins. Surface-only for raids/trade/migration was a deliberate
       Phase 1 scope cut, not an oversight.
 
+## Tier 5 — The Outbreak
+
+- [x] ~~The Outbreak — Phase 1~~ — raids are now zombies (Shambler/Runner/
+      Brute), scaling in size and mix with `techTierScore()` (highest tech
+      tier researched, plus a bonus per tech) instead of day count, shown
+      via a 🦠 dread indicator. A zombie hit can infect an elf; they
+      auto-seek a bed/Hospital and race an infection clock that a Doctor +
+      Hospital + Medicine tech can reverse into a cure, or that runs out
+      and turns them into a new hostile (`Turned Elf`) in their place.
+- [ ] **The Outbreak — Phase 2 (future)**: vampires as a hidden day/night
+      threat ("looks sick, hides during the day," can quietly turn others
+      from the inside rather than announcing themselves like a zombie
+      does); a quarantine zone; a Doctor "checkup" detection/tells
+      mechanic for catching an infection before it's obvious; relationship-
+      driven cover-ups (a partner concealing a loved one's infection); new
+      defensive structures (palisades, watchtowers, traps) to lean further
+      into the tower-defense angle.
+
 ---
 
 ### Notes
-- **Tiers 1–4 (Phase 1) are all shipped.** What's left is genuinely optional
-  polish: Z-levels Phase 2 (above), or returning to smaller quality-of-life
-  ideas as they come up. The surface loop and the underground loop are both
-  now real, playable game modes.
+- **Tiers 1–5 (Phase 1s) are all shipped.** What's left is genuinely
+  optional: Z-levels Phase 2, The Outbreak Phase 2 (vampires and the
+  social-deduction angle are a meaningfully different, riskier system —
+  worth their own dedicated round), or smaller quality-of-life ideas as
+  they come up.

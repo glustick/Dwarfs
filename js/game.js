@@ -31,6 +31,10 @@ const LOG_CATS = {
 const MAX_EVENTS = 4000;       // in-memory chronicle cap
 const SAVED_EVENTS = 600;      // how many recent events persist in a save
 
+// ---- The outbreak: infection clock & dread labels ----
+const INFECTION_TIME = 90;     // game-seconds an untreated bite takes to turn
+const OUTBREAK_LABELS = ["Calm", "Stirring", "Restless", "Ravenous", "Overrun"];
+
 class Game {
   // `saveData` restores a saved game; otherwise a fresh world is generated.
   constructor(saveData) {
@@ -173,6 +177,7 @@ class Game {
       hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing,
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
+      infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
       weapon: d.weapon, armor: d.armor,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0, parch: d.parch || 0,
@@ -223,6 +228,7 @@ class Game {
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
+      d.infected = !!o.infected; d.infectionTimer = o.infectionTimer || 0;
       d.relationships = o.relationships || {}; d.partnerId = o.partnerId || null;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0; d.parch = o.parch || 0;
@@ -482,7 +488,7 @@ class Game {
   resolveActivity(d) {
     if (d.hunger > 85) return "eat";
     if (d.thirst > 85) return "drink";
-    if (d.wounded) return "recover";
+    if (d.wounded || d.infected) return "recover";
     if (d.energy < 15) return "sleep";
     return d.schedule[this.shift()] || "work";
   }
@@ -537,6 +543,27 @@ class Game {
       }
       d.hp = clamp(d.hp + heal * dt, 0, d.maxhp);
       if (d.wounded && d.hp >= d.maxhp) d.wounded = false;
+    }
+
+    // The infection clock: ticks down toward turning regardless of whether
+    // a raid is active. Hospital + Medicine tech alone nearly stall it —
+    // a doctor's active attention (which cycles on/off between discrete
+    // treatment visits, same as the wound-healing bonus) is what pushes the
+    // rate decisively negative, i.e. actually recovering, while they're there.
+    if (d.infected) {
+      const here = this.world.get(d.tileX, d.tileY, d.z);
+      let rate = 1;
+      if (here && here.zone === ZONE.HOSPITAL) rate -= 0.5;
+      if (this.hasTech("medicine")) rate -= 0.4;
+      if (d.beingTreated) rate -= 0.6;
+      rate = Math.max(-0.5, rate);
+      d.infectionTimer -= rate * dt;
+      if (d.infectionTimer <= 0) { this.turnZombie(d); return; }
+      if (d.infectionTimer >= INFECTION_TIME) {
+        d.infected = false;
+        d.mood = clamp(d.mood + 10, 0, 100);
+        this.log(`${d.name} has fought off the infection!`, "good", "colony");
+      }
     }
 
     // overall happiness gauge (health + mood + satisfied needs)
@@ -614,8 +641,52 @@ class Game {
     }
   }
 
+  // An infection that ran its full course: the colonist is lost, and a new
+  // hostile appears in their place. Mirrors recordDeath's bookkeeping.
+  turnZombie(d) {
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    this.log(`${d.name} succumbed to the infection and turned!`, "bad", "combat");
+    this.triggerAutoPause(`${d.name} has turned!`);
+    this.jobs.releaseBed(d);
+    if (d.partnerId) {
+      const partner = this.dwarves.find(o => o.dbId === d.partnerId);
+      if (partner) {
+        partner.partnerId = null;
+        partner.mood = clamp(partner.mood - 25, 0, 100);
+        this.log(`${partner.name} watches in horror as ${d.name} turns.`, "bad", "colony");
+      }
+    }
+    (this._toRemove || (this._toRemove = [])).push(d);
+    const turned = new Enemy("turned", d.x, d.y);
+    this.enemies.push(turned);
+    if (colonyDB) {
+      const skills = {};
+      for (const id in d.skills) skills[id] = d.skills[id].level;
+      colonyDB.putDwarf({
+        id: d.dbId, name: d.name, color: d.color, alive: false, cause: "turned into a zombie", skills,
+        profession: professionOf(d), day,
+      }).catch(() => {});
+      colonyDB.logEvent(`${d.name} turned into a zombie`, day);
+    }
+  }
+
   // ---- research ----
   hasTech(id) { return !!this.tech[id]; }
+
+  // ---- the outbreak: escalation keyed to research progress, not day ----
+  // Highest tier researched, plus a small bonus per tech beyond that — so
+  // a colony that pushes deep into the tree faces a worse outbreak even
+  // within the same tier.
+  techTierScore() {
+    let maxTier = 0, count = 0;
+    for (const t of TECHS) if (this.hasTech(t.id)) { maxTier = Math.max(maxTier, t.tier); count++; }
+    return maxTier + count * 0.15;
+  }
+
+  outbreakLabel() {
+    const idx = clamp(Math.floor(this.techTierScore()), 0, OUTBREAK_LABELS.length - 1);
+    return OUTBREAK_LABELS[idx];
+  }
 
   researchRate() {
     let r = 0;
@@ -822,6 +893,15 @@ class Game {
       d.mood = clamp(d.mood - 8, 0, 100);
       this.log(`${d.name} has been badly wounded!`, "bad", "combat");
     }
+    const bite = ENEMY_TYPES[e.kind];
+    if (bite && bite.infectious && !d.infected) {
+      if (this.world.rng() < (bite.biteChance || 0.2)) {
+        d.infected = true;
+        d.infectionTimer = INFECTION_TIME;
+        d.mood = clamp(d.mood - 12, 0, 100);
+        this.log(`${d.name} was bitten!`, "bad", "combat");
+      }
+    }
   }
 
   killEnemy(foe, byDwarf) {
@@ -883,29 +963,48 @@ class Game {
     return null;
   }
 
+  // Rolls one zombie's kind, weighted by how deep the colony has gone into
+  // the tech tree — shamblers early, runners and eventually brutes as the
+  // outbreak worsens.
+  rollZombieKind(score) {
+    const r = this.world.rng();
+    const bruteChance = clamp((score - 2) * 0.25, 0, 0.5);
+    const runnerChance = clamp((score - 0.5) * 0.3, 0, 0.45);
+    if (r < bruteChance) return "brute";
+    if (r < bruteChance + runnerChance) return "runner";
+    return "shambler";
+  }
+
   spawnRaid() {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
-    const n = clamp(1 + Math.floor(day / 5) + Math.floor(this.dwarves.length / 6), 1, 8);
-    let kind = "wolf";
-    if (day >= 12 && this.world.rng() < 0.35) kind = "troll";
-    else if (day >= 6) kind = "goblin";
+    const score = this.techTierScore();
+    const n = clamp(1 + Math.floor(score) + Math.floor(this.dwarves.length / 6), 1, 10);
     const edge = this.randomEdgeTile();
     if (!edge) return;
     let spawned = 0;
+    const counts = {};
     for (let k = 0; k < n; k++) {
       for (let t = 0; t < 14; t++) {
         const x = clamp(edge.x + randint(this.world.rng, -3, 3), 0, this.world.w - 1);
         const y = clamp(edge.y + randint(this.world.rng, -3, 3), 0, this.world.h - 1);
-        if (this.world.isWalkable(x, y)) { this.enemies.push(new Enemy(kind, x, y)); spawned++; break; }
+        if (this.world.isWalkable(x, y)) {
+          const kind = this.rollZombieKind(score);
+          this.enemies.push(new Enemy(kind, x, y));
+          counts[kind] = (counts[kind] || 0) + 1;
+          spawned++;
+          break;
+        }
       }
     }
     if (!spawned) return;
     this.raidCount++;
-    const label = ENEMY_TYPES[kind].name + (spawned > 1 ? "s" : "");
-    this.log(`⚔️ A raid! ${spawned} ${label} approach from the wilds!`, "bad", "combat");
-    if (window.App) window.App.toast(`⚔️ Raid — ${spawned} ${label}!`);
-    if (colonyDB) colonyDB.logEvent(`Raid of ${spawned} ${label} attacked`, day);
-    this.triggerAutoPause(`a raid of ${spawned} ${label} is approaching`);
+    const label = Object.entries(counts)
+      .map(([kind, c]) => `${c} ${ENEMY_TYPES[kind].name}${c > 1 ? "s" : ""}`)
+      .join(", ");
+    this.log(`🧟 An outbreak! ${label} shamble in from the wilds!`, "bad", "combat");
+    if (window.App) window.App.toast(`🧟 Outbreak — ${spawned} infected!`);
+    if (colonyDB) colonyDB.logEvent(`Outbreak of ${label} attacked`, day);
+    this.triggerAutoPause(`an outbreak of ${spawned} infected is approaching`);
   }
 
   // ---- trade caravans ----
@@ -1133,9 +1232,18 @@ class Game {
     if (threat) {
       if (this.enemies.length) {
         threat.style.display = "";
-        threat.innerHTML = `⚔️ <b>${this.enemies.length}</b> · 🛡 ${this.soldierCount()}`;
+        threat.innerHTML = `🧟 <b>${this.enemies.length}</b> · 🛡 ${this.soldierCount()}`;
       } else {
         threat.style.display = "none";
+      }
+    }
+    const outbreak = document.getElementById("stat-outbreak");
+    if (outbreak) {
+      if (day >= 3 || this.raidCount) {
+        outbreak.style.display = "";
+        outbreak.textContent = `🦠 ${this.outbreakLabel()}`;
+      } else {
+        outbreak.style.display = "none";
       }
     }
     const doorCtl = document.getElementById("door-ctl");
@@ -1260,7 +1368,7 @@ class Game {
       html += `
         <div class="dwarf-row${sel}" data-idx="${i}">
           <span class="swatch" style="background:${d.color}"></span>
-          <span class="dname">${d.name}${d.wounded ? " 🩹" : ""} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
+          <span class="dname">${d.name}${d.wounded ? " 🩹" : ""}${d.infected ? " 🧟" : ""} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
             <div class="dtask">${professionOf(d)} · ${this.taskLabel(d)}</div>
             <div class="bar" title="Happiness ${Math.round(hap)}"><i style="width:${hap}%;background:${hapColor}"></i></div>
           </span>
@@ -1345,9 +1453,10 @@ class Game {
       sk += `</div>`;
       const gear = [d.weapon ? "🗡 " + d.weapon : null, d.armor ? "🛡 " + d.armor : null].filter(Boolean).join(" · ");
       return `
-        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}${d.wounded ? ' <span class="tag" style="background:#6b2f2f">🩹 wounded</span>' : ""}<br/>
+        <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}${d.wounded ? ' <span class="tag" style="background:#6b2f2f">🩹 wounded</span>' : ""}${d.infected ? ' <span class="tag" style="background:#2f6b3a">🧟 infected</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
+        ${d.infected ? `<div class="mini" style="color:#8fd08f">🧟 Fighting the infection — ${Math.max(0, Math.round(d.infectionTimer))}s until it takes hold</div>` : ""}
         ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>

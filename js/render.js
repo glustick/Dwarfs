@@ -787,13 +787,23 @@ class Renderer {
       ctx.textAlign = "start";
     }
 
-    // resting to recover from a wound
+    // resting to recover from a wound or an infection
     if (d.state === "recover") {
       const t = this.game.time;
-      ctx.fillStyle = `rgba(230,110,110,${0.6 + Math.sin(t * 3) * 0.3})`;
+      ctx.fillStyle = d.infected
+        ? `rgba(120,210,120,${0.6 + Math.sin(t * 3) * 0.3})`
+        : `rgba(230,110,110,${0.6 + Math.sin(t * 3) * 0.3})`;
       ctx.font = `${Math.floor(ts * 0.4)}px serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("✚", cx + r * 0.9, cy - r * 1.1 - (Math.sin(t * 2) * ts * 0.06));
+      ctx.fillText(d.infected ? "🧟" : "✚", cx + r * 0.9, cy - r * 1.1 - (Math.sin(t * 2) * ts * 0.06));
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+    } else if (d.infected) {
+      // still up and working, but visibly sickly
+      const t = this.game.time;
+      ctx.fillStyle = `rgba(120,210,120,${0.5 + Math.sin(t * 3) * 0.25})`;
+      ctx.font = `${Math.floor(ts * 0.35)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🧟", cx + r * 0.9, cy - r * 1.1);
       ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
 

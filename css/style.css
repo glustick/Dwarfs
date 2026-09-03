@@ -191,6 +191,7 @@ html, body {
 #sound-btn { margin-left: 4px; }
 #sound-btn.off { opacity: 0.5; }
 #stat-research b { color: #8fd0ff; }
+#stat-outbreak { color: #7ecf7e; }
 #zlevel-ctl { display: inline-flex; align-items: center; gap: 3px; margin-left: 4px; }
 #zlevel-ctl .spd:disabled { opacity: 0.35; cursor: default; }
 

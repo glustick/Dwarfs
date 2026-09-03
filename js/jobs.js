@@ -97,7 +97,7 @@ class JobManager {
     }
     // doctor candidates are dwarves, not tiles — resting patients not yet attended
     for (const d of g.dwarves) {
-      if (d.wounded && d.state === "recover" && !d.beingTreated) c.doctor.push(d);
+      if ((d.wounded || d.infected) && d.state === "recover" && !d.beingTreated) c.doctor.push(d);
     }
     this.candidates = c;
   }
@@ -610,10 +610,11 @@ class JobManager {
         break;
       }
       case "recover": {
-        // Actual healing happens in Game.updateDwarf's ambient-heal pass (it
-        // reads d.state === "recover" for the bed-rest bonus); this just
-        // watches for the wound to close so the elf can get back to work.
-        if (!dwarf.wounded || dwarf.hp >= dwarf.maxhp) this.finishRecover(dwarf);
+        // Actual healing/infection-fighting happens in Game.updateDwarf's
+        // ambient passes (they read d.state === "recover" for the bed-rest
+        // bonus); this just watches for the wound to close and/or the
+        // infection to clear so the elf can get back to work.
+        if (!dwarf.wounded && !dwarf.infected) this.finishRecover(dwarf);
         break;
       }
       default: dwarf.state = "idle";
@@ -844,10 +845,12 @@ class JobManager {
     } else if (job.type === "doctor") {
       const patient = job.patient;
       if (patient) patient.beingTreated = false;
-      if (patient && patient.hp > 0 && patient.wounded) {
+      if (patient && patient.hp > 0 && (patient.wounded || patient.infected)) {
         g.awardXp(dwarf, "medicine", 14);
         dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
-        g.log(`${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
+        g.log(patient.infected
+          ? `${dwarf.name} fights to keep ${patient.name}'s infection at bay.`
+          : `${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
       } else {
         dwarf.thought = "No patient to treat";
       }
@@ -874,9 +877,9 @@ class JobManager {
   finishRecover(dwarf) {
     const g = this.game;
     this.releaseBed(dwarf);
-    if (!dwarf.wounded) {
+    if (!dwarf.wounded && !dwarf.infected) {
       dwarf.thought = "Recovered";
-      g.log(`${dwarf.name} has recovered from their wounds.`, "good", "colony");
+      g.log(`${dwarf.name} has recovered.`, "good", "colony");
     }
     this.cancel(dwarf, true);
   }

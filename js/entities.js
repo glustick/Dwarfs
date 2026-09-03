@@ -134,6 +134,10 @@ class Dwarf {
     // ---- injuries ----
     this.wounded = false;      // hp dropped low enough to need bed rest to heal
     this.beingTreated = false; // a doctor is currently attending them
+
+    // ---- infection (the outbreak) ----
+    this.infected = false;     // bitten by an infectious enemy; racing the clock
+    this.infectionTimer = 0;   // counts down to 0 (turns) or up to INFECTION_TIME (cured)
   }
 
   skillLevel(id) { return this.skills[id] ? this.skills[id].level : 0; }
@@ -184,11 +188,18 @@ class Dwarf {
   }
 }
 
-// ---- Enemies (raiders & wildlife) ------------------------------------------
+// ---- Enemies (the outbreak & wildlife) --------------------------------------
+// `infectious` kinds have a chance to bite a dwarf they hit instead of just
+// hurting them — see Game.enemyHitDwarf / Game.turnZombie. `wolf`/`goblin`/
+// `troll` are kept (unused by spawnRaid) in case a future round wants them.
 const ENEMY_TYPES = {
-  wolf:   { name: "Wolf",   hp: 24, atk: 6,  speed: 3.9, color: "#7d7468" },
-  goblin: { name: "Goblin", hp: 42, atk: 11, speed: 3.0, color: "#5f7d3a" },
-  troll:  { name: "Troll",  hp: 95, atk: 20, speed: 2.4, color: "#6a5f7d" },
+  wolf:     { name: "Wolf",       hp: 24, atk: 6,  speed: 3.9, color: "#7d7468" },
+  goblin:   { name: "Goblin",     hp: 42, atk: 11, speed: 3.0, color: "#5f7d3a" },
+  troll:    { name: "Troll",      hp: 95, atk: 20, speed: 2.4, color: "#6a5f7d" },
+  shambler: { name: "Shambler",   hp: 18, atk: 5,  speed: 2.0, color: "#5c6b4a", infectious: true, biteChance: 0.15 },
+  runner:   { name: "Runner",     hp: 30, atk: 8,  speed: 4.2, color: "#6e5a44", infectious: true, biteChance: 0.20 },
+  brute:    { name: "Brute",      hp: 110, atk: 22, speed: 2.1, color: "#4a4038", infectious: true, biteChance: 0.30 },
+  turned:   { name: "Turned Elf", hp: 55, atk: 9,  speed: 2.6, color: "#4a5f3a", infectious: true, biteChance: 0.20 },
 };
 
 class Enemy {

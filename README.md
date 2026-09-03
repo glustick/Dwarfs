@@ -52,29 +52,40 @@ Your seven elves have arrived in a procedurally-generated wilderness. *Raise the
   smelter turns **ore → metal bars**; the forge turns **iron bars → weapons &
   armor**. Select a workshop with Inspect to choose what it makes. A elf with
   the **Crafting** labor works it (trains the *Smithing* skill).
-- **Raiders attack.** From around Day 4, wolves — then goblins and trolls — raid
-  the colony. Watch the ⚔️ threat indicator in the top bar.
+- **🧟 The outbreak attacks.** From around Day 4, zombies — Shamblers, then
+  Runners and eventually Brutes — raid the colony. Their size and mix
+  escalate with how far you've pushed into the tech tree (not the day
+  count), telegraphed by the 🦠 dread indicator in the top bar (Calm →
+  Stirring → Restless → Ravenous → Overrun) next to the ⚔️ threat indicator.
 - **Enlist soldiers.** Select a elf and click **⚔ Enlist**. Enlisted elves
-  automatically pick up forged weapons/armor from a stockpile, fight raiders, and
-  train the *Fighting* skill; civilians flee to safety. Wall off your colony and
-  keep a standing militia to survive.
+  automatically pick up forged weapons/armor from a stockpile, fight the
+  outbreak, and train the *Fighting* skill; civilians flee to safety. Wall
+  off your colony and keep a standing militia to survive.
 - **🚪 Door** — build one to seal a wall while staying passable. Elves always walk
   through freely; toggle a single door from its Inspect panel, or use the
   🔒/🔓 buttons in the top bar to lock or unlock every door at once, sealing
-  raiders out during a fight.
+  the horde out during a fight.
 - **🩹 Injuries.** A hit that drops an elf below 60% hp badly wounds them (🩹 in
   the roster and Inspect panel) — they can no longer just shrug it off at work
   and head for the nearest bed to rest instead. Give someone the **Doctoring**
   labor and they'll tend wounded elves resting in a bed, healing them far
   faster (trains the *Medicine* skill) — especially inside a **⚕️ Hospital**
   zone (needs the Medicine tech).
+- **🧟 Infection.** A zombie's bite can infect an elf (🧟 in the roster and
+  Inspect panel) instead of just wounding them. An infected elf automatically
+  seeks a bed — a Hospital bed if one's free — and races an infection clock:
+  left untreated, it runs out and they turn, lost to the colony as a new
+  hostile appears in their place. A Doctor's care, a Hospital zone, and the
+  Medicine tech can each slow that clock, and together can reverse it
+  entirely into a full cure — the same care that speeds up wound recovery.
 - **🛡️ Toughness** — a combat attribute (trained by sparring and by surviving
   hits) that cuts incoming damage and raises max hp, so seasoned veterans take
   a lot more punishment before going down and before being wounded at all.
 
 Keep your elves fed and watered — hungry elves eat from your food stores, thirsty
 ones drink, and neglecting either can kill. A healthy colony attracts **migrants**
-over time.
+over time. Digging in underground (see Z-levels below) already keeps a colony
+completely safe from the outbreak — raids never follow you down.
 
 ## Thirst, wells & brewing
 

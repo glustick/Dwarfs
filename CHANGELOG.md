@@ -4,6 +4,33 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.5.0 (build 20)
+The Outbreak — the colony's threats turn undead, and escalate with research.
+
+- **🧟 Zombies replace the raid roster.** Shamblers, Runners, and (later)
+  Brutes attack instead of wolves/goblins/trolls; raid size and mix now
+  scale with how deep the colony has gone into the tech tree, not day
+  count. A new 🦠 outbreak indicator (top bar) — Calm → Stirring →
+  Restless → Ravenous → Overrun — telegraphs it, so research choices
+  visibly foreshadow what's coming.
+- **Bite → infection → cure or turn.** A zombie hit has a chance to infect
+  an elf instead of just hurting them. An infected elf automatically seeks
+  a bed (a Hospital bed if one's free, same as a bad wound) and races an
+  infection clock: untreated, it runs out and they turn — lost to the
+  colony, and a new hostile appears in their place. A Hospital zone,
+  Medicine research, and above all an attending Doctor can turn that clock
+  around and cure them outright.
+- The existing wound/Hospital/Doctor pipeline does almost all the work
+  here — infection reuses the same "seek a bed, get treated" loop wounds
+  already use. Digging in underground already keeps a colony completely
+  safe from an outbreak (raids stay surface-only, per the Z-levels
+  release) — no new code needed for that, just a nice side effect of
+  what's already there.
+- **Deliberately out of scope this round**: vampires (a hidden day/night
+  threat), quarantine zones, a doctor "checkup" detection mechanic,
+  relationship-driven cover-ups, and new defensive structures (palisades,
+  watchtowers, traps). Candidates for a future round.
+
 ## v1.4.0 (build 19)
 Tier 4, Phase 1 — Z-levels: the colony can dig down.
 
