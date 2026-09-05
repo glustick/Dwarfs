@@ -351,6 +351,43 @@ html, body {
 @keyframes toastIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; } }
 @keyframes toastOut { to { opacity: 0; transform: translateY(-8px); } }
 
+/* ---- Tutorial walkthrough ---- */
+#tutorial-card {
+  position: absolute;
+  left: 50%; top: 64px;
+  transform: translateX(-50%);
+  width: 380px; max-width: 90vw;
+  z-index: 45;
+  background: linear-gradient(#241b10f5, #14100af5);
+  border: 2px solid #6b5230;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 14px 40px #000c, inset 0 1px 0 #ffffff10;
+}
+#tutorial-card.hidden { display: none; }
+.tut-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.tut-icon { font-size: 22px; }
+.tut-title { flex: 1; font-size: 16px; color: #ffcf6b; font-weight: 600; }
+.tut-x {
+  background: none; border: none; color: #a99878; font-size: 15px; cursor: pointer;
+  padding: 2px 6px; border-radius: 5px;
+}
+.tut-x:hover { color: #ffe9a8; background: #ffffff14; }
+.tut-body { color: #e8dcc0; font-size: 13.5px; line-height: 1.5; margin-bottom: 12px; }
+.tut-body b { color: #ffe9a8; }
+.tut-dots { display: flex; justify-content: center; gap: 6px; margin-bottom: 12px; }
+.tut-dot { width: 6px; height: 6px; border-radius: 50%; background: #4a3a26; }
+.tut-dot.on { background: #ffcf6b; }
+.tut-nav { display: flex; justify-content: space-between; gap: 10px; }
+.tut-btn {
+  flex: 1; text-align: center;
+  padding: 7px 10px; font-size: 13px; cursor: pointer; font-family: inherit;
+  color: #e8dcc0; background: linear-gradient(#3a2e1e, #241b10);
+  border: 1px solid #5a4630; border-radius: 7px;
+}
+.tut-btn:hover { border-color: #ffcf6b; background: linear-gradient(#5a4426, #2c2113); }
+.tut-btn[disabled] { opacity: .35; cursor: not-allowed; }
+
 /* ---- Overlay / menus ---- */
 #overlay {
   position: absolute; inset: 0;

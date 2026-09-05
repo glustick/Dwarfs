@@ -27,10 +27,11 @@ polish** (combat tension music, per-workshop crafting tones, birdsong,
 volume sliders), **Z-levels** (dig a stairwell down to a new floor of
 dense stone and ore; every system — jobs, hauling, beds, farms, workshops,
 save/load — works across floors; raids/trade/migration stay surface-only),
-and **the Outbreak** (raids are now zombies — Shamblers/Runners/Brutes —
+**the Outbreak** (raids are now zombies — Shamblers/Runners/Brutes —
 escalating with tech progress rather than day count; a bite can infect an
 elf, who races a cure via the Hospital/Doctor pipeline or turns into a new
-hostile).
+hostile), and a **tutorial** (a skippable guided walkthrough on a new game,
+reopenable any time from the ❓ Help button).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.

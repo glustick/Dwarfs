@@ -15,6 +15,9 @@ You'll land on a **main menu** — start a *New Game*, *Continue* your most rece
 save, or *Load* any saved empire. The current release and build number are
 shown at the bottom of the main and pause menus (see `CHANGELOG.md`).
 
+A brand-new game opens a short, skippable **tutorial** walkthrough — dismiss it
+any time, and reopen it whenever with the **❓** button in the top bar.
+
 ## Saving & loading
 
 - **In-game menu**: press **Esc** or click **☰ Menu** (top-right) to pause and open

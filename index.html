@@ -39,6 +39,7 @@
       </span>
       <button id="sound-btn" class="spd" title="Sound on — click to mute">🔊</button>
       <button id="autopause-btn" class="spd" title="Auto-pause on crises (raid, death, starvation, dehydration)">🔔</button>
+      <button id="help-btn" class="spd" title="Tutorial / Help">❓</button>
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
 
@@ -126,6 +127,9 @@
     <!-- Toast messages -->
     <div id="toast"></div>
 
+    <!-- Tutorial walkthrough -->
+    <div id="tutorial-card" class="hidden"></div>
+
     <!-- Fullscreen overlay for menus (built dynamically) -->
     <div id="overlay" class="hidden"></div>
   </div>
@@ -144,6 +148,7 @@
   <script src="js/input.js"></script>
   <script src="js/save.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/tutorial.js"></script>
   <script src="js/menu.js"></script>
 </body>
 </html>

@@ -4,6 +4,13 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.5.1 (build 21)
+- **📖 Tutorial** — a short, skippable guided walkthrough (Welcome →
+  designating work → stockpiles → building → zones → schedule → research →
+  defending against the outbreak) opens automatically on a brand-new game.
+  Skip it any time, and reopen it whenever with the new **❓ Help** button
+  in the top bar. Doesn't pause or block the game underneath.
+
 ## v1.5.0 (build 20)
 The Outbreak — the colony's threats turn undead, and escalate with research.
 

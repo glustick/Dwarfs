@@ -12,6 +12,8 @@ class App {
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (this.inGame) this.openPauseMenu();
     });
+    const helpBtn = document.getElementById("help-btn");
+    if (helpBtn) helpBtn.addEventListener("click", () => { if (window.tutorial) window.tutorial.open(); });
 
     // Autosave loop (real time).
     setInterval(() => this.autosave(), AUTOSAVE_MINUTES * 60 * 1000);
@@ -48,6 +50,7 @@ class App {
     this.inGame = true;
     this.hide();
     this.toast(saveData ? "Game loaded" : "A new elven empire is founded!");
+    if (!saveData && window.tutorial && window.tutorial.shouldAutoShow()) window.tutorial.open();
   }
 
   resumeGame() {
