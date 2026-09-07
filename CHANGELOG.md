@@ -4,6 +4,73 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.8.0 (build 25)
+A RimWorld-inspired interface rework:
+
+- **Bottom-center architect bar** — Orders/Build/Zones (plus Inspect and
+  Cancel) moved from the left sidebar to a horizontal bar at the bottom of
+  the screen. Clicking a category expands its submenu upward from the bar,
+  same as RimWorld's Architect menu, instead of popping out sideways.
+- **🧝 Colonist portrait strip** — a new row of chips above the architect
+  bar, one per elf, showing their mood face and a status badge (🩹 wounded,
+  🧟 infected, ⚔️ enlisted). Click one to select it, jump the camera there,
+  and update the right panel — same as clicking their row in the Colony tab.
+- Removed the old static on-screen hint text (redundant with the ❓
+  tutorial) and widened the play area now that the left sidebar is gone.
+
+## v1.7.0 (build 24)
+Finishes Essence Craft — it was already half-wired (the tech, the build
+material costs, the tile flags) but had no toolbar buttons, no visuals, and
+no actual power or spoilage logic. Now it's a complete loop:
+
+- **🔮 Essence Well** — once Essence Craft is researched, build one (no
+  ongoing labor needed) to generate Essence for any connected network.
+- **🔗 Arcane Conduit** — embedded wiring; coexists with a stockpile,
+  workshop, or furniture already on a tile. A connected cluster of
+  conduit/Well/Frost-Chamber tiles is powered the moment it touches an
+  Essence Well — inspect any tile in it to see "powered" vs "dormant."
+- **❄️ Frost Chamber** — once powered, slows spoilage to a sixth of normal
+  for food resting within 4 tiles.
+- **🍄 Food spoilage** — stockpiled (or just-lying-around) food now rots
+  over time if left unattended (~10 in-game days unchilled); the food
+  sprite itself darkens and specks as it turns, and a spoiled batch is
+  swept with a single summary log line rather than one per item.
+- All three now have proper Build-menu buttons (Build → Arcane) instead of
+  only being reachable through the `5`/`6`/`U` hotkeys.
+
+## v1.6.0 (build 23)
+Weather, wildlife, and a Stats tab.
+
+- **⛈️ Weather** — a surface-only condition layered on top of the season
+  (Clear, Rain, Storm, Fog, Heatwave, Blizzard), rolled periodically with
+  odds weighted by the current season and shown in the top-bar clock.
+  A storm or blizzard chills mood and drains energy for elves working the
+  surface, migrants and caravans wait it out rather than arrive mid-storm,
+  and rain speeds up crop growth a little (a blizzard/heatwave slows it).
+  As with raids, digging in underground stays completely sheltered from it.
+- **🦊 Tamed animals** — wild foxes wander onto the map; a dwarf with the new
+  **Taming** labor (trains a new *Taming* skill) can approach and win one
+  over. A tamed fox bonds to its tamer, roams near them, and lifts the mood
+  of any elf who spends time nearby — inspect one (wild or tamed) with the
+  Inspect tool to see its status. A new milestone, **Best Friend**, marks
+  the first one.
+- **📊 Stats tab** — a new Colony panel tab: a population-over-time
+  sparkline for this colony, lifetime production counters (stone mined,
+  trees felled, food gathered, items crafted, structures built, animals
+  tamed), and a cause-of-death breakdown pulled from the same persistent
+  database as the Hall of Records — so it covers every colony you've
+  ever played, not just this one.
+
+## v1.5.2 (build 22)
+- **🏆 Milestones** — 10 achievements (First Blood, Practically Immortal,
+  Master Scholar, Against the Odds, Lost to the Dark, Love is in the Air,
+  Down Under, Full House, Open for Business, Standing Army), unlocked once
+  and remembered forever across every colony you play — a new section in
+  the Hall of Records (Records tab) shows locked vs. unlocked, with a toast
+  and log line the moment you earn one. Stored in the same persistent
+  database as the elf records and chronicle (IndexedDB, with a localStorage
+  fallback).
+
 ## v1.5.1 (build 21)
 - **📖 Tutorial** — a short, skippable guided walkthrough (Welcome →
   designating work → stockpiles → building → zones → schedule → research →

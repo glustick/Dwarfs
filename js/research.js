@@ -52,10 +52,18 @@ const TECHS = [
     id: "bookkeeping", name: "Bookkeeping", icon: "🧮", tier: 3, cost: 220, requires: ["scholarship"],
     desc: "Better-run colony: more migrants arrive and research speeds up 30%.",
   },
+  {
+    id: "essence", name: "Essence Craft", icon: "✨", tier: 3, cost: 240, requires: ["metallurgy"],
+    desc: "Unlocks Arcane Conduits, the Essence Well, and the Frost Chamber — wire up power to keep stockpiled food from spoiling.",
+    unlock: "conduit",
+  },
 ];
 
 const TECH_BY_ID = {};
 for (const t of TECHS) TECH_BY_ID[t.id] = t;
 
 // Tools/zones that stay hidden until their tech is researched.
-const TOOL_TECH = { farm: "agriculture", study: "scholarship", hospital: "medicine", table: "furniture" };
+const TOOL_TECH = {
+  farm: "agriculture", study: "scholarship", hospital: "medicine", table: "furniture",
+  conduit: "essence", generator: "essence", icebox: "essence",
+};

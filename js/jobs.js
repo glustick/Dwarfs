@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, tame: 2.4 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -61,19 +61,20 @@ class Job {
     this.buildKind = null; // wall|floor|bed|smelter|forge
     this.slot = null;      // equip slot: weapon|armor
     this.patient = null;   // doctor: the wounded Dwarf being treated
+    this.animal = null;    // tame: the wild Animal being won over
   }
 }
 
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], tame: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], tame: [] };
     for (let z = 0; z >= w.minZ; z--) {
       const tiles = w.getLevel(z);
       if (!tiles) continue;
@@ -99,6 +100,8 @@ class JobManager {
     for (const d of g.dwarves) {
       if ((d.wounded || d.infected) && d.state === "recover" && !d.beingTreated) c.doctor.push(d);
     }
+    // tame candidates are wild animals, not tiles — unclaimed and not currently skittish
+    c.tame = g.animals.filter(a => !a.tamed && !a.reserved && a.fleeTimer <= 0);
     this.candidates = c;
   }
 
@@ -299,7 +302,7 @@ class JobManager {
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
     if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
-    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   assignWork(dwarf) {
@@ -545,6 +548,29 @@ class JobManager {
     return true;
   }
 
+  // A dwarf with the Taming labor approaches the nearest unclaimed wild animal.
+  // Surface-only, like the wildlife itself.
+  assignTame(dwarf) {
+    if (!dwarf.labors.has("taming") || dwarf.z !== 0) return false;
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
+    const list = this.candidates.tame;
+    if (!list.length) return false;
+    let target = null, bd = Infinity;
+    for (const a of list) {
+      const d = dist3(a.tileX, a.tileY, 0, dx, dy, dz);
+      if (d < bd) { bd = d; target = a; }
+    }
+    if (!target) return false;
+    const path = pathAdjacent(g.world, dx, dy, dz, target.tileX, target.tileY, 0) || pathTo(g.world, dx, dy, dz, target.tileX, target.tileY, 0);
+    if (!path) return false;
+    target.reserved = true;
+    const job = new Job("tame", target.tileX, target.tileY, 0);
+    job.animal = target; job.phase = "move";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = "Approaching a wild fox";
+    return true;
+  }
+
   assignTrain(dwarf) {
     const job = new Job("train", dwarf.tileX, dwarf.tileY, dwarf.z);
     job.phase = "move"; dwarf.setPath(null);
@@ -665,6 +691,13 @@ class JobManager {
       case "doctor":
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "doctor");
         break;
+      case "tame": {
+        const a = job.animal;
+        const stillThere = a && !a.tamed && Math.max(Math.abs(dwarf.tileX - a.tileX), Math.abs(dwarf.tileY - a.tileY)) <= 1;
+        if (!stillThere) { if (a) a.reserved = false; this.cancel(dwarf); }
+        else { dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "tame"); }
+        break;
+      }
       case "train":
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "train");
         break;
@@ -731,6 +764,7 @@ class JobManager {
       t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
       this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
       if (ore) this.spawnItem(ITEM.ORE, job.x, job.y, ore, job.z);
+      g.stats.mined++;
       g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
       g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
       dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 1), 0, 100);
@@ -751,6 +785,7 @@ class JobManager {
       t.feature = F.NONE; t.growth = 0;
       const logs = randint(w.rng, 1, 3) + Math.floor(dwarf.skillLevel("woodcutting") / 6) + (g.hasTech("axes") ? 1 : 0);
       for (let i = 0; i < logs; i++) this.spawnItem(ITEM.WOOD, job.x, job.y, null, job.z);
+      g.stats.chopped++;
       g.log(`${dwarf.name} felled a tree (${logs} logs).`, "", "labor");
       g.awardXp(dwarf, "woodcutting", 12); g.awardXp(dwarf, "fitness", 2);
     } else if (job.type === "gather" && t) {
@@ -758,6 +793,7 @@ class JobManager {
       let food = (t.feature === F.BUSH ? randint(w.rng, 1, 2) : 1) + Math.floor(dwarf.skillLevel("farming") / 8) + (g.hasTech("rations") ? 1 : 0);
       t.feature = F.NONE; t.growth = 0;
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y, null, job.z);
+      g.stats.gathered += food;
       g.log(`${dwarf.name} gathered ${food} food.`, "", "labor");
       g.awardXp(dwarf, "farming", 9);
     } else if (job.type === "forest" && t) {
@@ -775,12 +811,14 @@ class JobManager {
       const food = randint(w.rng, 2, 4) + Math.floor(dwarf.skillLevel("farming") / 6) + (g.hasTech("rations") ? 1 : 0);
       t.feature = F.NONE; t.growth = 0;
       for (let i = 0; i < food; i++) this.spawnItem(ITEM.FOOD, job.x, job.y, null, job.z);
+      g.stats.gathered += food;
       g.log(`${dwarf.name} harvested ${food} food from the farm.`, "", "labor");
       g.awardXp(dwarf, "farming", 14);
     } else if (job.type === "build" && t) {
       t.reserved = false; t.buildJob = false;
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
       const kind = job.buildKind || "wall";
+      g.stats.built++;
       if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
       else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
       else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a double bed.`, "good", "build"); }
@@ -794,6 +832,18 @@ class JobManager {
         t.built = B.DOOR; t.doorLocked = false; g.rebuildZones();
         g.log(`${dwarf.name} built a door.`, "good", "build");
       }
+      else if (kind === "conduit") {
+        t.conduit = true;
+        g.log(`${dwarf.name} embedded an arcane conduit.`, "", "build");
+      }
+      else if (kind === "generator") {
+        t.furniture = FURN.GENERATOR;
+        g.log(`${dwarf.name} built an Essence Well.`, "good", "build");
+      }
+      else if (kind === "icebox") {
+        t.furniture = FURN.ICEBOX;
+        g.log(`${dwarf.name} built a Frost Chamber.`, "good", "build");
+      }
       else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a stone wall.`, "", "build"); }
       t.buildKind = null;
       g.awardXp(dwarf, "building", 12); g.awardXp(dwarf, "fitness", 1);
@@ -802,6 +852,7 @@ class JobManager {
       const rec = this.currentRecipe(t);
       if (rec && this.consumeInputs(rec)) {
         this.spawnItem(rec.out.kind, job.x, job.y, rec.out.sub, job.z);
+        g.stats.crafted++;
         g.awardXp(dwarf, "smithing", 12);
         dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
         g.log(`${dwarf.name} crafted ${rec.name} at the ${WORKSHOP_INFO[t.workshop].name}.`, "", "craft");
@@ -853,6 +904,24 @@ class JobManager {
           : `${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
       } else {
         dwarf.thought = "No patient to treat";
+      }
+    } else if (job.type === "tame") {
+      const a = job.animal;
+      if (a && !a.tamed) {
+        const chance = 0.35 + dwarf.skillLevel("taming") * 0.05;
+        if (w.rng() < chance) {
+          a.tamed = true; a.ownerId = dwarf.dbId; a.reserved = false;
+          g.stats.tamed++;
+          g.milestoneFlags.tamed = true;
+          g.awardXp(dwarf, "taming", 20);
+          dwarf.mood = clamp(dwarf.mood + 8, 0, 100);
+          g.log(`${dwarf.name} tamed a wild fox!`, "good", "colony");
+        } else {
+          a.reserved = false; a.fleeTimer = 20;
+          g.awardXp(dwarf, "taming", 5);
+          dwarf.thought = "The fox darted away";
+          g.log(`${dwarf.name} failed to tame a wild fox — it fled.`, "", "colony");
+        }
       }
     } else if (job.type === "train") {
       g.awardXp(dwarf, "fighting", 10); g.awardXp(dwarf, "fitness", 6); g.awardXp(dwarf, "toughness", 7);
@@ -923,12 +992,15 @@ class JobManager {
     if (job) {
       const isBedJob = job.type === "sleep" || job.type === "recover";
       // A doctor's job.x/y is the patient's tile (their bed) — never owned by
-      // this job. A sleep/recover job's x/y is the dwarf's own bed, released
-      // via releaseBed() below (which respects a double bed's other occupant).
-      const t = (job.type === "doctor" || isBedJob) ? null : this.game.world.get(job.x, job.y, job.z);
+      // this job. Same for tame: job.x/y is wherever the wild animal happens
+      // to be, not a tile the job reserved. A sleep/recover job's x/y is the
+      // dwarf's own bed, released via releaseBed() below (which respects a
+      // double bed's other occupant).
+      const t = (job.type === "doctor" || job.type === "tame" || isBedJob) ? null : this.game.world.get(job.x, job.y, job.z);
       if (t && !completed) t.reserved = false;
       if (!completed && job.item) job.item.hauled = false;
       if (!completed && job.type === "doctor" && job.patient) job.patient.beingTreated = false;
+      if (!completed && job.type === "tame" && job.animal) job.animal.reserved = false;
       if (!completed && isBedJob) this.releaseBed(dwarf);
     }
     if (!completed && dwarf.carrying) this.dropCarried(dwarf);

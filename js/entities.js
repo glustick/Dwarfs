@@ -44,6 +44,7 @@ class Item {
     this.z = z;          // which level this item rests on
     this.hauled = false; // currently carried / claimed
     this.stored = false; // resting in a stockpile
+    this.freshness = 1;  // 1 = fresh .. 0 = spoiled (only meaningful for ITEM.FOOD)
   }
 }
 
@@ -57,8 +58,9 @@ const LABORS = [
   { id: "hauling",     job: "haul",   name: "Hauling",     icon: "📦" },
   { id: "medicine",    job: "doctor", name: "Doctoring",   icon: "⚕️" },
   { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
+  { id: "taming",      job: "tame",   name: "Taming",      icon: "🐾" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining", tame: "taming" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [
@@ -214,6 +216,54 @@ class Enemy {
     this.attackCd = 0; this.repath = 0;
     this.facing = 1;
     this.bob = Math.random() * Math.PI * 2;
+  }
+
+  get tileX() { return Math.round(this.x); }
+  get tileY() { return Math.round(this.y); }
+  setPath(path) { this.path = path; this.pathIdx = 0; }
+
+  move(dt) {
+    if (!this.path || this.pathIdx >= this.path.length) return true;
+    const step = this.path[this.pathIdx];
+    const dx = step.x - this.x, dy = step.y - this.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 0.02) {
+      this.x = step.x; this.y = step.y;
+      this.pathIdx++;
+      if (this.pathIdx >= this.path.length) { this.path = null; return true; }
+      return false;
+    }
+    const m = Math.min(this.speed * dt, d);
+    this.x += (dx / d) * m; this.y += (dy / d) * m;
+    if (Math.abs(dx) > 0.01) this.facing = dx > 0 ? 1 : -1;
+    this.bob += m * 6;
+    return false;
+  }
+}
+
+// ---- Wildlife & tamed companions (surface-only, like raiders/caravans) -----
+// Wild ones wander the map; a dwarf with the Taming labor can win one over
+// (see JobManager.assignTame in jobs.js). A tamed animal bonds to its tamer,
+// roams near them, and lifts the mood of any elf who spends time nearby.
+const ANIMAL_TYPES = {
+  fox: { name: "Fox", speed: 3.0, color: "#c9702f" },
+};
+
+class Animal {
+  constructor(kind, x, y) {
+    const t = ANIMAL_TYPES[kind] || ANIMAL_TYPES.fox;
+    this.kind = kind;
+    this.x = x; this.y = y; this.z = 0;
+    this.speed = t.speed;
+    this.path = null; this.pathIdx = 0;
+    this.repath = 0;
+    this.wanderTimer = 1 + Math.random() * 3;
+    this.facing = 1;
+    this.bob = Math.random() * Math.PI * 2;
+    this.tamed = false;
+    this.ownerId = null;   // dbId of the elf who tamed it
+    this.reserved = false; // a dwarf is approaching/working on taming this one
+    this.fleeTimer = 0;    // briefly skittish after a failed tame attempt
   }
 
   get tileX() { return Math.round(this.x); }

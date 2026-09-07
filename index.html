@@ -43,8 +43,27 @@
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
 
-    <!-- Left toolbar: categories with fly-out submenus -->
-    <div id="toolbar">
+    <!-- Right info panel -->
+    <div id="panel">
+      <div id="panel-tabs">
+        <button class="ptab active" data-tab="colony">Colony</button>
+        <button class="ptab" data-tab="schedule">Schedule</button>
+        <button class="ptab" data-tab="research">Research</button>
+        <button class="ptab" data-tab="log">Log</button>
+        <button class="ptab" data-tab="records">Records</button>
+        <button class="ptab" data-tab="stats">Stats</button>
+      </div>
+      <div id="panel-content"></div>
+    </div>
+
+    <!-- Bottom log -->
+    <div id="log"></div>
+
+    <!-- Colonist portrait strip — click one to select/center on them -->
+    <div id="colonistbar"></div>
+
+    <!-- Bottom-center architect bar: categories expand upward into #flyout -->
+    <div id="archbar">
       <button class="tool active" data-tool="select" title="Inspect (Q)"><span class="ico">🔍</span><span class="lbl">Inspect</span></button>
       <button class="cat" data-cat="designate" title="Designate orders"><span class="ico">⛏️</span><span class="lbl">Orders</span></button>
       <button class="cat" data-cat="build" title="Build structures"><span class="ico">🏗️</span><span class="lbl">Build</span></button>
@@ -52,7 +71,7 @@
       <button class="tool" data-tool="erase" title="Cancel / deconstruct (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
     </div>
 
-    <!-- Fly-out submenus for each toolbar category -->
+    <!-- Fly-out submenus for each archbar category, expanding upward -->
     <div id="flyout" class="hidden">
       <div class="fly-group" data-group="designate">
         <div class="fly-title">⛏️ Designate Orders</div>
@@ -89,6 +108,12 @@
         <div class="fly-tools">
           <button class="tool" data-tool="door" title="Door — passable, but lockable during raids (O)"><span class="ico">🚪</span><span class="lbl">Door</span></button>
         </div>
+        <div class="fly-sub">Arcane</div>
+        <div class="fly-tools">
+          <button class="tool" data-tool="generator" title="Essence Well — generates Essence power for any conduit network it touches · needs Essence Craft (5)" style="display:none"><span class="ico">🔮</span><span class="lbl">Essence Well</span></button>
+          <button class="tool" data-tool="conduit" title="Arcane Conduit — embedded wiring; carries Essence between an Essence Well and Frost Chambers · needs Essence Craft (U)" style="display:none"><span class="ico">🔗</span><span class="lbl">Conduit</span></button>
+          <button class="tool" data-tool="icebox" title="Frost Chamber — once powered, slows spoilage for food resting nearby · needs Essence Craft (6)" style="display:none"><span class="ico">❄️</span><span class="lbl">Frost Chamber</span></button>
+        </div>
       </div>
       <div class="fly-group" data-group="zone">
         <div class="fly-title">📐 Designate Zones</div>
@@ -102,26 +127,6 @@
           <button class="tool" data-tool="hospital" title="Hospital — heals faster · needs Medicine" style="display:none"><span class="ico">⚕️</span><span class="lbl">Hospital</span></button>
         </div>
       </div>
-    </div>
-
-    <!-- Right info panel -->
-    <div id="panel">
-      <div id="panel-tabs">
-        <button class="ptab active" data-tab="colony">Colony</button>
-        <button class="ptab" data-tab="schedule">Schedule</button>
-        <button class="ptab" data-tab="research">Research</button>
-        <button class="ptab" data-tab="log">Log</button>
-        <button class="ptab" data-tab="records">Records</button>
-      </div>
-      <div id="panel-content"></div>
-    </div>
-
-    <!-- Bottom log -->
-    <div id="log"></div>
-
-    <!-- Help hint -->
-    <div id="hint">
-      Drag to designate · Arrows or right-drag to pan · Scroll to zoom · Space to pause
     </div>
 
     <!-- Toast messages -->
@@ -139,6 +144,7 @@
   <script src="js/audio.js"></script>
   <script src="js/skills.js"></script>
   <script src="js/research.js"></script>
+  <script src="js/milestones.js"></script>
   <script src="js/db.js"></script>
   <script src="js/world.js"></script>
   <script src="js/pathfinding.js"></script>

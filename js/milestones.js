@@ -1,0 +1,41 @@
+// ---- Milestones: persistent achievements, across every colony ever played ---
+// Each `check(g)` reads live Game state and returns true once earned. A few
+// (cured/turned/traded/tamed) are one-off events rather than standing state,
+// so Game sets a matching flag on `g.milestoneFlags` at the moment they
+// happen (see game.js) and the predicate just reads it back.
+
+const MILESTONES = [
+  { id: "first_outbreak", icon: "🛡️", name: "First Blood",
+    desc: "Survive your colony's first outbreak raid.",
+    check: g => g.raidCount >= 1 && !g.enemies.length },
+  { id: "day30", icon: "📅", name: "Practically Immortal",
+    desc: "Keep a colony alive for 30 days.",
+    check: g => Math.floor(g.time / DAY_LENGTH) + 1 >= 30 },
+  { id: "all_tech", icon: "🔬", name: "Master Scholar",
+    desc: "Research every technology in the tree.",
+    check: g => TECHS.every(t => g.hasTech(t.id)) },
+  { id: "cured", icon: "💚", name: "Against the Odds",
+    desc: "Cure an elf of infection.",
+    check: g => g.milestoneFlags.cured },
+  { id: "turned", icon: "🧟", name: "Lost to the Dark",
+    desc: "Lose a colonist to the outbreak.",
+    check: g => g.milestoneFlags.turned },
+  { id: "love", icon: "💞", name: "Love is in the Air",
+    desc: "See two elves fall in love.",
+    check: g => g.dwarves.some(d => d.partnerId) },
+  { id: "underground", icon: "🌀", name: "Down Under",
+    desc: "Dig a stairwell down to a new level.",
+    check: g => g.world.minZ < 0 },
+  { id: "population15", icon: "🏘️", name: "Full House",
+    desc: "Grow your colony to 15 elves.",
+    check: g => g.dwarves.length >= 15 },
+  { id: "traded", icon: "🐎", name: "Open for Business",
+    desc: "Trade with a caravan.",
+    check: g => g.milestoneFlags.traded },
+  { id: "militia3", icon: "⚔️", name: "Standing Army",
+    desc: "Enlist 3 soldiers at once.",
+    check: g => g.soldierCount() >= 3 },
+  { id: "tamed", icon: "🦊", name: "Best Friend",
+    desc: "Tame a wild animal.",
+    check: g => g.milestoneFlags.tamed },
+];

@@ -30,8 +30,20 @@ save/load — works across floors; raids/trade/migration stay surface-only),
 **the Outbreak** (raids are now zombies — Shamblers/Runners/Brutes —
 escalating with tech progress rather than day count; a bite can infect an
 elf, who races a cure via the Hospital/Doctor pipeline or turns into a new
-hostile), and a **tutorial** (a skippable guided walkthrough on a new game,
-reopenable any time from the ❓ Help button).
+hostile), a **tutorial** (a skippable guided walkthrough on a new game, reopenable
+any time from the ❓ Help button), **milestones** (11 persistent
+achievements — Master Scholar, Against the Odds, Down Under, Best Friend, and
+more — unlocked once and remembered forever across every colony, shown in the
+Hall of Records), **weather** (Rain/Storm/Fog/Heatwave/Blizzard layered on
+top of the season, surface-only, affecting mood/energy/crop growth and
+pausing migrants/caravans mid-storm), **tamed animals** (wild foxes a
+Taming-labor elf can win over; a tamed pet roams near its owner and lifts
+nearby elves' mood), a **Stats tab** (population sparkline, lifetime
+production counters, and a cross-colony cause-of-death breakdown), and
+**Essence Craft** (Essence Well → Arcane Conduit → Frost Chamber power
+network, food spoilage as the problem it solves, proper Build-menu buttons
+and visuals — it had been left half-wired with no toolbar entry, no
+rendering, and no actual power logic).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.

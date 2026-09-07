@@ -77,6 +77,7 @@ class Renderer {
         if (t.stockpile) this.drawStockpile(ctx, x * ts + ox, y * ts + oy, ts, t.stockpileFilter);
         if (t.furniture) this.drawFurniture(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.workshop) this.drawWorkshop(ctx, t, x * ts + ox, y * ts + oy, ts);
+        if (t.conduit) this.drawConduit(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.designation) this.drawDesignation(ctx, t, x * ts + ox, y * ts + oy, ts);
         if (t.buildJob) this.drawBuildGhost(ctx, t, x * ts + ox, y * ts + oy, ts);
       }
@@ -88,6 +89,9 @@ class Renderer {
       if (it.x < x0 - 1 || it.x > x1 + 1 || it.y < y0 - 1 || it.y > y1 + 1) continue;
       this.drawItem(ctx, it, it.x * ts + ox, it.y * ts + oy, ts);
     }
+
+    // 3b) wildlife & tamed companions (surface-only, like raiders/caravans)
+    if (viewZ === 0) for (const a of g.animals) this.drawAnimal(ctx, a, ox, oy, ts);
 
     // 4) dwarves (only those on the floor currently being viewed)
     for (const d of g.dwarves) {
@@ -120,6 +124,9 @@ class Renderer {
 
     // 6) day/night tint
     this.drawDayNight(ctx);
+
+    // 6b) weather overlay (surface-only)
+    this.drawWeather(ctx);
 
     // 7) minimap overlay
     this.drawMinimap(ctx, x0, y0, x1, y1);
@@ -204,6 +211,9 @@ class Renderer {
         if (e.hp <= 0) continue;
         ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
       }
+      // wildlife (surface-only)
+      ctx.fillStyle = "#d8964a";
+      for (const a of g.animals) ctx.fillRect(r.x + a.x * sx - 1, r.y + a.y * sy - 1, 2, 2);
     }
     ctx.strokeStyle = "rgba(180,150,100,0.6)"; ctx.lineWidth = 1;
     ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
@@ -479,7 +489,7 @@ class Renderer {
     ctx.setLineDash([Math.max(2, ts * 0.12), Math.max(2, ts * 0.1)]);
     ctx.strokeRect(sx + 1, sy + 1, ts - 2, ts - 2);
     ctx.setLineDash([]);
-    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪", well: "💧", brewery: "🍺", doublebed: "💞", painting: "🖼️" }[t.buildKind] || "🧱";
+    const glyph = { wall: "🧱", floor: "▦", bed: "🛏", door: "🚪", well: "💧", brewery: "🍺", doublebed: "💞", painting: "🖼️", conduit: "🔗", generator: "🔮", icebox: "❄️" }[t.buildKind] || "🧱";
     ctx.fillStyle = "rgba(255,255,255,0.8)";
     ctx.font = `${Math.floor(ts * 0.45)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
@@ -509,6 +519,69 @@ class Renderer {
     else if (t.furniture === FURN.DOUBLE_BED) this.drawBed(ctx, sx, sy, ts, true);
     else if (t.furniture === FURN.TABLE) this.drawTable(ctx, sx, sy, ts);
     else if (t.furniture === FURN.PAINTING) this.drawPainting(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.GENERATOR) this.drawGenerator(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.ICEBOX) this.drawIcebox(ctx, sx, sy, ts, t.powered);
+  }
+
+  // -- Essence Craft: power network furniture & wiring -----------------------
+  drawGenerator(ctx, sx, sy, ts) {
+    const cx = sx + ts * 0.5, cy = sy + ts * 0.6;
+    const t = this.game.time, pulse = 0.5 + Math.sin(t * 3 + sx) * 0.5;
+    const bob = Math.sin(t * 2 + sx) * ts * 0.03;
+    // stone base
+    ctx.fillStyle = "#4a4250";
+    ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.16, ts * 0.28, ts * 0.12, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#2c2730"; ctx.lineWidth = Math.max(1, ts * 0.03);
+    ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.16, ts * 0.28, ts * 0.12, 0, 0, 7); ctx.stroke();
+    // floating crystal
+    ctx.fillStyle = `rgba(150,110,240,${0.75 + pulse * 0.25})`;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - ts * 0.34 + bob);
+    ctx.lineTo(cx + ts * 0.15, cy - ts * 0.08 + bob);
+    ctx.lineTo(cx, cy + ts * 0.12 + bob);
+    ctx.lineTo(cx - ts * 0.15, cy - ts * 0.08 + bob);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = `rgba(215,190,255,${0.5 + pulse * 0.4})`;
+    ctx.beginPath(); ctx.arc(cx, cy - ts * 0.08 + bob, ts * 0.05, 0, 7); ctx.fill();
+    // ambient sparkle motes
+    for (let i = 0; i < 3; i++) {
+      const a = t * 1.5 + i * 2.1;
+      ctx.fillStyle = `rgba(200,170,255,${0.3 + 0.3 * Math.sin(a)})`;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * ts * 0.24, cy + Math.sin(a) * ts * 0.18 + bob, ts * 0.025, 0, 7); ctx.fill();
+    }
+  }
+
+  drawIcebox(ctx, sx, sy, ts, powered) {
+    const pad = ts * 0.16;
+    const x = sx + pad, y = sy + pad, w = ts - pad * 2, h = ts - pad * 2;
+    ctx.fillStyle = "#3a4550";
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = "#22282e"; ctx.lineWidth = Math.max(1, ts * 0.04);
+    ctx.strokeRect(x, y, w, h);
+    const glow = powered ? 0.55 + Math.sin(this.game.time * 3) * 0.25 : 0.15;
+    ctx.fillStyle = `rgba(140,210,240,${glow})`;
+    ctx.fillRect(x + w * 0.15, y + h * 0.18, w * 0.7, h * 0.24);
+    ctx.fillStyle = `rgba(220,240,255,${powered ? 0.6 : 0.3})`;
+    ctx.fillRect(x + w * 0.15, y + h * 0.58, w * 0.7, h * 0.24);
+    ctx.font = `${Math.floor(ts * 0.3)}px serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.globalAlpha = powered ? 1 : 0.45;
+    ctx.fillText("❄️", sx + ts * 0.5, sy + ts * 0.24);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+
+  // Embedded wiring: a dim cross when dormant, a glowing lilac one once part
+  // of a network that includes an Essence Well.
+  drawConduit(ctx, t, sx, sy, ts) {
+    const cx = sx + ts / 2, cy = sy + ts / 2;
+    const on = t.powered;
+    ctx.strokeStyle = on ? `rgba(180,140,255,${0.55 + Math.sin(this.game.time * 4) * 0.25})` : "rgba(120,110,130,0.35)";
+    ctx.lineWidth = Math.max(1, ts * 0.08);
+    ctx.beginPath(); ctx.moveTo(sx, cy); ctx.lineTo(sx + ts, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, sy); ctx.lineTo(cx, sy + ts); ctx.stroke();
+    ctx.fillStyle = on ? "rgba(210,180,255,0.9)" : "rgba(150,140,160,0.5)";
+    ctx.beginPath(); ctx.arc(cx, cy, ts * 0.08, 0, 7); ctx.fill();
   }
 
   drawTable(ctx, sx, sy, ts) {
@@ -637,10 +710,17 @@ class Renderer {
         ctx.fill();
       }
     } else if (it.kind === ITEM.FOOD) {
+      const rot = 1 - (it.freshness != null ? it.freshness : 1); // 0 fresh .. 1 spoiled
       ctx.fillStyle = "#e8e0d0";
       ctx.fillRect(cx - ts * 0.04, cy - ts * 0.02, ts * 0.08, ts * 0.16);
-      ctx.fillStyle = "#c0472e";
+      ctx.fillStyle = `rgb(${Math.round(192 - rot * 50)},${Math.round(71 - rot * 35)},${Math.round(46 - rot * 15)})`;
       ctx.beginPath(); ctx.ellipse(cx, cy - ts * 0.02, ts * 0.14, ts * 0.08, 0, Math.PI, 0); ctx.fill();
+      if (rot > 0.5) {
+        // visibly on the turn: a couple of dark rot specks
+        ctx.fillStyle = `rgba(40,32,20,${(rot - 0.5) * 1.2})`;
+        ctx.beginPath(); ctx.arc(cx - ts * 0.04, cy - ts * 0.02, ts * 0.02, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + ts * 0.05, cy - ts * 0.01, ts * 0.015, 0, 7); ctx.fill();
+      }
     } else if (it.kind === ITEM.BAR) {
       const col = it.sub === "gold" ? "#ffd34d" : it.sub === "coal" ? "#4a4a4a" : "#c4cad2";
       ctx.fillStyle = col;
@@ -924,6 +1004,87 @@ class Renderer {
     if (dark > 0.02) {
       ctx.fillStyle = `rgba(10,14,40,${dark})`;
       ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+
+  // -- weather (surface-only screen overlay) --------------------------------
+  drawWeather(ctx) {
+    const g = this.game;
+    if ((g.viewZ || 0) !== 0) return; // weather never reaches underground
+    const wthr = g.weather;
+    if (!wthr || wthr === "clear") return;
+    const w = this.canvas.width, h = this.canvas.height, t = g.time;
+
+    if (wthr === "rain" || wthr === "storm") {
+      if (wthr === "storm") { ctx.fillStyle = "rgba(16,18,32,0.22)"; ctx.fillRect(0, 0, w, h); }
+      ctx.strokeStyle = wthr === "storm" ? "rgba(180,200,230,0.35)" : "rgba(180,200,230,0.2)";
+      ctx.lineWidth = Math.max(1, this.dpr);
+      const len = 16 * this.dpr, n = 130;
+      for (let i = 0; i < n; i++) {
+        const seed = i * 97.13;
+        const x = ((seed * 53 + t * 280) % (w + len * 2)) - len;
+        const y = ((seed * 71 + t * 420) % (h + len * 2)) - len;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - len * 0.3, y + len); ctx.stroke();
+      }
+      if (wthr === "storm") {
+        const flash = (Math.sin(t * 0.6) * 0.5 + 0.5) > 0.985 ? 0.3 : 0;
+        if (flash) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, w, h); }
+      }
+    } else if (wthr === "blizzard") {
+      ctx.fillStyle = "rgba(200,220,240,0.10)"; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      const n = 100;
+      for (let i = 0; i < n; i++) {
+        const seed = i * 133.7;
+        const x = ((seed * 43 + t * 40 + Math.sin(t + i) * 24) % (w + 20)) - 10;
+        const y = ((seed * 61 + t * 130) % (h + 20)) - 10;
+        const r = (1 + (i % 3)) * this.dpr;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+      }
+    } else if (wthr === "fog") {
+      ctx.fillStyle = `rgba(200,200,200,${0.14 + Math.sin(t * 0.3) * 0.03})`;
+      ctx.fillRect(0, 0, w, h);
+    } else if (wthr === "heatwave") {
+      ctx.fillStyle = "rgba(230,140,40,0.08)";
+      ctx.fillRect(0, 0, w, h);
+    }
+  }
+
+  // -- wildlife & tamed companions ------------------------------------------
+  drawAnimal(ctx, a, ox, oy, ts) {
+    const bob = Math.sin(a.bob) * (a.path ? ts * 0.05 : 0);
+    const cx = (a.x + 0.5) * ts + ox, cy = (a.y + 0.5) * ts + oy + bob;
+    const r = ts * 0.22;
+    const info = ANIMAL_TYPES[a.kind] || ANIMAL_TYPES.fox;
+
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath(); ctx.ellipse(cx, cy + r, r * 0.9, r * 0.3, 0, 0, 7); ctx.fill();
+
+    const body = a.tamed ? info.color : "#8a7560"; // wild ones read duller until tamed
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.ellipse(cx, cy, r, r * 0.6, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + a.facing * r * 0.9, cy - r * 0.25, r * 0.5, 0, 7); ctx.fill();
+    // ears
+    ctx.beginPath();
+    ctx.moveTo(cx + a.facing * r * 0.55, cy - r * 0.6);
+    ctx.lineTo(cx + a.facing * r * 0.75, cy - r * 1.1);
+    ctx.lineTo(cx + a.facing * r * 1.0, cy - r * 0.55);
+    ctx.closePath(); ctx.fill();
+    // tail
+    ctx.beginPath();
+    ctx.ellipse(cx - a.facing * r * 0.9, cy, r * 0.5, r * 0.2, a.facing > 0 ? 0.4 : -0.4, 0, 7);
+    ctx.fill();
+
+    if (a.tamed) {
+      ctx.font = `${Math.floor(ts * 0.28)}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🐾", cx, cy - r * 1.7);
+      ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+    }
+    if (this.game.selectedAnimal === a) {
+      ctx.strokeStyle = "#ffcf6b";
+      ctx.lineWidth = Math.max(1.5, ts * 0.05);
+      ctx.beginPath(); ctx.arc(cx, cy, r * 1.6, 0, 7); ctx.stroke();
     }
   }
 }

@@ -112,6 +112,27 @@ completely safe from the outbreak — raids never follow you down.
   ore) your colony is shortest on. A high **Charisma** skill among your elves
   improves the exchange rate.
 
+## Essence Craft
+
+Once the **Essence Craft** tech is researched (needs Metallurgy), a new
+"Arcane" section unlocks in the Build menu:
+
+- **🔮 Essence Well** — generates Essence for any network it touches. No
+  ongoing labor needed once built.
+- **🔗 Arcane Conduit** — embedded wiring; it coexists with a stockpile,
+  workshop, or furniture already on a tile, so it can be run through
+  existing rooms without displacing them.
+- **❄️ Frost Chamber** — once connected (directly or through conduits) to
+  a powered Essence Well, it slows spoilage to a sixth of normal for food
+  resting within 4 tiles. Inspect any conduit, Well, or Frost Chamber to
+  see whether that cluster is currently "powered" or "dormant."
+
+**🍄 Food spoilage** — food left sitting around (stockpiled or not) slowly
+rots — about 10 in-game days unchilled — darkening and flecking visibly as
+it turns before finally vanishing. A Frost Chamber's chill radius is the
+counter to it; otherwise it's a soft penalty against over-hoarding surplus
+food instead of eating or trading it.
+
 ## Elves, skills & the colony database
 
 Every elf is an individual with **skills** that improve through work:
@@ -126,6 +147,17 @@ A persistent **database** (IndexedDB, with a localStorage fallback so it works
 from `file://`) records every elf, their skills and profession, and a running
 **chronicle** of colony events — view it in the **Records** tab. It survives
 across games as a hall of records.
+
+- **🏆 Milestones** — 11 achievements (First Blood, Practically Immortal,
+  Master Scholar, Against the Odds, Lost to the Dark, Love is in the Air,
+  Down Under, Full House, Open for Business, Standing Army, Best Friend)
+  shown at the top of the Records tab, locked or unlocked. Once earned, a
+  milestone stays unlocked forever — across every colony you ever start.
+- **📊 Stats tab** — a population-over-time sparkline for this colony,
+  lifetime production counters (stone mined, trees felled, food gathered,
+  items crafted, structures built, animals tamed), and a cause-of-death
+  breakdown drawn from the same persistent database as the Hall of Records
+  — so it spans every colony you've ever played, not just this one.
 
 ## Habitat & scheduling
 
@@ -162,6 +194,26 @@ across games as a hall of records.
   **Foresting** labor plants a sapling there, which matures into a full tree
   over time — same as any other regrowth, just started deliberately instead
   of left to chance.
+
+## Weather
+
+- On top of the season, the surface also gets **weather** — Clear, Rain,
+  Storm, Fog, Heatwave, or Blizzard — rolled periodically with odds weighted
+  by the current season, shown in the top-bar clock next to the season icon.
+  A Storm or Blizzard chills mood and drains energy faster for anyone working
+  the surface; migrants and trading caravans simply wait it out rather than
+  arrive mid-storm. Rain speeds up crop growth a little; a Blizzard or
+  Heatwave slows it. Like raids, weather never reaches underground — digging
+  in stays the safe, sheltered bet.
+
+## Wildlife & Companions
+
+- **🦊 Wild foxes** wander onto the map now and then. Give an elf the new
+  **Taming** labor (trains a new *Taming* skill) and, when idle, they'll
+  approach the nearest one and try to win it over — success improves with
+  skill. A tamed fox bonds to its tamer, roams near them, and quietly lifts
+  the mood of any elf who spends time nearby. Inspect any fox, wild or
+  tamed, with the Inspect tool to see its status.
 
 ## Z-levels — digging down
 
@@ -215,7 +267,7 @@ bar), or dial Music and SFX separately from the **⏸ Menu → Audio** sliders.
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `Z` dig stairs · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `Z` dig stairs · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `5` Essence Well · `6` Frost Chamber · `U` conduit · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
 | Switch floor | `[` / `]`, or the ▲/▼ buttons next to the ⛰️ floor indicator |
 
 ## Under the hood

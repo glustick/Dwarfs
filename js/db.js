@@ -5,7 +5,7 @@
 // writes are fire-and-forget so async never blocks the simulation.
 
 const DB_NAME = "DwarfFortressDB";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 class ColonyDB {
   constructor() {
@@ -30,6 +30,8 @@ class ColonyDB {
           db.createObjectStore("dwarves", { keyPath: "id" });
         if (!db.objectStoreNames.contains("events"))
           db.createObjectStore("events", { keyPath: "seq", autoIncrement: true });
+        if (!db.objectStoreNames.contains("milestones"))
+          db.createObjectStore("milestones", { keyPath: "id" });
       };
       req.onsuccess = (e) => { this.db = e.target.result; this.mode = "idb"; resolve(); };
       req.onerror = () => { this._useFallback("open error"); resolve(); };
@@ -45,10 +47,13 @@ class ColonyDB {
     // hydrate in-memory maps from localStorage
     this._dwarves = new Map();
     this._events = [];
+    this._milestones = new Map();
     try {
       const d = JSON.parse(localStorage.getItem("df_db_dwarves") || "[]");
       for (const r of d) this._dwarves.set(r.id, r);
       this._events = JSON.parse(localStorage.getItem("df_db_events") || "[]");
+      const m = JSON.parse(localStorage.getItem("df_db_milestones") || "[]");
+      for (const r of m) this._milestones.set(r.id, r);
     } catch (e) { /* start empty */ }
   }
 
@@ -56,6 +61,7 @@ class ColonyDB {
     try {
       localStorage.setItem("df_db_dwarves", JSON.stringify([...this._dwarves.values()]));
       localStorage.setItem("df_db_events", JSON.stringify(this._events.slice(-500)));
+      localStorage.setItem("df_db_milestones", JSON.stringify([...this._milestones.values()]));
     } catch (e) { /* storage full/blocked — ignore */ }
   }
 
@@ -126,6 +132,38 @@ class ColonyDB {
       });
     }
     return this._events.slice(-limit).reverse();
+  }
+
+  // ---- milestones store (persistent achievements, across every colony) ----
+  async unlockMilestone(id, day) {
+    await this.ready;
+    const rec = { id, day, ts: Date.now() };
+    if (this.mode === "idb") {
+      return new Promise((res) => {
+        try {
+          const tx = this.db.transaction("milestones", "readwrite");
+          tx.objectStore("milestones").put(rec);
+          tx.oncomplete = () => res(true);
+          tx.onerror = () => res(false);
+        } catch (e) { res(false); }
+      });
+    }
+    this._milestones.set(id, rec); this._flushLS(); return true;
+  }
+
+  async getMilestones() {
+    await this.ready;
+    if (this.mode === "idb") {
+      return new Promise((res) => {
+        try {
+          const tx = this.db.transaction("milestones", "readonly");
+          const rq = tx.objectStore("milestones").getAll();
+          rq.onsuccess = () => res(rq.result || []);
+          rq.onerror = () => res([]);
+        } catch (e) { res([]); }
+      });
+    }
+    return [...this._milestones.values()];
   }
 }
 

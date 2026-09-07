@@ -29,7 +29,12 @@ const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs" };
 
 // Furniture placed on a tile.
-const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting" };
+const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox" };
+// Display info for the Essence Craft furniture (used by the inspector).
+const FURN_INFO = {
+  generator: { name: "Essence Well", icon: "🔮" },
+  icebox: { name: "Frost Chamber", icon: "❄️" },
+};
 
 // Zones a tile can belong to (in addition to stockpile).
 // farm/study/hospital are unlocked through research.
@@ -39,9 +44,9 @@ const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", S
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery" };
 
 // What a queued construction will produce.
-const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting" };
+const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting", CONDUIT: "conduit", GENERATOR: "generator", ICEBOX: "icebox" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood" };
 
 class Tile {
   constructor(kind) {
@@ -63,6 +68,8 @@ class Tile {
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
     this.doorLocked = false;  // built === DOOR: barred against raiders
+    this.conduit = false;     // carries Essence between generators/consumers
+    this.powered = false;     // computed each network tick — part of a satisfied network
   }
 }
 
@@ -137,7 +144,8 @@ class World {
   // grid; `itemsById` maps item ids. Level 0 defaults to `this.tiles`.
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
-  //                workshop,workshopRecipe,doorLocked,bedOccupants,stockpileFilter]
+  //                workshop,workshopRecipe,doorLocked,bedOccupants,
+  //                stockpileFilter,conduit]
   loadLevelTiles(z, data, itemsById) {
     let tiles = this.levels.get(z);
     if (!tiles) {
@@ -161,6 +169,8 @@ class World {
         t.doorLocked = !!a[15];
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
         t.stockpileFilter = a[17] || null;
+        t.conduit = !!a[18];
+        t.powered = false;
       }
     }
   }

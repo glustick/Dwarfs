@@ -17,6 +17,24 @@ const SEASONS = [
   { name: "Winter", icon: "❄️", growth: 0.2 },
 ];
 
+// ---- Weather: a surface-only overlay on top of the season, like the season
+// itself it never reaches underground, so digging in stays the safe bet.
+const WEATHER_TYPES = {
+  clear:    { name: "Clear",    icon: "☀️" },
+  rain:     { name: "Rain",     icon: "🌧️" },
+  storm:    { name: "Storm",    icon: "⛈️" },
+  fog:      { name: "Fog",      icon: "🌫️" },
+  heatwave: { name: "Heatwave", icon: "🥵" },
+  blizzard: { name: "Blizzard", icon: "🌨️" },
+};
+// Weighted odds per season index (0 spring, 1 summer, 2 autumn, 3 winter).
+const WEATHER_ODDS = [
+  [["clear", 50], ["rain", 35], ["storm", 15]],
+  [["clear", 55], ["heatwave", 25], ["rain", 20]],
+  [["clear", 45], ["rain", 30], ["storm", 15], ["fog", 10]],
+  [["clear", 40], ["blizzard", 35], ["fog", 25]],
+];
+
 // Event chronicle categories (for the filterable Log panel).
 const LOG_CATS = {
   order:  { name: "Orders",   icon: "📋" },
@@ -34,6 +52,11 @@ const SAVED_EVENTS = 600;      // how many recent events persist in a save
 // ---- The outbreak: infection clock & dread labels ----
 const INFECTION_TIME = 90;     // game-seconds an untreated bite takes to turn
 const OUTBREAK_LABELS = ["Calm", "Stirring", "Restless", "Ravenous", "Overrun"];
+
+// ---- Essence Craft: an Essence Well powers a network of Arcane Conduits;
+// a powered Frost Chamber slows spoilage for food resting nearby.
+const FOOD_SPOIL_TIME = 600;     // game-seconds for an unchilled food item to fully spoil
+const ESSENCE_CHILL_RADIUS = 4;  // tiles (Manhattan) a powered Frost Chamber keeps cool
 
 class Game {
   // `saveData` restores a saved game; otherwise a fresh world is generated.
@@ -65,8 +88,26 @@ class Game {
     this.tableCount = 0;
 
     this.selectedDwarf = null;
+    this.selectedAnimal = null;
     this.selectedTile = null;
     this.hoverTile = null;
+
+    // ---- weather (surface-only, layered on top of the season) ----
+    this.weather = "clear";
+    this.weatherTimer = 20;
+
+    // ---- wildlife & tamed companions ----
+    this.animals = [];
+    this.animalTimer = 20;
+
+    // ---- lifetime production counters & population history (this colony) ----
+    this.stats = { mined: 0, chopped: 0, gathered: 0, crafted: 0, built: 0, tamed: 0 };
+    this.popHistory = [];
+    this._lastPopDay = 0;
+
+    // ---- Essence Craft: power network & food spoilage ----
+    this.essenceTimer = 1;
+    this.chilledTiles = new Set();
 
     this.reindexTimer = 0;
     this.growthTimer = 0;
@@ -80,6 +121,17 @@ class Game {
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
     this.combatFx = [];               // transient hit sparks {x,y,t,bad}
+
+    // ---- milestones: persistent achievements, across every colony ----
+    this.milestoneFlags = { cured: false, turned: false, traded: false, tamed: false };
+    this.unlockedMilestones = new Set();
+    this._milestonesLoaded = false;
+    this.milestoneTimer = 0;
+    if (colonyDB) {
+      colonyDB.getMilestones()
+        .then(list => { for (const r of list) this.unlockedMilestones.add(r.id); this._milestonesLoaded = true; })
+        .catch(() => { this._milestonesLoaded = true; });
+    } else this._milestonesLoaded = true;
 
     this.jobs = new JobManager(this);
 
@@ -131,6 +183,7 @@ class Game {
       items: this.items.map(it => ({
         id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y, z: it.z || 0,
         hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
+        fresh: it.freshness != null ? Math.round(it.freshness * 100) : 100,
       })),
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
       enemies: this.enemies.map(e => ({
@@ -143,6 +196,12 @@ class Game {
       cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
       viewZ: this.viewZ,
       time: this.time, speedIdx: this.speedIdx, paused: this.paused,
+      weather: this.weather, weatherTimer: this.weatherTimer,
+      animals: this.animals.map(a => ({
+        kind: a.kind, x: a.x, y: a.y, tamed: a.tamed ? 1 : 0, ownerId: a.ownerId,
+      })),
+      stats: this.stats,
+      popHistory: this.popHistory,
     };
   }
 
@@ -206,6 +265,7 @@ class Game {
     this.items = data.items.map(o => {
       const it = new Item(o.kind, o.x, o.y, o.sub, o.z || 0);
       it.id = o.id; it.hauled = !!o.hauled; it.stored = !!o.stored;
+      it.freshness = o.fresh != null ? o.fresh / 100 : 1;
       byId.set(o.id, it);
       return it;
     });
@@ -268,6 +328,16 @@ class Game {
     this.viewZ = data.viewZ || 0;
     this.time = data.time;
     this.speedIdx = data.speedIdx != null ? data.speedIdx : 1;
+    this.weather = data.weather || "clear";
+    this.weatherTimer = data.weatherTimer != null ? data.weatherTimer : 30;
+    this.animals = (data.animals || []).map(o => {
+      const a = new Animal(o.kind, o.x, o.y);
+      a.tamed = !!o.tamed; a.ownerId = o.ownerId || null;
+      return a;
+    });
+    this.stats = Object.assign({ mined: 0, chopped: 0, gathered: 0, crafted: 0, built: 0, tamed: 0 }, data.stats || {});
+    this.popHistory = Array.isArray(data.popHistory) ? data.popHistory : [];
+    this._lastPopDay = this.popHistory.length ? this.popHistory[this.popHistory.length - 1].day : 0;
     // Always resume running: manual saves are taken from the (paused) menu, so a
     // persisted `paused: true` would otherwise freeze the colony on load and the
     // dwarves would appear to "go idle" and never continue their work.
@@ -333,6 +403,7 @@ class Game {
     if (!w.levels.has(z) || z === this.viewZ) return;
     this.viewZ = z;
     this.selectedTile = null;
+    this.selectedAnimal = null;
     this.updateStats();
   }
 
@@ -406,6 +477,40 @@ class Game {
   update(dt) {
     this.time += dt;
 
+    // population history: one sample per in-game day, for the Stats tab
+    const today = Math.floor(this.time / DAY_LENGTH) + 1;
+    if (today !== this._lastPopDay) {
+      this._lastPopDay = today;
+      this.popHistory.push({ day: today, pop: this.dwarves.length });
+      if (this.popHistory.length > 200) this.popHistory.shift();
+    }
+
+    // weather: rolls a new condition periodically, weighted by the season
+    this.weatherTimer -= dt;
+    if (this.weatherTimer <= 0) {
+      this.weatherTimer = randint(this.world.rng, 45, 100);
+      const next = this.rollWeather();
+      if (next !== this.weather) {
+        this.weather = next;
+        const info = WEATHER_TYPES[next];
+        this.log(`${info.icon} The weather turns to ${info.name.toLowerCase()}.`, "", "colony");
+        if (window.App && next !== "clear") window.App.toast(`${info.icon} ${info.name}`);
+      }
+    }
+
+    // wildlife: the odd wild animal wanders in; tamed ones roam near their owner
+    this.animalTimer -= dt;
+    if (this.animalTimer <= 0) { this.animalTimer = randint(this.world.rng, 50, 90); this.trySpawnAnimal(); }
+    if (this.animals.length) this.updateAnimals(dt);
+
+    // Essence Craft: recompute the power network and spoil unchilled food, ~once/sec
+    this.essenceTimer -= dt;
+    if (this.essenceTimer <= 0) {
+      this.essenceTimer = 1;
+      this.updateEssenceNetwork();
+      this.decayFood();
+    }
+
     // periodic reindex of designations
     this.reindexTimer -= dt;
     if (this.reindexTimer <= 0) { this.jobs.reindex(); this.reindexTimer = 0.4; }
@@ -427,7 +532,8 @@ class Game {
       this.farmTimer -= dt;
       if (this.farmTimer <= 0) {
         this.farmTimer = 1;
-        const mult = this.season().growth;
+        const weatherMult = this.weather === "rain" ? 1.2 : (this.weather === "blizzard" || this.weather === "heatwave") ? 0.75 : 1;
+        const mult = this.season().growth * weatherMult;
         for (const [fx, fy, fz] of this.farmTiles) {
           const t = this.world.get(fx, fy, fz || 0);
           if (t && t.feature === F.CROP && t.growth < 1) t.growth = Math.min(1, t.growth + mult / 120);
@@ -469,6 +575,10 @@ class Game {
     }
     if (this.caravans.length) this.updateCaravans(dt);
 
+    // milestones
+    this.milestoneTimer -= dt;
+    if (this.milestoneTimer <= 0) { this.checkMilestones(); this.milestoneTimer = 2; }
+
     // UI
     this.statTimer -= dt;
     if (this.statTimer <= 0) {
@@ -483,6 +593,139 @@ class Game {
   // ---- seasons ----
   seasonIndex() { return Math.floor(Math.floor(this.time / DAY_LENGTH) / SEASON_DAYS) % 4; }
   season() { return SEASONS[this.seasonIndex()]; }
+
+  // ---- weather ----
+  rollWeather() {
+    const odds = WEATHER_ODDS[this.seasonIndex()];
+    const total = odds.reduce((s, [, w]) => s + w, 0);
+    let r = this.world.rng() * total;
+    for (const [id, w] of odds) { if (r < w) return id; r -= w; }
+    return "clear";
+  }
+  weatherIsHarsh() { return this.weather === "storm" || this.weather === "blizzard"; }
+
+  // ---- wildlife & tamed companions ----
+  trySpawnAnimal() {
+    if (this.animals.filter(a => !a.tamed).length >= 3) return;
+    const w = this.world;
+    for (let t = 0; t < 30; t++) {
+      const x = randint(w.rng, 0, w.w - 1), y = randint(w.rng, 0, w.h - 1);
+      const tile = w.get(x, y, 0);
+      if (tile && tile.kind === K.GRASS && w.isWalkable(x, y, 0)) {
+        this.animals.push(new Animal("fox", x, y));
+        break;
+      }
+    }
+  }
+
+  updateAnimals(dt) {
+    for (const a of this.animals) {
+      if (a.fleeTimer > 0) a.fleeTimer -= dt;
+      if (a.reserved) continue; // being approached/worked on — hold still
+      const outsider = !a.tamed; // a tamed pet is treated as part of the colony (passes locked doors like an elf)
+      if (a.tamed) {
+        const owner = this.dwarves.find(d => d.dbId === a.ownerId);
+        if (owner && Math.hypot(owner.x - a.x, owner.y - a.y) > 6) {
+          a.repath -= dt;
+          if (!a.path || a.repath <= 0) {
+            a.repath = 1;
+            const p = pathTo(this.world, a.tileX, a.tileY, 0, owner.tileX, owner.tileY, 0, outsider);
+            if (p) a.setPath(p);
+          }
+          a.move(dt);
+          continue;
+        }
+      }
+      a.wanderTimer -= dt;
+      if (a.wanderTimer <= 0) {
+        a.wanderTimer = 2 + this.world.rng() * 4;
+        if (this.world.rng() < 0.5) {
+          const nx = a.tileX + randint(this.world.rng, -3, 3), ny = a.tileY + randint(this.world.rng, -3, 3);
+          if (this.world.isWalkable(nx, ny, 0, outsider)) {
+            const p = pathTo(this.world, a.tileX, a.tileY, 0, nx, ny, 0, outsider);
+            if (p) a.setPath(p);
+          }
+        }
+      }
+      if (a.path) a.move(dt);
+    }
+  }
+
+  // ---- Essence Craft: power network & food spoilage ----
+  // Flood-fills every connected cluster of conduit/generator/icebox tiles on
+  // each floor; a cluster is "powered" the moment it contains at least one
+  // Essence Well. Then rebuilds the set of tiles kept cool by a powered
+  // Frost Chamber, which decayFood() reads to slow spoilage nearby.
+  updateEssenceNetwork() {
+    const w = this.world;
+    const isNode = (t) => t.conduit || t.furniture === FURN.GENERATOR || t.furniture === FURN.ICEBOX;
+    this.chilledTiles = new Set();
+    for (let z = 0; z >= w.minZ; z--) {
+      const tiles = w.getLevel(z);
+      if (!tiles) continue;
+      const seen = new Set();
+      for (let y = 0; y < w.h; y++) {
+        for (let x = 0; x < w.w; x++) {
+          const key = y * w.w + x;
+          if (seen.has(key) || !isNode(tiles[y][x])) continue;
+          const comp = [];
+          let hasGenerator = false;
+          const stack = [[x, y]];
+          seen.add(key);
+          while (stack.length) {
+            const [cx, cy] = stack.pop();
+            const ct = tiles[cy][cx];
+            comp.push(ct);
+            if (ct.furniture === FURN.GENERATOR) hasGenerator = true;
+            for (const [dx, dy] of NEIGHBORS4) {
+              const nx = cx + dx, ny = cy + dy;
+              if (!w.inBounds(nx, ny)) continue;
+              const nk = ny * w.w + nx;
+              if (seen.has(nk) || !isNode(tiles[ny][nx])) continue;
+              seen.add(nk);
+              stack.push([nx, ny]);
+            }
+          }
+          for (const ct of comp) ct.powered = hasGenerator;
+        }
+      }
+      // radius around every powered Frost Chamber on this floor
+      for (let y = 0; y < w.h; y++) {
+        for (let x = 0; x < w.w; x++) {
+          const t = tiles[y][x];
+          if (t.furniture !== FURN.ICEBOX || !t.powered) continue;
+          for (let dy = -ESSENCE_CHILL_RADIUS; dy <= ESSENCE_CHILL_RADIUS; dy++) {
+            for (let dx = -ESSENCE_CHILL_RADIUS; dx <= ESSENCE_CHILL_RADIUS; dx++) {
+              if (Math.abs(dx) + Math.abs(dy) > ESSENCE_CHILL_RADIUS) continue;
+              const nx = x + dx, ny = y + dy;
+              if (w.inBounds(nx, ny)) this.chilledTiles.add(`${z}:${nx},${ny}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Unattended food slowly rots; a powered Frost Chamber's chill radius
+  // cuts the rate to a sixth. Spoiled items vanish with a single summary log
+  // line rather than spamming one per item.
+  decayFood() {
+    if (!this.items.length) return;
+    let spoiled = 0;
+    for (let i = this.items.length - 1; i >= 0; i--) {
+      const it = this.items[i];
+      if (it.kind !== ITEM.FOOD || it.hauled) continue;
+      const chilled = this.chilledTiles.has(`${it.z || 0}:${it.x},${it.y}`);
+      it.freshness = (it.freshness != null ? it.freshness : 1) - (chilled ? 0.15 : 1) / FOOD_SPOIL_TIME;
+      if (it.freshness <= 0) {
+        const t = this.world.get(it.x, it.y, it.z || 0);
+        if (t && t.item === it) t.item = null;
+        this.items.splice(i, 1);
+        spoiled++;
+      }
+    }
+    if (spoiled) this.log(`${spoiled} spoiled food rotted away.`, "bad", "colony");
+  }
 
   // Resolve what a dwarf should be doing right now (critical needs override schedule).
   resolveActivity(d) {
@@ -502,6 +745,21 @@ class Game {
     d.thirst = clamp(d.thirst + THIRST_RATE * dt, 0, 100);
     if (d.state !== "sleep") d.energy = clamp(d.energy - ENERGY_RATE * (night ? 1.4 : 1) * dt, 0, 100);
     d.activity = this.resolveActivity(d);
+
+    // weather: harsh conditions sting surface elves; underground is sheltered,
+    // same as it already is from raids.
+    if (d.z === 0) {
+      if (this.weatherIsHarsh()) {
+        d.mood = clamp(d.mood - dt * 0.6, 0, 100);
+        d.energy = clamp(d.energy - dt * (this.weather === "blizzard" ? 3 : 1.5), 0, 100);
+      } else if (this.weather === "heatwave") {
+        d.thirst = clamp(d.thirst + dt * 8, 0, 100);
+      }
+      // a nearby tamed pet lifts spirits
+      for (const a of this.animals) {
+        if (a.tamed && Math.hypot(d.x - a.x, d.y - a.y) <= 3) { d.mood = clamp(d.mood + dt * 0.5, 0, 100); break; }
+      }
+    }
 
     // mood
     if (d.hunger > 92) {
@@ -563,6 +821,7 @@ class Game {
         d.infected = false;
         d.mood = clamp(d.mood + 10, 0, 100);
         this.log(`${d.name} has fought off the infection!`, "good", "colony");
+        this.milestoneFlags.cured = true;
       }
     }
 
@@ -617,6 +876,23 @@ class Game {
     }).catch(() => {});
   }
 
+  // ---- milestones: persistent achievements, unlocked once, ever ----
+  checkMilestones() {
+    if (!this._milestonesLoaded) return;
+    for (const m of MILESTONES) {
+      if (this.unlockedMilestones.has(m.id)) continue;
+      if (m.check(this)) this.unlockMilestone(m);
+    }
+  }
+
+  unlockMilestone(m) {
+    this.unlockedMilestones.add(m.id);
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    this.log(`🏆 Milestone: ${m.name} — ${m.desc}`, "good", "colony");
+    if (window.App) window.App.toast(`🏆 ${m.name}`);
+    if (colonyDB) colonyDB.unlockMilestone(m.id, day).catch(() => {});
+  }
+
   recordDeath(d, cause) {
     this.log(`${d.name} has ${cause}.`, "bad", "colony");
     this.triggerAutoPause(`${d.name} has ${cause}`);
@@ -645,6 +921,7 @@ class Game {
   // hostile appears in their place. Mirrors recordDeath's bookkeeping.
   turnZombie(d) {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    this.milestoneFlags.turned = true;
     this.log(`${d.name} succumbed to the infection and turned!`, "bad", "combat");
     this.triggerAutoPause(`${d.name} has turned!`);
     this.jobs.releaseBed(d);
@@ -1009,6 +1286,7 @@ class Game {
 
   // ---- trade caravans ----
   trySpawnCaravan() {
+    if (this.weatherIsHarsh()) return; // caravans wait out a storm/blizzard
     // Caravans are surface-only this release — only a Trade Depot on level 0
     // can receive one.
     const surfaceDepots = this.depotTiles.filter(t => !t[2]);
@@ -1063,6 +1341,7 @@ class Game {
       if (idx >= 0) this.items.splice(idx, 1);
     }
     if (!sold) { this.log("The caravan found nothing to trade and moved on.", "", "colony"); return; }
+    this.milestoneFlags.traded = true;
 
     let cha = 0;
     for (const d of this.dwarves) cha = Math.max(cha, d.skillLevel("charisma"));
@@ -1134,6 +1413,7 @@ class Game {
   tryMigration() {
     const HARD_CAP = 40;
     if (this.dwarves.length >= HARD_CAP) return;
+    if (this.weatherIsHarsh()) return; // migrants wait out a storm/blizzard
     const capacity = 8 + this.bedTiles.length; // free buffer + one slot per bed
     const room = capacity - this.dwarves.length;
     if (room <= 0) return; // no space — nowhere to house new arrivals
@@ -1219,7 +1499,8 @@ class Game {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const icon = this.shift() === "day" ? "☀️" : "🌙";
     const seas = this.season();
-    document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm} · ${seas.icon} ${seas.name}`;
+    const weatherTxt = this.weather !== "clear" ? ` · ${WEATHER_TYPES[this.weather].icon} ${WEATHER_TYPES[this.weather].name}` : "";
+    document.getElementById("stat-clock").textContent = `${icon} Day ${day} · ${hh}:${mm} · ${seas.icon} ${seas.name}${weatherTxt}`;
     const rEl = document.getElementById("stat-research");
     if (rEl) rEl.innerHTML = `🔬 <b>${Math.floor(this.research)}</b>`;
     // highlight the active speed button
@@ -1262,11 +1543,43 @@ class Game {
       if (zUp) zUp.disabled = this.viewZ >= 0;
       if (zDown) zDown.disabled = !this.world.levels.has(this.viewZ - 1);
     }
+    this.renderColonistBar();
+  }
+
+  // Bottom-center portrait strip (RimWorld-style colonist bar) — click one to
+  // select it and jump the camera there, same as a Colony-tab roster row.
+  renderColonistBar() {
+    const el = document.getElementById("colonistbar");
+    if (!el) return;
+    let html = "";
+    this.dwarves.forEach((d, i) => {
+      const hap = d.happiness != null ? d.happiness : 60;
+      const face = hap > 70 ? "😀" : hap > 45 ? "🙂" : hap > 25 ? "😕" : "😣";
+      const sel = this.selectedDwarf === d ? " sel" : "";
+      const badge = d.infected ? "🧟" : d.wounded ? "🩹" : d.military ? "⚔️" : "";
+      html += `<div class="cbar-chip${sel}" data-idx="${i}" title="${d.name} — ${professionOf(d)}">
+        <span class="cbar-face" style="background:${d.color}">${face}</span>
+        <span class="cbar-name">${d.name.split(" ")[0]}</span>
+        ${badge ? `<span class="cbar-badge">${badge}</span>` : ""}
+      </div>`;
+    });
+    el.innerHTML = html;
+    el.querySelectorAll(".cbar-chip").forEach(chip => {
+      chip.onclick = () => {
+        const d = this.dwarves[+chip.dataset.idx];
+        this.selectedDwarf = d; this.selectedTile = null; this.selectedAnimal = null;
+        this.setViewZ(d.z);
+        this.cam.x = d.x; this.cam.y = d.y;
+        this.updatePanel();
+        this.renderColonistBar();
+      };
+    });
   }
 
   setPanelTab(tab) {
     this.panelTab = tab;
     this._recordsLoaded = false;
+    this._statsLoaded = false;
     this.updatePanel();
   }
 
@@ -1279,6 +1592,7 @@ class Game {
     else if (this.panelTab === "records") this.renderRecords(c);
     else if (this.panelTab === "log") this.renderLog(c);
     else if (this.panelTab === "research") this.renderResearch(c);
+    else if (this.panelTab === "stats") this.renderStats(c);
     else this.renderColony(c);
   }
 
@@ -1379,9 +1693,10 @@ class Game {
     c.querySelectorAll(".dwarf-row").forEach(row => {
       row.onclick = () => {
         const d = this.dwarves[+row.dataset.idx];
-        this.selectedDwarf = d; this.selectedTile = null;
+        this.selectedDwarf = d; this.selectedTile = null; this.selectedAnimal = null;
         this.setViewZ(d.z);
         this.cam.x = d.x; this.cam.y = d.y; this.updatePanel();
+        this.renderColonistBar();
       };
     });
     this.wireInspector(c);
@@ -1464,6 +1779,16 @@ class Game {
         <div class="mini2">Relationships</div>${this.relationshipsHTML(d)}
         <div class="mini2">Skills</div>${sk}`;
     }
+    if (this.selectedAnimal) {
+      const a = this.selectedAnimal;
+      const info = ANIMAL_TYPES[a.kind] || {};
+      const owner = a.ownerId ? this.dwarves.find(d => d.dbId === a.ownerId) : null;
+      return `<b>${info.name || a.kind}</b> <span class="tag">${a.tamed ? "🐾 tamed" : "wild"}</span><br/>
+        ${owner ? `Bonded to: <b>${owner.name}</b><br/>` : ""}
+        <div class="mini">${a.tamed
+          ? "Roams near its owner and lifts the mood of any elf spending time nearby."
+          : "Skittish. A dwarf with the Taming labor may approach and win it over."}</div>`;
+    }
     if (this.selectedTile) {
       const t = this.selectedTile;
       const tile = this.world.get(t.x, t.y, t.z || 0);
@@ -1472,7 +1797,15 @@ class Game {
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
-      if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+      if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX) {
+        const info = FURN_INFO[tile.furniture];
+        parts.push(`Furniture: <span class="tag">${info.icon} ${info.name}</span>`);
+        if (tile.furniture === FURN.ICEBOX) {
+          parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
+          if (tile.powered) parts.push(`<div class="mini">Slows spoilage for food within ${ESSENCE_CHILL_RADIUS} tiles.</div>`);
+        }
+      } else if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+      if (tile.conduit) parts.push(`<span class="tag" style="color:${tile.powered ? "#c9a8ff" : "#9c8a64"}">🔗 conduit · ${tile.powered ? "powered" : "dormant"}</span>`);
       if (tile.workshop) {
         const list = RECIPES[tile.workshop] || [];
         parts.push(`Workshop: <span class="tag">${WORKSHOP_INFO[tile.workshop].icon} ${WORKSHOP_INFO[tile.workshop].name}</span>`);
@@ -1496,7 +1829,10 @@ class Game {
           ${STOCKPILE_CATEGORIES.map(c => `<button class="stockfilter-btn${tile.stockpileFilter === c.id ? " on" : ""}" data-filter="${c.id}">${c.icon} ${c.name}</button>`).join("")}
         </div>`);
       }
-      if (tile.item) parts.push(`Item: <span class="tag">${ITEM_LABEL[tile.item.kind]}${tile.item.sub ? " (" + tile.item.sub + ")" : ""}</span>`);
+      if (tile.item) {
+        const freshTxt = tile.item.kind === ITEM.FOOD && tile.item.freshness != null ? ` · ${Math.round(tile.item.freshness * 100)}% fresh` : "";
+        parts.push(`Item: <span class="tag">${ITEM_LABEL[tile.item.kind]}${tile.item.sub ? " (" + tile.item.sub + ")" : ""}${freshTxt}</span>`);
+      }
       return parts.join("<br/>");
     }
     return "Click a tile or elf with the Inspect tool.";
@@ -1541,11 +1877,21 @@ class Game {
       <div class="sched-note">Persistent database: <b>${colonyDB ? colonyDB.describe() : "n/a"}</b></div>
       <div id="rec-body" class="menu-empty">Loading…</div>`;
     if (!colonyDB) return;
-    Promise.all([colonyDB.getAllDwarves(), colonyDB.getEvents(30)]).then(([dwarves, events]) => {
+    Promise.all([colonyDB.getAllDwarves(), colonyDB.getEvents(30), colonyDB.getMilestones()]).then(([dwarves, events, milestones]) => {
       const body = document.getElementById("rec-body");
       if (!body) return;
+      const byId = new Map(milestones.map(r => [r.id, r]));
+      let html = `<div class="mini2">Milestones · ${byId.size}/${MILESTONES.length}</div><div class="milestone-grid">`;
+      for (const m of MILESTONES) {
+        const rec = byId.get(m.id);
+        html += `<div class="milestone${rec ? " on" : ""}" title="${this.escapeHtml(m.desc)}">
+          <span class="ms-icon">${rec ? m.icon : "🔒"}</span>
+          <span class="ms-name">${m.name}</span>
+          ${rec ? `<span class="ms-day">Day ${rec.day}</span>` : ""}
+        </div>`;
+      }
+      html += `</div>`;
       dwarves.sort((a, b) => (b.alive - a.alive) || 0);
-      let html = "";
       for (const r of dwarves) {
         const top = r.skills ? Object.entries(r.skills).sort((a, b) => b[1] - a[1]).slice(0, 3)
           .filter(s => s[1] > 0).map(s => `${SKILLS[s[0]] ? SKILLS[s[0]].icon : ""}${s[1]}`).join(" ") : "";
@@ -1566,6 +1912,59 @@ class Game {
     });
   }
 
+  // Population sparkline, lifetime production counters, and a cause-of-death
+  // breakdown pulled from the same cross-colony database the Records tab uses.
+  renderStats(c) {
+    if (this._statsLoaded) return;
+    this._statsLoaded = true;
+    const s = this.stats;
+    const pts = this.popHistory.slice(-60);
+    const maxPop = Math.max(1, this.dwarves.length, ...pts.map(h => h.pop));
+    const chartW = 210, chartH = 56;
+    const barW = pts.length ? chartW / pts.length : chartW;
+    let bars = "";
+    pts.forEach((h, i) => {
+      const bh = Math.max(1, (h.pop / maxPop) * chartH);
+      bars += `<rect x="${(i * barW).toFixed(1)}" y="${(chartH - bh).toFixed(1)}" width="${Math.max(1, barW - 1).toFixed(1)}" height="${bh.toFixed(1)}" fill="#8fd0ff"></rect>`;
+    });
+
+    let html = `<h2>Colony Stats</h2>
+      <div class="mini2">Population over time</div>
+      <svg width="${chartW}" height="${chartH}" class="stat-chart">${bars}</svg>
+      <div class="mini">Current: <b>${this.dwarves.length}</b> · Peak: <b>${maxPop}</b></div>
+      <div class="mini2">Production (this colony)</div>
+      <div class="prod-grid">
+        <div class="prod-tile">⛏️ <b>${s.mined}</b><span>Stone mined</span></div>
+        <div class="prod-tile">🪓 <b>${s.chopped}</b><span>Trees felled</span></div>
+        <div class="prod-tile">🌿 <b>${s.gathered}</b><span>Food gathered</span></div>
+        <div class="prod-tile">🔨 <b>${s.crafted}</b><span>Items crafted</span></div>
+        <div class="prod-tile">🧱 <b>${s.built}</b><span>Structures built</span></div>
+        <div class="prod-tile">🦊 <b>${s.tamed}</b><span>Animals tamed</span></div>
+      </div>
+      <div class="mini2">Causes of death · all colonies ever played</div>
+      <div id="stat-deaths" class="menu-empty">Loading…</div>`;
+    c.innerHTML = html;
+
+    if (!colonyDB) { const el = document.getElementById("stat-deaths"); if (el) el.textContent = "n/a"; return; }
+    colonyDB.getAllDwarves().then(list => {
+      const el = document.getElementById("stat-deaths");
+      if (!el) return;
+      const dead = list.filter(r => !r.alive);
+      if (!dead.length) { el.className = "menu-empty"; el.textContent = "No losses yet — long may it last."; return; }
+      const byCause = {};
+      for (const r of dead) { const cause = r.cause || "unknown causes"; byCause[cause] = (byCause[cause] || 0) + 1; }
+      const entries = Object.entries(byCause).sort((a, b) => b[1] - a[1]);
+      const total = dead.length;
+      el.className = "";
+      el.innerHTML = entries.map(([cause, n]) => `
+        <div class="death-row">
+          <span class="death-label">${this.escapeHtml(cause)}</span>
+          <div class="bar" style="flex:1"><i style="width:${Math.round(n / total * 100)}%;background:#e08a6a"></i></div>
+          <span class="death-count">${n}</span>
+        </div>`).join("") + `<div class="mini" style="margin-top:6px">${total} loss${total === 1 ? "" : "es"} across every colony you've played.</div>`;
+    }).catch(() => { const el = document.getElementById("stat-deaths"); if (el) el.textContent = "Unavailable."; });
+  }
+
   taskLabel(d) {
     if (d.state === "fight") return "Fighting!";
     if (d.fleeing) return "Fleeing!";
@@ -1576,7 +1975,7 @@ class Game {
       haul: "Hauling", eat: "Eating", drink: "Drinking", sleep: "Sleeping", train: "Training", socialize: "Socialising",
       craft: "Crafting", equip: "Arming up", plant: "Planting", harvest: "Harvesting",
       recover: "Recovering", doctor: "Treating patient", forest: "Foresting",
-      stairsdown: "Carving stairs",
+      stairsdown: "Carving stairs", tame: "Taming a fox",
     };
     return map[d.job.type] || "Working";
   }

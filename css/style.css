@@ -38,12 +38,13 @@ html, body {
 #topbar .clock { margin-left: auto; color: #cbb98f; }
 #stat-speed { cursor: default; color: #9fd08a; }
 
-/* ---- Left toolbar ---- */
-#toolbar {
+/* ---- Bottom-center architect bar (RimWorld-style: categories expand upward) ---- */
+#archbar {
   position: absolute;
-  top: 52px; left: 8px;
+  left: 50%; bottom: 8px;
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 6px;
   z-index: 10;
 }
@@ -80,20 +81,21 @@ html, body {
 }
 .cat .ico { font-size: 20px; line-height: 1; }
 .cat .lbl { font-size: 9px; letter-spacing: .3px; text-transform: uppercase; }
-.cat::after { /* little chevron hinting a submenu */
-  content: "›"; position: absolute; right: 3px; top: 50%; transform: translateY(-50%);
-  font-size: 14px; color: #8a7550;
+.cat::after { /* little chevron hinting the submenu expands upward */
+  content: "▲"; position: absolute; right: 4px; top: 4px;
+  font-size: 8px; color: #8a7550;
 }
 .cat:hover { border-color: #a9843e; background: linear-gradient(#4a3a26, #2c2113); }
 .cat.active { border-color: #ffcf6b; background: linear-gradient(#5a4426, #2c2113); box-shadow: 0 0 10px #ffcf6b44; }
 
-/* fly-out submenu panel */
+/* fly-out submenu panel — expands upward from the archbar, centered above it */
 #flyout {
-  position: absolute; left: 66px; z-index: 12;
+  position: absolute; left: 50%; bottom: 128px; z-index: 12;
+  transform: translateX(-50%);
   background: linear-gradient(#2a2118f2, #181209f2);
   border: 2px solid #6b5230; border-radius: 10px;
-  padding: 8px 10px; min-width: 130px;
-  box-shadow: 0 10px 30px #000a;
+  padding: 10px 14px; min-width: 220px; max-width: 640px;
+  box-shadow: 0 -10px 30px #000a;
 }
 #flyout.hidden { display: none; }
 .fly-group { display: none; }
@@ -103,11 +105,41 @@ html, body {
 .fly-tools { display: flex; flex-wrap: wrap; gap: 6px; }
 #flyout .tool { width: 56px; height: 52px; }
 
+/* ---- Colonist portrait strip — sits just above the archbar ---- */
+#colonistbar {
+  position: absolute;
+  left: 50%; bottom: 68px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  max-width: 520px;
+  overflow-x: auto;
+  z-index: 10;
+}
+.cbar-chip {
+  position: relative;
+  flex: none;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 60px; padding: 4px 2px;
+  background: linear-gradient(#241b10ee, #17110aee);
+  border: 2px solid #4a3a26; border-radius: 8px;
+  cursor: pointer;
+}
+.cbar-chip:hover { border-color: #a9843e; }
+.cbar-chip.sel { border-color: #ffcf6b; box-shadow: 0 0 8px #ffcf6b55; }
+.cbar-face {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; border: 1px solid #00000066;
+}
+.cbar-name { font-size: 9px; color: #d8c8a0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.cbar-badge { position: absolute; top: 1px; right: 3px; font-size: 11px; }
+
 /* ---- Right panel ---- */
 #panel {
   position: absolute;
-  top: 52px; right: 8px; bottom: 90px;
-  width: 246px;
+  top: 52px; right: 8px; bottom: 128px;
+  width: 278px;
   background: linear-gradient(#241b10ee, #17110aee);
   border: 2px solid #4a3a26;
   border-radius: 10px;
@@ -125,12 +157,14 @@ html, body {
 }
 .ptab {
   flex: 1;
+  min-width: 0;
   background: none; border: none;
   color: #9c8a64;
-  font-size: 10.5px; text-transform: uppercase; letter-spacing: .2px;
-  padding: 7px 2px; cursor: pointer;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .1px;
+  padding: 7px 1px; cursor: pointer;
   border-bottom: 2px solid transparent;
   font-family: inherit; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
 }
 .ptab:hover { color: #e8dcc0; }
 .ptab.active { color: #ffcf6b; border-bottom-color: #ffcf6b; }
@@ -270,6 +304,16 @@ html, body {
 .chip.on { opacity: 1; border-color: #a9843e; background: #6b4f2233; }
 
 /* records tab */
+.milestone-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.milestone {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px;
+  padding: 8px 4px; border-radius: 8px; border: 1px solid #3a2e1e; background: #00000022;
+  opacity: .45;
+}
+.milestone.on { opacity: 1; border-color: #a9843e; background: #6b4f2222; }
+.ms-icon { font-size: 20px; }
+.ms-name { font-size: 10.5px; color: #e8dcc0; line-height: 1.2; }
+.ms-day { font-size: 10px; color: #c9a758; }
 .rec-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid #ffffff0c; }
 .rec-row.dead { opacity: .55; }
 .rec-main { flex: 1; font-size: 13px; }
@@ -278,6 +322,20 @@ html, body {
 .rec-events { font-size: 11px; color: #9c8a64; line-height: 1.5; }
 .rec-events div { padding: 1px 0; }
 .loading { color: #7a6e54; }
+
+/* stats tab */
+.stat-chart { display: block; background: #00000022; border: 1px solid #3a2e1e; border-radius: 6px; margin-bottom: 4px; }
+.prod-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 4px; }
+.prod-tile {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 8px; border-radius: 8px; border: 1px solid #3a2e1e; background: #00000022;
+  font-size: 13px;
+}
+.prod-tile b { color: #ffe9a8; font-size: 15px; }
+.prod-tile span { color: #9c8a64; font-size: 10.5px; }
+.death-row { display: flex; align-items: center; gap: 6px; margin: 4px 0; font-size: 12px; }
+.death-label { width: 116px; flex: none; color: #cbbd99; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.death-count { width: 22px; text-align: right; color: #e08a6a; }
 
 /* ---- Log ---- */
 #log {
@@ -299,19 +357,6 @@ html, body {
 #log .warn { color: #e0b158; }
 #log .bad { color: #e08a6a; }
 @keyframes fade { to { opacity: 1; } }
-
-#hint {
-  position: absolute;
-  left: 50%; bottom: 8px;
-  transform: translateX(-50%);
-  font-size: 11px;
-  color: #7a6e54;
-  background: #0f0b06aa;
-  padding: 4px 12px;
-  border-radius: 20px;
-  z-index: 10;
-  pointer-events: none;
-}
 
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: #4a3a26; border-radius: 4px; }

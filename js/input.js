@@ -4,7 +4,7 @@
 const TOOL_CAT = {
   dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate",
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
-  doublebed: "build", painting: "build",
+  doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
 
@@ -32,7 +32,7 @@ class Input {
     this.canvas.style.cursor = tool === "select" ? "pointer" : "crosshair";
   }
 
-  toggleFlyout(cat, btn) {
+  toggleFlyout(cat) {
     const fly = document.getElementById("flyout");
     if (!fly) return;
     const open = !fly.classList.contains("hidden") && this._flyCat === cat;
@@ -41,7 +41,6 @@ class Input {
     fly.querySelectorAll(".fly-group").forEach(g =>
       g.classList.toggle("show", g.dataset.group === cat));
     fly.classList.remove("hidden");
-    if (btn) fly.style.top = Math.max(52, btn.getBoundingClientRect().top) + "px";
   }
 
   closeFlyout() {
@@ -83,7 +82,7 @@ class Input {
 
     // Category buttons open their fly-out submenu
     document.querySelectorAll(".cat").forEach(btn => {
-      btn.addEventListener("click", () => this.toggleFlyout(btn.dataset.cat, btn));
+      btn.addEventListener("click", () => this.toggleFlyout(btn.dataset.cat));
     });
 
     // Speed control buttons
@@ -190,7 +189,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -215,11 +214,26 @@ class Input {
       const dd = Math.hypot(d.x + 0.5 - (t.x + 0.5), d.y + 0.5 - (t.y + 0.5));
       if (dd < bd) { bd = dd; picked = d; }
     }
+    // Failing that, an animal (wildlife is surface-only, like raiders).
+    let pickedAnimal = null;
+    if (!picked && (g.viewZ || 0) === 0) {
+      let ba = 0.6;
+      for (const a of g.animals) {
+        const dd = Math.hypot(a.x + 0.5 - (t.x + 0.5), a.y + 0.5 - (t.y + 0.5));
+        if (dd < ba) { ba = dd; pickedAnimal = a; }
+      }
+    }
     if (picked) {
       g.selectedDwarf = picked;
+      g.selectedAnimal = null;
+      g.selectedTile = null;
+    } else if (pickedAnimal) {
+      g.selectedDwarf = null;
+      g.selectedAnimal = pickedAnimal;
       g.selectedTile = null;
     } else {
       g.selectedDwarf = null;
+      g.selectedAnimal = null;
       g.selectedTile = g.world.inBounds(t.x, t.y) ? { x: t.x, y: t.y, z: g.viewZ || 0 } : null;
     }
     g.updatePanel();
@@ -280,6 +294,15 @@ class Input {
           case "door":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; count++; }
             break;
+          case "generator":
+          case "icebox":
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
+            break;
+          case "conduit":
+            // A conduit is embedded wiring, not a furniture slot — it coexists
+            // with a stockpile, workshop, or furniture already on the tile.
+            if (w.isWalkable(x, y, z) && !t.buildJob && !t.conduit) { t.buildJob = true; t.buildKind = "conduit"; count++; }
+            break;
           case "depot":
             if (w.isWalkable(x, y, z) && !(t.stockpile && t.zone === ZONE.TRADE)) { t.stockpile = true; t.zone = ZONE.TRADE; count++; }
             break;
@@ -302,11 +325,12 @@ class Input {
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
             break;
           case "erase":
-            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR) {
+            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR || t.conduit) {
               t.designation = null; t.buildJob = false; t.buildKind = null;
               t.stockpile = false; t.zone = null; t.reserved = false;
-              t.furniture = null; t.bedOccupants = []; // deconstruct any furniture (bed, table, double bed, painting)
+              t.furniture = null; t.bedOccupants = []; // deconstruct any furniture (bed, table, double bed, painting, generator, icebox)
               t.workshop = null; // deconstruct workshop
+              t.conduit = false; t.powered = false; // remove any embedded conduit
               if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; } // deconstruct door
               count++;
             }
@@ -327,6 +351,7 @@ class Input {
         well: "Well queued", brewery: "Brewery queued", doublebed: "Double beds queued", painting: "Paintings queued",
         table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
+        conduit: "Arcane conduits queued", generator: "Essence Well queued", icebox: "Frost Chamber queued",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
     }

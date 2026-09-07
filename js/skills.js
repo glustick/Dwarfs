@@ -14,6 +14,7 @@ const SKILLS = {
   smithing:     { name: "Smithing",     noun: "Smith",      icon: "🔨", jobs: ["craft"],  attr: false },
   medicine:     { name: "Medicine",     noun: "Healer",     icon: "⚕️", jobs: ["doctor"], attr: false },
   foresting:    { name: "Foresting",    noun: "Forester",   icon: "🌲", jobs: ["forest"], attr: false },
+  taming:       { name: "Taming",       noun: "Beastkeeper", icon: "🐾", jobs: ["tame"],  attr: false },
   fitness:      { name: "Fitness",      noun: "Athlete",    icon: "💪", attr: true },  // move speed / stamina
   fighting:     { name: "Fighting",     noun: "Warrior",    icon: "⚔️", attr: true },  // trained by 'train'
   toughness:    { name: "Toughness",    noun: "Bulwark",    icon: "🛡️", attr: true },  // resists & shrugs off wounds
@@ -27,7 +28,7 @@ const SKILL_IDS = Object.keys(SKILLS);
 const ENVIRONMENT_SPECIALTIES = ["mining", "woodcutting", "farming", "building", "hauling", "fighting", "toughness"];
 
 // Map a job type to the skill it trains.
-const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining" };
+const JOB_SKILL = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", haul: "hauling", eat: "cooking", craft: "smithing", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining", tame: "taming" };
 
 // Classic roguelike-style proficiency titles.
 const SKILL_TITLES = [
