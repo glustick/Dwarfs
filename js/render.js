@@ -762,14 +762,37 @@ class Renderer {
 
   // -- dwarves -------------------------------------------------------------
   drawDwarf(ctx, d, ox, oy, ts) {
-    const bob = Math.sin(d.bob) * (d.state === "goto" || d.state === "carry" ? ts * 0.06 : 0);
+    const moving = d.state === "goto" || d.state === "carry" || d.state === "wander";
+    // Walking uses the distance-driven d.bob phase (see Dwarf.move); standing
+    // still switches to a slow real-time phase so idle elves still breathe,
+    // offset by their own bob value so a crowd doesn't breathe in unison.
+    const phase = moving ? d.bob : this.game.time * 1.6 + d.bob;
+    const bobSin = Math.sin(phase);
+    const bobAmt = moving ? ts * 0.06 : ts * 0.015;
     const cx = (d.x + 0.5) * ts + ox;
-    const cy = (d.y + 0.5) * ts + oy + bob;
+    const cy = (d.y + 0.5) * ts + oy + bobSin * bobAmt;
     const r = ts * 0.30;
+
+    // squash/stretch, anchored at the feet so the hop reads as leaving the
+    // ground rather than the whole body sliding up and down
+    const stretchAmt = moving ? 0.09 : 0.02;
+    const groundY = cy + r;
+    ctx.save();
+    ctx.translate(cx, groundY);
+    ctx.scale(1 - bobSin * stretchAmt * 0.6, 1 + bobSin * stretchAmt);
+    ctx.translate(-cx, -groundY);
 
     // shadow
     ctx.fillStyle = "rgba(0,0,0,0.28)";
     ctx.beginPath(); ctx.ellipse(cx, cy + r * 1.1, r * 0.9, r * 0.35, 0, 0, 7); ctx.fill();
+
+    // walking feet, alternating — drawn under the tunic hem
+    if (moving) {
+      const step = ts * 0.09;
+      ctx.fillStyle = "#2a2018";
+      ctx.beginPath(); ctx.ellipse(cx - r * 0.28, cy + r * 1.06 + bobSin * step, r * 0.15, r * 0.1, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + r * 0.28, cy + r * 1.06 - bobSin * step, r * 0.15, r * 0.1, 0, 0, 7); ctx.fill();
+    }
 
     // body (tunic)
     ctx.fillStyle = d.color;
@@ -820,6 +843,7 @@ class Renderer {
       ctx.fillStyle = "#8a94a0"; ctx.strokeStyle = "#5a636e"; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx - d.facing * r * 0.7, cy + r * 0.15, r * 0.34, 0, 7); ctx.fill(); ctx.stroke();
     }
+    ctx.restore(); // end squash/stretch — HP bar and overlays below stay undistorted
 
     // HP bar when wounded
     if (d.hp < d.maxhp) {
@@ -841,19 +865,8 @@ class Renderer {
       ctx.stroke();
     }
 
-    // working spark
-    if (d.state === "work") {
-      const t = this.game.time;
-      const jt = d.job ? d.job.type : null;
-      const col = jt === "train" ? "180,200,255" : jt === "eat" ? "160,220,140" : jt === "socialize" ? "230,180,240" : jt === "doctor" ? "230,120,120" : "255,220,120";
-      ctx.strokeStyle = `rgba(${col},${0.5 + Math.sin(t * 20) * 0.4})`;
-      ctx.lineWidth = Math.max(1, ts * 0.08);
-      const a = t * 8;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * r, cy - r + Math.sin(a) * r * 0.4);
-      ctx.lineTo(cx + Math.cos(a) * r * 1.6, cy - r + Math.sin(a) * r * 0.4 - r * 0.5);
-      ctx.stroke();
-    }
+    // work animation — swing/strike/reach per job type, or a generic spark
+    if (d.state === "work") this.drawWorkAnim(ctx, d, cx, cy, r, ts);
 
     // sleeping: Zzz
     if (d.state === "sleep") {
@@ -895,17 +908,86 @@ class Renderer {
     }
   }
 
+  // Per-job work animations, grouped into a few archetypes so every tool-job
+  // reads distinctly at a glance instead of one generic orbiting spark.
+  drawWorkAnim(ctx, d, cx, cy, r, ts) {
+    const t = this.game.time;
+    const jt = d.job ? d.job.type : null;
+
+    if (jt === "dig" || jt === "stairsdown" || jt === "chop" || jt === "forest" || jt === "train") {
+      // a tool swings in a fast overhead-to-side arc
+      const speed = jt === "chop" ? 7 : jt === "train" ? 9 : 6;
+      const phase = (Math.sin(t * speed) + 1) / 2; // 0..1
+      const ang = -0.9 + phase * 1.6;
+      const hx = cx + d.facing * r * 0.75, hy = cy - r * 0.1;
+      const tipx = hx + Math.cos(ang) * d.facing * r * 1.1, tipy = hy - Math.sin(ang) * r * 1.1 - r * 0.3;
+      ctx.strokeStyle = jt === "chop" || jt === "forest" ? "#c9a25c" : jt === "train" ? "#d8dde4" : "#cfd3d8";
+      ctx.lineWidth = Math.max(1.5, ts * 0.09);
+      ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tipx, tipy); ctx.stroke();
+      if (phase > 0.85) { // impact flash at the bottom of the swing
+        ctx.fillStyle = `rgba(255,230,150,${(phase - 0.85) / 0.15 * 0.8})`;
+        ctx.beginPath(); ctx.arc(tipx, tipy, r * 0.12, 0, 7); ctx.fill();
+      }
+    } else if (jt === "build" || jt === "craft") {
+      // a hammer strikes straight down, rhythmically
+      const raw = (Math.sin(t * 5) + 1) / 2;
+      const liftY = -r * 0.6 * (1 - raw);
+      const hx = cx + d.facing * r * 0.55, baseY = cy - r * 0.1;
+      ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = Math.max(1.5, ts * 0.08);
+      ctx.beginPath(); ctx.moveTo(hx, baseY); ctx.lineTo(hx, baseY + liftY); ctx.stroke();
+      ctx.fillStyle = "#5a4526";
+      ctx.fillRect(hx - r * 0.14, baseY + liftY - r * 0.08, r * 0.28, r * 0.14);
+      if (raw > 0.9) {
+        ctx.fillStyle = `rgba(255,220,140,${(raw - 0.9) / 0.1 * 0.7})`;
+        ctx.beginPath(); ctx.arc(hx, cy + r * 0.05, r * 0.14, 0, 7); ctx.fill();
+      }
+    } else if (jt === "gather" || jt === "harvest" || jt === "plant") {
+      // stoop down toward the ground and back up
+      const reach = r * 0.35 * (Math.sin(t * 3) + 1) / 2;
+      ctx.strokeStyle = "#8fbf6a"; ctx.lineWidth = Math.max(1, ts * 0.06);
+      ctx.beginPath();
+      ctx.moveTo(cx + d.facing * r * 0.3, cy + r * 0.6);
+      ctx.lineTo(cx + d.facing * r * 0.5, cy + r * 0.6 + reach);
+      ctx.stroke();
+    } else {
+      // generic orbiting spark — doctor, eat, drink, socialize, equip, etc.
+      const col = jt === "eat" ? "160,220,140" : jt === "socialize" ? "230,180,240" : jt === "doctor" ? "230,120,120" : "255,220,120";
+      ctx.strokeStyle = `rgba(${col},${0.5 + Math.sin(t * 20) * 0.4})`;
+      ctx.lineWidth = Math.max(1, ts * 0.08);
+      const a = t * 8;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r, cy - r + Math.sin(a) * r * 0.4);
+      ctx.lineTo(cx + Math.cos(a) * r * 1.6, cy - r + Math.sin(a) * r * 0.4 - r * 0.5);
+      ctx.stroke();
+    }
+  }
+
   drawEnemy(ctx, e, ox, oy, ts) {
-    const bob = Math.sin(e.bob) * (e.path ? ts * 0.05 : 0);
+    const moving = !!e.path;
+    const bobSin = Math.sin(e.bob) * (moving ? 1 : 0);
     const cx = (e.x + 0.5) * ts + ox;
-    const cy = (e.y + 0.5) * ts + oy + bob;
+    const cy = (e.y + 0.5) * ts + oy + bobSin * ts * 0.05;
     const r = ts * 0.30;
+
+    const stretchAmt = moving ? 0.08 : 0;
+    const groundY = cy + r;
+    ctx.save();
+    ctx.translate(cx, groundY);
+    ctx.scale(1 - bobSin * stretchAmt * 0.6, 1 + bobSin * stretchAmt);
+    ctx.translate(-cx, -groundY);
 
     // shadow
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.beginPath(); ctx.ellipse(cx, cy + r * 1.1, r * 0.9, r * 0.35, 0, 0, 7); ctx.fill();
 
     if (e.kind === "wolf") {
+      // paws, alternating
+      if (moving) {
+        const step = ts * 0.06;
+        ctx.fillStyle = "#2a2018";
+        ctx.beginPath(); ctx.ellipse(cx - r * 0.5, cy + r * 0.5 + bobSin * step, r * 0.12, r * 0.09, 0, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + r * 0.5, cy + r * 0.5 - bobSin * step, r * 0.12, r * 0.09, 0, 0, 7); ctx.fill();
+      }
       // low four-legged body
       ctx.fillStyle = e.color;
       ctx.beginPath(); ctx.ellipse(cx, cy + r * 0.2, r * 0.95, r * 0.5, 0, 0, 7); ctx.fill();
@@ -913,6 +995,13 @@ class Renderer {
       ctx.fillStyle = "#c94040"; // eye
       ctx.beginPath(); ctx.arc(cx + e.facing * r * 0.9, cy - r * 0.05, r * 0.08, 0, 7); ctx.fill();
     } else {
+      // feet, alternating — drawn under the tunic hem
+      if (moving) {
+        const step = ts * 0.08;
+        ctx.fillStyle = "#1a1512";
+        ctx.beginPath(); ctx.ellipse(cx - r * 0.28, cy + r * 1.06 + bobSin * step, r * 0.15, r * 0.1, 0, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(cx + r * 0.28, cy + r * 1.06 - bobSin * step, r * 0.15, r * 0.1, 0, 0, 7); ctx.fill();
+      }
       // humanoid raider
       ctx.fillStyle = e.color;
       ctx.beginPath();
@@ -930,6 +1019,7 @@ class Renderer {
       ctx.strokeStyle = "#b0b6bc"; ctx.lineWidth = Math.max(1, r * 0.16);
       ctx.beginPath(); ctx.moveTo(cx + e.facing * r * 0.8, cy + r * 0.5); ctx.lineTo(cx + e.facing * r * 0.8, cy - r * 0.6); ctx.stroke();
     }
+    ctx.restore();
 
     // hp bar
     if (e.hp < e.maxhp) {
@@ -1052,13 +1142,29 @@ class Renderer {
 
   // -- wildlife & tamed companions ------------------------------------------
   drawAnimal(ctx, a, ox, oy, ts) {
-    const bob = Math.sin(a.bob) * (a.path ? ts * 0.05 : 0);
-    const cx = (a.x + 0.5) * ts + ox, cy = (a.y + 0.5) * ts + oy + bob;
+    const moving = !!a.path;
+    const bobSin = Math.sin(a.bob) * (moving ? 1 : 0);
+    const cx = (a.x + 0.5) * ts + ox, cy = (a.y + 0.5) * ts + oy + bobSin * ts * 0.05;
     const r = ts * 0.22;
     const info = ANIMAL_TYPES[a.kind] || ANIMAL_TYPES.fox;
 
+    const stretchAmt = moving ? 0.08 : 0;
+    const groundY = cy + r * 0.6;
+    ctx.save();
+    ctx.translate(cx, groundY);
+    ctx.scale(1 - bobSin * stretchAmt * 0.6, 1 + bobSin * stretchAmt);
+    ctx.translate(-cx, -groundY);
+
     ctx.fillStyle = "rgba(0,0,0,0.25)";
     ctx.beginPath(); ctx.ellipse(cx, cy + r, r * 0.9, r * 0.3, 0, 0, 7); ctx.fill();
+
+    // paws, alternating
+    if (moving) {
+      const step = ts * 0.045;
+      ctx.fillStyle = "#2a2018";
+      ctx.beginPath(); ctx.ellipse(cx - r * 0.4, cy + r * 0.68 + bobSin * step, r * 0.13, r * 0.09, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx + r * 0.4, cy + r * 0.68 - bobSin * step, r * 0.13, r * 0.09, 0, 0, 7); ctx.fill();
+    }
 
     const body = a.tamed ? info.color : "#8a7560"; // wild ones read duller until tamed
     ctx.fillStyle = body;
@@ -1070,9 +1176,11 @@ class Renderer {
     ctx.lineTo(cx + a.facing * r * 0.75, cy - r * 1.1);
     ctx.lineTo(cx + a.facing * r * 1.0, cy - r * 0.55);
     ctx.closePath(); ctx.fill();
-    // tail
+    // tail — wags briskly on the move, lazily at rest
+    const wagSpeed = moving ? 9 : 2.5;
+    const wag = Math.sin(this.game.time * wagSpeed + a.bob) * 0.25;
     ctx.beginPath();
-    ctx.ellipse(cx - a.facing * r * 0.9, cy, r * 0.5, r * 0.2, a.facing > 0 ? 0.4 : -0.4, 0, 7);
+    ctx.ellipse(cx - a.facing * r * 0.9, cy, r * 0.5, r * 0.2, (a.facing > 0 ? 0.4 : -0.4) + wag, 0, 7);
     ctx.fill();
 
     if (a.tamed) {
@@ -1081,6 +1189,7 @@ class Renderer {
       ctx.fillText("🐾", cx, cy - r * 1.7);
       ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
+    ctx.restore();
     if (this.game.selectedAnimal === a) {
       ctx.strokeStyle = "#ffcf6b";
       ctx.lineWidth = Math.max(1.5, ts * 0.05);

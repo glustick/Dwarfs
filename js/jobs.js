@@ -557,6 +557,10 @@ class JobManager {
     if (!list.length) return false;
     let target = null, bd = Infinity;
     for (const a of list) {
+      // The candidate list is a snapshot from the last reindex — re-check
+      // reserved/tamed live so two dwarves can't both claim it before the
+      // next reindex catches up (same guard assignWork uses for tiles).
+      if (a.reserved || a.tamed) continue;
       const d = dist3(a.tileX, a.tileY, 0, dx, dy, dz);
       if (d < bd) { bd = d; target = a; }
     }

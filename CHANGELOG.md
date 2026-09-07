@@ -4,6 +4,33 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.9.0 (build 27)
+Sprite animation pass — elves, enemies, and wildlife feel more alive without
+any new art: everything is the same procedural canvas shapes, just posed
+differently frame to frame.
+
+- **Walk cycle** — a real squash/stretch (anchored at the feet, so it reads
+  as leaving the ground rather than sliding up and down) plus alternating
+  leg/paw marks peeking out from under the body, replacing the old plain
+  vertical bob. Applied to elves, enemies (humanoid and wolf), and animals.
+- **Idle breathing** — standing elves get a barely-perceptible sway instead
+  of being perfectly frozen, phase-offset per elf so a crowd doesn't breathe
+  in unison.
+- **Per-job work animations** — mining/chopping/foresting/stairs/training
+  now swing a tool in an arc with an impact flash; building/crafting strike
+  a hammer straight down; gathering/harvesting/planting stoop toward the
+  ground. Everything else (doctoring, eating, socializing, etc.) keeps the
+  original orbiting spark.
+- Foxes also got a tail wag (brisk on the move, lazy at rest).
+
+## v1.8.1 (build 26)
+- **Fix**: `assignTame` picked its target from the last reindex's candidate
+  snapshot without re-checking `reserved` at claim time, so two idle elves
+  could occasionally both start "approaching" the same wild fox before the
+  next reindex caught up (harmless — no duplicate reward — but looked like
+  a small crowd converging on one fox). Now re-checks live, same guard
+  `assignWork` already uses for tile-based jobs.
+
 ## v1.8.0 (build 25)
 A RimWorld-inspired interface rework:
 
