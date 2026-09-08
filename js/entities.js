@@ -123,6 +123,7 @@ class Dwarf {
     this.mood = 70;        // 0 miserable .. 100 ecstatic
     this.happiness = 70;   // overall gauge: health + mood + needs (derived)
     this.facing = 1;       // 1 right, -1 left
+    this.facingV = 1;      // 1 toward camera (south), -1 away (north) — picks front/back pose
     this.bob = Math.random() * Math.PI * 2; // walk animation phase
     this.idleWander = 0;
     this.thought = "";     // short status text
@@ -204,6 +205,7 @@ class Dwarf {
     this.x += (dx / d) * m;
     this.y += (dy / d) * m;
     if (Math.abs(dx) > 0.01) this.facing = dx > 0 ? 1 : -1;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 0.01) this.facingV = dy > 0 ? 1 : -1;
     this.bob += m * 6;
     return false;
   }
@@ -234,6 +236,7 @@ class Enemy {
     this.path = null; this.pathIdx = 0;
     this.attackCd = 0; this.repath = 0;
     this.facing = 1;
+    this.facingV = 1;
     this.bob = Math.random() * Math.PI * 2;
   }
 
@@ -255,6 +258,7 @@ class Enemy {
     const m = Math.min(this.speed * dt, d);
     this.x += (dx / d) * m; this.y += (dy / d) * m;
     if (Math.abs(dx) > 0.01) this.facing = dx > 0 ? 1 : -1;
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 0.01) this.facingV = dy > 0 ? 1 : -1;
     this.bob += m * 6;
     return false;
   }

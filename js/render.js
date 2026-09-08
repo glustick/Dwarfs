@@ -841,25 +841,34 @@ class Renderer {
     ctx.fillStyle = "#e6c39a";
     ctx.beginPath(); ctx.arc(cx, cy - r * 0.5, r * 0.55, 0, 7); ctx.fill();
 
-    // helmet / hair
-    ctx.fillStyle = "#4a3a26";
-    ctx.beginPath(); ctx.arc(cx, cy - r * 0.62, r * 0.56, Math.PI, 0); ctx.fill();
+    if (d.facingV === -1) {
+      // walking away from camera: back of the head, hair covers it entirely,
+      // no face — this is what actually reads as "turned around" at a glance
+      ctx.fillStyle = "#4a3a26";
+      ctx.beginPath(); ctx.arc(cx, cy - r * 0.5, r * 0.56, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#3a2c1c"; ctx.lineWidth = Math.max(1, r * 0.05);
+      ctx.beginPath(); ctx.moveTo(cx, cy - r * 1.02); ctx.lineTo(cx, cy - r * 0.1); ctx.stroke();
+    } else {
+      // helmet / hair
+      ctx.fillStyle = "#4a3a26";
+      ctx.beginPath(); ctx.arc(cx, cy - r * 0.62, r * 0.56, Math.PI, 0); ctx.fill();
 
-    // beard
-    ctx.fillStyle = "#b98a4a";
-    ctx.beginPath();
-    ctx.moveTo(cx - r * 0.5, cy - r * 0.42);
-    ctx.lineTo(cx + r * 0.5, cy - r * 0.42);
-    ctx.lineTo(cx + r * 0.28, cy + r * 0.35);
-    ctx.lineTo(cx, cy + r * 0.5);
-    ctx.lineTo(cx - r * 0.28, cy + r * 0.35);
-    ctx.closePath(); ctx.fill();
+      // beard
+      ctx.fillStyle = "#b98a4a";
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.5, cy - r * 0.42);
+      ctx.lineTo(cx + r * 0.5, cy - r * 0.42);
+      ctx.lineTo(cx + r * 0.28, cy + r * 0.35);
+      ctx.lineTo(cx, cy + r * 0.5);
+      ctx.lineTo(cx - r * 0.28, cy + r * 0.35);
+      ctx.closePath(); ctx.fill();
 
-    // eyes
-    ctx.fillStyle = "#2a2018";
-    const ex = d.facing * r * 0.12;
-    ctx.beginPath(); ctx.arc(cx - r * 0.16 + ex, cy - r * 0.55, r * 0.07, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(cx + r * 0.16 + ex, cy - r * 0.55, r * 0.07, 0, 7); ctx.fill();
+      // eyes
+      ctx.fillStyle = "#2a2018";
+      const ex = d.facing * r * 0.12;
+      ctx.beginPath(); ctx.arc(cx - r * 0.16 + ex, cy - r * 0.55, r * 0.07, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + r * 0.16 + ex, cy - r * 0.55, r * 0.07, 0, 7); ctx.fill();
+    }
 
     // carried item indicator
     if (d.carrying) {
@@ -1044,11 +1053,13 @@ class Renderer {
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = e.kind === "troll" ? "#8a7f9a" : "#6f8a48";
       ctx.beginPath(); ctx.arc(cx, cy - r * 0.5, r * 0.55, 0, 7); ctx.fill();
-      // menacing eyes
-      ctx.fillStyle = "#e03020";
-      const ex = e.facing * r * 0.12;
-      ctx.beginPath(); ctx.arc(cx - r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
+      if (e.facingV !== -1) {
+        // menacing eyes — hidden when facing away from the camera
+        ctx.fillStyle = "#e03020";
+        const ex = e.facing * r * 0.12;
+        ctx.beginPath(); ctx.arc(cx - r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(cx + r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
+      }
       // crude weapon
       ctx.strokeStyle = "#b0b6bc"; ctx.lineWidth = Math.max(1, r * 0.16);
       ctx.beginPath(); ctx.moveTo(cx + e.facing * r * 0.8, cy + r * 0.5); ctx.lineTo(cx + e.facing * r * 0.8, cy - r * 0.6); ctx.stroke();

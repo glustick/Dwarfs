@@ -187,7 +187,7 @@ class Game {
       })),
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
       enemies: this.enemies.map(e => ({
-        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing,
+        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing, facingV: e.facingV,
       })),
       raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
       research: this.research, tech: this.tech,
@@ -235,7 +235,7 @@ class Game {
   serializeDwarf(d) {
     return {
       name: d.name, x: d.x, y: d.y, z: d.z || 0, color: d.color,
-      hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing,
+      hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing, facingV: d.facingV,
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
       infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
@@ -285,7 +285,7 @@ class Game {
     this.dwarves = data.dwarves.map(o => {
       const d = new Dwarf(o.name, o.x, o.y, o.color, o.skills);
       d.z = o.z || 0;
-      d.hunger = o.hunger; d.thirst = o.thirst != null ? o.thirst : 0; d.mood = o.mood; d.facing = o.facing;
+      d.hunger = o.hunger; d.thirst = o.thirst != null ? o.thirst : 0; d.mood = o.mood; d.facing = o.facing; d.facingV = o.facingV || 1;
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
@@ -316,6 +316,7 @@ class Game {
       const e = new Enemy(o.kind, o.x, o.y);
       if (o.hp != null) e.hp = o.hp;
       e.facing = o.facing || 1;
+      e.facingV = o.facingV || 1;
       return e;
     });
     this.raidTimer = data.raidTimer != null ? data.raidTimer : DAY_LENGTH * 3;

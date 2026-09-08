@@ -25,13 +25,28 @@ function pentaFreq(octave, degree) {
 }
 
 // A short root-degree progression the bass drone cycles through (one chord
-// per 16 steps) — i - iv - v - VII in the pentatonic's modal flavor — instead
-// of the old two-chord alternation, plus a melodic contour (relative scale
-// degrees) replayed each chord, transposed to the current root. Together
-// these give the ambient score an actual harmonic shape and a recognizable
-// (if quietly varied) tune, instead of an unconstrained random walk.
-const CHORD_DEGREES = [0, 2, 3, 4];
-const PHRASE_SHAPE = [0, 1, 2, 1, 3, 2, 1, 0];
+// per 16 steps), plus a melodic contour (relative scale degrees) replayed
+// each chord, transposed to the current root — instead of an unconstrained
+// random walk. A single fixed progression/phrase pair loops in ~16-20s,
+// which is fine for a minute but turns into an obvious treadmill over a
+// long play session — so several of each are defined here, and the
+// generator rerolls to a different (progression, phrase) pair every time a
+// full cycle completes (see `_rerollSection`), instead of looping the same
+// one forever.
+const CHORD_PROGRESSIONS = [
+  [0, 2, 3, 4], // i - iv - v - VII
+  [0, 3, 2, 4], // i - v - iv - VII
+  [0, 4, 3, 2], // i - VII - v - iv
+  [2, 0, 4, 3], // iv - i - VII - v
+];
+const PHRASE_SHAPES = [
+  [0, 1, 2, 1, 3, 2, 1, 0],
+  [0, 2, 1, 3, 2, 0, 1, -1],
+  [3, 2, 1, 0, 1, 2, 3, 4],
+  [0, 0, 1, 2, 2, 1, 0, -1],
+];
+// Chord tones (relative to the root) the arpeggio layer arpeggiates through.
+const ARP_PATTERN = [0, 2, 4, 2];
 
 class SoundManager {
   constructor() {
@@ -47,6 +62,8 @@ class SoundManager {
     this._step = 0;
     this._melIdx = 4;                 // current melody scale degree (random walk)
     this._stepMs = 260;               // ambient tempo
+    this._prog = CHORD_PROGRESSIONS[0];   // current chord progression (rerolled each cycle)
+    this._phrase = PHRASE_SHAPES[0];      // current melodic phrase (rerolled each cycle)
     this._last = Object.create(null); // per-sound throttle timestamps
     this.musicVol = this._loadVol(MUSIC_VOL_KEY);
     this.sfxVol = this._loadVol(SFX_VOL_KEY);
@@ -157,9 +174,12 @@ class SoundManager {
   }
 
   // ---- primitive voices ----
+  // `pan` (-1..1) routes through a StereoPannerNode when given — used to
+  // spread the arpeggio/melody across the stereo field instead of every
+  // music voice stacking up dead-center mono, which read as flat/narrow.
   _tone(freq, dur, opts = {}) {
     if (!this.ctx) return;
-    const { type = "sine", gain = 0.2, attack = 0.008, detune = 0, dest = this.sfxGain, glideTo = null } = opts;
+    const { type = "sine", gain = 0.2, attack = 0.008, detune = 0, dest = this.sfxGain, glideTo = null, pan = null } = opts;
     const t = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -167,7 +187,13 @@ class SoundManager {
     osc.frequency.setValueAtTime(freq, t);
     if (glideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, glideTo), t + dur);
     osc.detune.value = detune;
-    osc.connect(g); g.connect(dest);
+    let out = g;
+    if (pan != null && this.ctx.createStereoPanner) {
+      const p = this.ctx.createStereoPanner();
+      p.pan.value = clamp(pan, -1, 1);
+      g.connect(p); out = p;
+    }
+    osc.connect(g); out.connect(dest);
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + attack);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -287,6 +313,21 @@ class SoundManager {
     if (this._musicTimer) { clearTimeout(this._musicTimer); this._musicTimer = null; }
   }
 
+  // Picks a new (different, when possible) chord progression + melodic
+  // phrase pair once the current one has played all the way through — this
+  // is what keeps a long play session from wearing the same ~16-20s loop
+  // into the ground instead of it just sounding "more in tune."
+  _rerollSection() {
+    const pick = (arr, cur) => {
+      if (arr.length < 2) return arr[0];
+      let choice;
+      do { choice = arr[Math.floor(Math.random() * arr.length)]; } while (choice === cur);
+      return choice;
+    };
+    this._prog = pick(CHORD_PROGRESSIONS, this._prog);
+    this._phrase = pick(PHRASE_SHAPES, this._phrase);
+  }
+
   _musicStep() {
     const s = this._step++;
 
@@ -309,11 +350,20 @@ class SoundManager {
     this.reverbGain.gain.setTargetAtTime(dry * 0.55, t, 0.8); // wet path tracks the dry level
     this._stepMs = inCombat ? 160 : 260; // faster tempo ramps the tension
 
-    // Harmony: a short root-degree progression, one chord per 16 steps
-    // (i - iv - v - VII), instead of two notes alternating forever.
+    // Harmony: a chord progression, one chord per 16 steps. A full pass
+    // through the progression rerolls to a different (progression, phrase)
+    // pair — see _rerollSection — instead of looping the same one forever.
     const CHORD_LEN = 16;
-    const chordIdx = Math.floor(s / CHORD_LEN) % CHORD_DEGREES.length;
-    const chordRoot = CHORD_DEGREES[chordIdx];
+    const cycleLen = CHORD_LEN * this._prog.length;
+    if (s > 0 && s % cycleLen === 0) this._rerollSection();
+    const chordIdx = Math.floor(s / CHORD_LEN) % this._prog.length;
+    const chordRoot = this._prog[chordIdx];
+
+    // Small per-note timing jitter (a few ms) and gain jitter for the
+    // melody/arpeggio below, so the grid doesn't feel perfectly quantized —
+    // the harmony pad itself stays exactly on the beat since it's the anchor.
+    const jitter = () => Math.random() * 0.02;
+    const humanGain = (g) => g * (0.85 + Math.random() * 0.3);
 
     if (s % CHORD_LEN === 0) {
       this._tone(pentaFreq(0, chordRoot), 4.0, { type: "sine", gain: 0.16 * mv, attack: 0.6, dest: this.musicFilter });
@@ -328,7 +378,7 @@ class SoundManager {
       this._tone(55, 0.35, { type: "sawtooth", gain: 0.1 * mv, attack: 0.02, dest: this.musicFilter });
     }
 
-    // Melody: a short contour (PHRASE_SHAPE) replayed each chord, transposed
+    // Melody: a short contour (this._phrase) replayed each chord, transposed
     // to the current root, with an occasional passing-tone nudge or rest so
     // it breathes instead of repeating identically — chord-tone-anchored
     // instead of an unconstrained random walk, so it always resolves back
@@ -337,15 +387,28 @@ class SoundManager {
       const slot = Math.floor((s % CHORD_LEN) / 2); // 0..7 within the chord
       const rest = Math.random() < 0.15;
       if (!rest) {
-        let shape = PHRASE_SHAPE[slot % PHRASE_SHAPE.length];
+        let shape = this._phrase[slot % this._phrase.length];
         if (Math.random() < 0.25) shape += Math.random() < 0.5 ? 1 : -1;
         this._melIdx = chordRoot + shape;
         const oct = night ? 1 : 2;
         const dur = (slot === 0 || slot === 4) ? 0.75 : 0.42; // linger on phrase downbeats
-        this._tone(pentaFreq(oct, this._melIdx), dur, {
-          type: "triangle", gain: 0.12 * mv, attack: 0.02, dest: this.musicFilter,
-        });
+        const pan = slot % 2 === 0 ? -0.18 : 0.18; // slight spread instead of dead-center mono
+        this._later(jitter(), () => this._tone(pentaFreq(oct, this._melIdx), dur, {
+          type: "triangle", gain: humanGain(0.12 * mv), attack: 0.02, dest: this.musicFilter, pan,
+        }));
       }
+    }
+
+    // Arpeggio: a soft plucked layer stepping through the current chord's
+    // tones (root/3rd/5th-equivalent), interleaved with the melody's steps
+    // and panned opposite it — fills out the texture and widens the stereo
+    // image, which was otherwise fully mono (every voice landing dead center).
+    if (s % 2 === 1 && !inCombat) {
+      const arpDeg = chordRoot + ARP_PATTERN[Math.floor(s / 2) % ARP_PATTERN.length];
+      const pan = Math.floor(s / 2) % 2 === 0 ? 0.3 : -0.3;
+      this._later(jitter(), () => this._tone(pentaFreq(2, arpDeg), 0.3, {
+        type: "sine", gain: humanGain(0.06 * mv), attack: 0.01, dest: this.musicFilter, pan,
+      }));
     }
 
     // Occasional high sparkle by day.
@@ -354,10 +417,12 @@ class SoundManager {
     }
 
     // Ambient birdsong — sparse daytime chirps, silent once a fight starts.
+    // Panned to a random spot instead of dead-center, like a real bird would be.
     if (!night && !inCombat && Math.random() < 0.025) {
       const base = 1800 + Math.random() * 1400;
-      this._tone(base, 0.09, { type: "sine", gain: 0.05 * mv, attack: 0.005, glideTo: base * 1.3, dest: this.musicFilter });
-      this._later(0.1, () => this._tone(base * 1.15, 0.07, { type: "sine", gain: 0.04 * mv, attack: 0.005, dest: this.musicFilter }));
+      const pan = Math.random() * 1.6 - 0.8;
+      this._tone(base, 0.09, { type: "sine", gain: 0.05 * mv, attack: 0.005, glideTo: base * 1.3, dest: this.musicFilter, pan });
+      this._later(0.1, () => this._tone(base * 1.15, 0.07, { type: "sine", gain: 0.04 * mv, attack: 0.005, dest: this.musicFilter, pan }));
     }
   }
 

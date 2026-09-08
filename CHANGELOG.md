@@ -4,6 +4,37 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.9.4 (build 31)
+The ambient score stopped being a short loop on repeat — v1.9.1 fixed the
+harmony, but a single fixed 4-chord progression and one melodic phrase still
+looped every ~16-20 seconds, which wears thin fast over a long session.
+
+- **Section variety**: 4 chord progressions and 4 melodic phrases to choose
+  from; every time the current pair finishes a full pass, the generator
+  rerolls to a different one (never repeating the same pair twice in a row)
+  instead of looping the same progression/phrase forever.
+- **Arpeggio layer**: a soft plucked voice stepping through each chord's
+  tones, interleaved between the melody's notes, for a fuller texture.
+- **Stereo width**: melody, arpeggio, and birdsong now pan across the
+  stereo field instead of every voice stacking up dead-center mono (the
+  chord pad stays centered as the anchor).
+- **Humanization**: small per-note timing and gain jitter on the melody/
+  arpeggio so the grid doesn't feel perfectly quantized/robotic.
+
+## v1.9.3 (build 30)
+Directional sprites — elves and humanoid enemies/zombies now turn around
+instead of always facing the camera.
+
+- **Front/back pose**: a new vertical-facing state (tracked alongside the
+  existing left/right one) picks a distinct pose when someone is walking
+  mostly north vs. mostly south. Walking away shows the back of the head
+  (hair covering it entirely, a center-part line, no face) instead of the
+  same face-forward look no matter which way they're headed.
+- Zombies/raiders lose their menacing red eyes the same way when facing
+  away, instead of staring through the back of their own skull.
+- Persisted in saves like the existing left/right facing; old saves default
+  to front-facing on load.
+
 ## v1.9.2 (build 29)
 Build materials — walls, floors, doors, and furniture no longer have to be
 plain wood/stone.
