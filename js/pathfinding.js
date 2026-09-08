@@ -90,13 +90,14 @@ function findPath(world, sx, sy, sz, goalTest, heuristic, opts = {}) {
       }
     }
 
-    // Vertical neighbors: a connected pair of STAIRS tiles links (x,y,z)
-    // to (x,y,z-1) and (x,y,z+1).
+    // Vertical neighbors: a connected pair of STAIRS (or RAMP) tiles links
+    // (x,y,z) to (x,y,z-1) and (x,y,z+1) — both portal flavors work the
+    // same way, they just differ in build cost/flavor.
     const hereTile = world.get(cur.x, cur.y, cur.z);
-    if (hereTile && hereTile.built === B.STAIRS) {
+    if (hereTile && (hereTile.built === B.STAIRS || hereTile.built === B.RAMP)) {
       for (const nz of [cur.z - 1, cur.z + 1]) {
         const belowTile = world.get(cur.x, cur.y, nz);
-        if (!belowTile || belowTile.built !== B.STAIRS) continue;
+        if (!belowTile || (belowTile.built !== B.STAIRS && belowTile.built !== B.RAMP)) continue;
         const ni = idx(cur.x, cur.y, nz);
         if (closed.has(ni)) continue;
         const tentative = g + 1;

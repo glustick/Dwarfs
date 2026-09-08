@@ -10,6 +10,7 @@ const ZONE_STYLE = {
   study:    { fill: "rgba(150,110,220,0.15)", stroke: "rgba(180,150,240,0.50)", glyph: "📖" },
   hospital: { fill: "rgba(220,80,80,0.13)",   stroke: "rgba(240,120,120,0.50)", glyph: "✚" },
   trade:    { fill: "rgba(210,120,220,0.15)", stroke: "rgba(230,150,240,0.50)", glyph: "🐎" },
+  quarantine: { fill: "rgba(120,40,60,0.16)", stroke: "rgba(170,60,90,0.50)",   glyph: "⛓️" },
 };
 
 // Colors for the buildable materials (wall/floor/door/furniture).
@@ -99,8 +100,13 @@ class Renderer {
       this.drawItem(ctx, it, it.x * ts + ox, it.y * ts + oy, ts);
     }
 
-    // 3b) wildlife & tamed companions (surface-only, like raiders/caravans)
-    if (viewZ === 0) for (const a of g.animals) this.drawAnimal(ctx, a, ox, oy, ts);
+    // 3b) wildlife & tamed companions — foxes stay surface-only by spawn
+    // logic (trySpawnAnimal never places one underground), but this filters
+    // by actual z like dwarves below rather than hardcoding viewZ===0.
+    for (const a of g.animals) {
+      if ((a.z || 0) !== viewZ) continue;
+      this.drawAnimal(ctx, a, ox, oy, ts);
+    }
 
     // 4) dwarves (only those on the floor currently being viewed)
     for (const d of g.dwarves) {
@@ -108,14 +114,20 @@ class Renderer {
       this.drawDwarf(ctx, d, ox, oy, ts);
     }
 
-    // 4b) enemies (surface-only this release)
-    if (viewZ === 0) for (const e of g.enemies) {
-      if (e.hp <= 0) continue;
+    // 4b) enemies — can now be underground (raids may follow a stairwell
+    // down), so this filters by the enemy's own z instead of hardcoding
+    // viewZ===0.
+    for (const e of g.enemies) {
+      if (e.hp <= 0 || (e.z || 0) !== viewZ) continue;
       this.drawEnemy(ctx, e, ox, oy, ts);
     }
 
-    // 4c) caravans (surface-only this release)
-    if (viewZ === 0) for (const car of g.caravans) this.drawCaravan(ctx, car, ox, oy, ts);
+    // 4c) caravans stay surface-only by spawn logic (trySpawnCaravan never
+    // places one underground) — filtered by z for the same consistency as above.
+    for (const car of g.caravans) {
+      if ((car.z || 0) !== viewZ) continue;
+      this.drawCaravan(ctx, car, ox, oy, ts);
+    }
 
     // 4d) combat sparks
     for (const fx of g.combatFx) {
@@ -173,6 +185,7 @@ class Renderer {
         let r, gg, b;
         if (t.built === B.WALL) { r = 122; gg = 79; b = 52; }
         else if (t.built === B.STAIRS) { r = 200; gg = 170; b = 90; }
+        else if (t.built === B.RAMP) { r = 150; gg = 165; b = 185; }
         else if (t.workshop || t.furniture) { r = 138; gg = 120; b = 90; }
         else if (t.kind === K.WATER) { r = 45; gg = 100; b = 160; }
         else if (t.kind === K.SAND) { r = 201; gg = 184; b = 120; }
@@ -213,16 +226,17 @@ class Renderer {
       ctx.fillStyle = d.color;
       ctx.fillRect(r.x + d.x * sx - 1, r.y + d.y * sy - 1, 2, 2);
     }
-    // enemies (surface-only)
-    if (z === 0) {
-      ctx.fillStyle = "#e0553a";
-      for (const e of g.enemies) {
-        if (e.hp <= 0) continue;
-        ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
-      }
-      // wildlife (surface-only)
-      ctx.fillStyle = "#d8964a";
-      for (const a of g.animals) ctx.fillRect(r.x + a.x * sx - 1, r.y + a.y * sy - 1, 2, 2);
+    // enemies on this floor — can now be underground
+    ctx.fillStyle = "#e0553a";
+    for (const e of g.enemies) {
+      if (e.hp <= 0 || (e.z || 0) !== z) continue;
+      ctx.fillRect(r.x + e.x * sx - 1, r.y + e.y * sy - 1, 2, 2);
+    }
+    // wildlife (surface-only by spawn logic, filtered by z for consistency)
+    ctx.fillStyle = "#d8964a";
+    for (const a of g.animals) {
+      if ((a.z || 0) !== z) continue;
+      ctx.fillRect(r.x + a.x * sx - 1, r.y + a.y * sy - 1, 2, 2);
     }
     ctx.strokeStyle = "rgba(180,150,100,0.6)"; ctx.lineWidth = 1;
     ctx.strokeRect(r.x + 0.5, r.y + 0.5, r.w - 1, r.h - 1);
@@ -273,6 +287,7 @@ class Renderer {
     if (t.built === B.DOOR) this.drawDoor(ctx, t, sx, sy, ts);
     if (t.kind === K.FLOOR || t.built === B.FLOOR) this.drawFloorGrid(ctx, sx, sy, ts);
     if (t.built === B.STAIRS) this.drawStairs(ctx, sx, sy, ts);
+    else if (t.built === B.RAMP) this.drawRamp(ctx, sx, sy, ts);
 
     // features
     if (t.feature === F.TREE) this.drawTree(ctx, sx, sy, ts, t.growth, gx, gy);
@@ -386,6 +401,22 @@ class Renderer {
     ctx.stroke();
   }
 
+  // A ramp reads as a plain sloped cut — a diagonal wedge with a direction
+  // arrow — distinct from the stairwell's spiral.
+  drawRamp(ctx, sx, sy, ts) {
+    ctx.fillStyle = "rgba(20,16,10,0.4)";
+    ctx.fillRect(sx + ts * 0.15, sy + ts * 0.15, ts * 0.7, ts * 0.7);
+    ctx.strokeStyle = "#8a9bb0"; ctx.lineWidth = Math.max(1, ts * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(sx + ts * 0.2, sy + ts * 0.8);
+    ctx.lineTo(sx + ts * 0.8, sy + ts * 0.2);
+    ctx.moveTo(sx + ts * 0.8, sy + ts * 0.2);
+    ctx.lineTo(sx + ts * 0.6, sy + ts * 0.24);
+    ctx.moveTo(sx + ts * 0.8, sy + ts * 0.2);
+    ctx.lineTo(sx + ts * 0.76, sy + ts * 0.4);
+    ctx.stroke();
+  }
+
   // -- features ------------------------------------------------------------
   drawTree(ctx, sx, sy, ts, growth, gx, gy) {
     const cx = sx + ts / 2, cy = sy + ts / 2;
@@ -487,7 +518,7 @@ class Renderer {
 
   drawDesignation(ctx, t, sx, sy, ts) {
     const pulse = 0.4 + Math.sin(this.game.time * 4) * 0.2;
-    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})`, forest: `rgba(60,170,90,${pulse})`, stairsdown: `rgba(200,170,90,${pulse})` };
+    const colors = { dig: `rgba(230,150,40,${pulse})`, chop: `rgba(230,90,40,${pulse})`, gather: `rgba(90,200,90,${pulse})`, forest: `rgba(60,170,90,${pulse})`, stairsdown: `rgba(200,170,90,${pulse})`, rampdown: `rgba(150,165,190,${pulse})`, drain: `rgba(70,140,220,${pulse})` };
     ctx.fillStyle = colors[t.designation] || `rgba(255,255,255,${pulse})`;
     ctx.fillRect(sx, sy, ts, ts);
     ctx.strokeStyle = colors[t.designation];
@@ -497,7 +528,7 @@ class Renderer {
     ctx.fillStyle = "rgba(255,255,255,0.85)";
     ctx.font = `${Math.floor(ts * 0.5)}px serif`;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿", forest: "🌲", stairsdown: "🌀" }[t.designation] || "";
+    const glyph = { dig: "⛏", chop: "🪓", gather: "🌿", forest: "🌲", stairsdown: "🌀", rampdown: "⤵️", drain: "🪣" }[t.designation] || "";
     ctx.fillText(glyph, sx + ts / 2, sy + ts / 2 + 1);
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
   }

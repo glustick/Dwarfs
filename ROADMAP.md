@@ -24,13 +24,18 @@ mood bonus sharing a Double Bed, decorated with Paintings) · **foresting**
 (a Forester labor plants saplings to deliberately regrow logged forest) ·
 **minimap**, **auto-pause alerts**, **stockpile categories**, **audio
 polish** (combat tension music, per-workshop crafting tones, birdsong,
-volume sliders), **Z-levels** (dig a stairwell down to a new floor of
-dense stone and ore; every system — jobs, hauling, beds, farms, workshops,
-save/load — works across floors; raids/trade/migration stay surface-only),
-**the Outbreak** (raids are now zombies — Shamblers/Runners/Brutes —
-escalating with tech progress rather than day count; a bite can infect an
-elf, who races a cure via the Hospital/Doctor pipeline or turns into a new
-hostile), a **tutorial** (a skippable guided walkthrough on a new game, reopenable
+volume sliders), **Z-levels** (dig a stairwell — or a cheaper/faster ramp —
+down to a new floor of dense stone and ore; every system — jobs, hauling,
+beds, farms, workshops, save/load — works across floors; raids can now
+follow you down a stairwell/ramp, rare aquifer veins flood when mined and
+are reclaimable with a Drain designation, and large unsupported rooms can
+cave in; trade/migration/wildlife stay surface-only), **the Outbreak**
+(raids are now zombies — Shamblers/Runners/Brutes — escalating with tech
+progress rather than day count; a bite can infect an elf, who races a cure
+via the Hospital/Doctor pipeline or turns into a new hostile — or, rarely,
+a Vampire's bite curses them secretly instead, hidden until a Doctor
+checkup exposes it, routing them to a new Quarantine zone), a **tutorial**
+(a skippable guided walkthrough on a new game, reopenable
 any time from the ❓ Help button), **milestones** (11 persistent
 achievements — Master Scholar, Against the Odds, Down Under, Best Friend, and
 more — unlocked once and remembered forever across every colony, shown in the
@@ -97,10 +102,17 @@ plain stone/wood — same pattern paintings already used).
       ▲/▼ controls (or `[`/`]`) switch which level the camera, tools, and
       minimap act on. Every system (jobs, beds, farms, workshops, stockpile
       filters, save/load) is floor-aware; older single-level saves still load.
-- [ ] **Z-levels — Phase 2 (future)**: ramps (not just stairs), raiders/
-      caravans/migrants reaching underground, underground water/flooding,
-      cave-ins. Surface-only for raids/trade/migration was a deliberate
-      Phase 1 scope cut, not an oversight.
+- [x] ~~Z-levels — Phase 2~~ — a 🌀 Dig Ramp designation carves a faster/
+      cheaper alternative to stairs (same portal mechanic, distinct visual);
+      raids can now follow a dug stairwell/ramp down instead of only
+      approaching from the surface edge (chance scales with how deep the
+      colony has dug — "digging down always carries some risk"); rare
+      aquifer veins flood permanently when mined into, spreading a little
+      into adjacent mined-out floor, reclaimable with a 🪣 Drain designation;
+      large unsupported mined-out rooms can randomly cave in, collapsing
+      back to stone and hurting anyone caught underneath. Caravans/migrants/
+      wildlife deliberately stay surface-only (a trade caravan or a new
+      migrant has no reason to know about private tunnels).
 
 ## Tier 5 — The Outbreak
 
@@ -111,20 +123,26 @@ plain stone/wood — same pattern paintings already used).
       auto-seek a bed/Hospital and race an infection clock that a Doctor +
       Hospital + Medicine tech can reverse into a cure, or that runs out
       and turns them into a new hostile (`Turned Elf`) in their place.
-- [ ] **The Outbreak — Phase 2 (future)**: vampires as a hidden day/night
-      threat ("looks sick, hides during the day," can quietly turn others
-      from the inside rather than announcing themselves like a zombie
-      does); a quarantine zone; a Doctor "checkup" detection/tells
-      mechanic for catching an infection before it's obvious; relationship-
-      driven cover-ups (a partner concealing a loved one's infection); new
-      defensive structures (palisades, watchtowers, traps) to lean further
-      into the tower-defense angle.
+- [x] ~~The Outbreak — Phase 2~~ — a rare Vampire raider's bite curses an
+      elf secretly: no badge, no log line, they keep working their normal
+      schedule with no outward sign anything's wrong. A Doctor with a spare
+      moment gives elves periodic "checkups" (cooldown-gated, not tied to
+      being wounded); an uncovered vampire has a skill-boosted chance of
+      being exposed, at which point they're routed to a new Quarantine zone
+      (needs Medicine, like Hospital) where a Doctor's care can still cure
+      them. A partner or close friend automatically covers for a checkup
+      (relationship affinity ≥ Friend), and if the curse is never caught —
+      hidden or quarantined-but-untreated — it runs its course and the elf
+      turns into a Vampire Lord, mirroring the zombie Turned Elf mechanic.
+- [ ] **The Outbreak — defensive structures (future)**: palisades,
+      watchtowers, traps, to lean further into the tower-defense angle —
+      split out from Phase 2 above since it's a distinct build-menu-and-
+      combat feature, not part of the vampire mechanic.
 
 ---
 
 ### Notes
-- **Tiers 1–5 (Phase 1s) are all shipped.** What's left is genuinely
-  optional: Z-levels Phase 2, The Outbreak Phase 2 (vampires and the
-  social-deduction angle are a meaningfully different, riskier system —
-  worth their own dedicated round), or smaller quality-of-life ideas as
-  they come up.
+- **Tiers 1–5, plus both Phase 2 rounds (Z-levels and The Outbreak), are
+  all shipped.** What's left is genuinely optional: defensive structures
+  (palisades/watchtowers/traps, split out above), undo-designation,
+  blueprint copy/paste, or smaller quality-of-life ideas as they come up.

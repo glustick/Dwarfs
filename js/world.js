@@ -26,7 +26,7 @@ const ORES = ["iron", "gold", "coal", "marble"];
 const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "#e8e2d8" };
 
 // Built structures
-const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs" };
+const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs", RAMP: "ramp" };
 
 // Furniture placed on a tile.
 const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox" };
@@ -38,7 +38,7 @@ const FURN_INFO = {
 
 // Zones a tile can belong to (in addition to stockpile).
 // farm/study/hospital are unlocked through research.
-const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade" };
+const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade", QUARANTINE: "quarantine" };
 
 // Workshops that can be built on a tile.
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery" };
@@ -53,6 +53,8 @@ class Tile {
     this.kind = kind;
     this.feature = F.NONE;
     this.ore = null;
+    this.aquifer = false;     // hidden hazard: mining this stone tile floods it instead of a normal drop
+    this.flooded = false;     // true only for aquifer-originated water (not an ordinary surface lake) — lets `drain` target it
     this.growth = 0;          // plant maturity 0..1
     this.designation = null;  // 'dig' | 'chop' | 'gather'
     this.built = B.NONE;      // constructed wall/floor
@@ -133,7 +135,15 @@ class World {
       for (let x = 0; x < this.w; x++) {
         const t = new Tile(K.STONE);
         const veins = noise(x + z * 733, y - z * 411, 22, 4);
-        if (veins > 0.55 && rng() < 0.16) t.ore = choice(rng, ORES);
+        if (veins > 0.55 && rng() < 0.16) {
+          t.ore = choice(rng, ORES);
+        } else {
+          // Aquifers: a real hazard, not a common annoyance — rarer than ore,
+          // own noise field so they don't just track vein placement, and
+          // mutually exclusive with ore on a given tile.
+          const water = noise(x - z * 577, y + z * 911, 28, 4);
+          if (water > 0.75 && rng() < 0.04) t.aquifer = true;
+        }
         row.push(t);
       }
       rows.push(row);
@@ -146,7 +156,7 @@ class World {
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
   //                workshop,workshopRecipe,doorLocked,bedOccupants,
-  //                stockpileFilter,conduit,buildMaterial]
+  //                stockpileFilter,conduit,buildMaterial,aquifer,flooded]
   loadLevelTiles(z, data, itemsById) {
     let tiles = this.levels.get(z);
     if (!tiles) {
@@ -172,6 +182,8 @@ class World {
         t.stockpileFilter = a[17] || null;
         t.conduit = !!a[18];
         t.buildMaterial = a[19] || null;
+        t.aquifer = !!a[20];
+        t.flooded = !!a[21];
         t.powered = false;
       }
     }
@@ -187,6 +199,16 @@ class World {
     here.kind = K.FLOOR; here.built = B.STAIRS; here.ore = null; here.feature = F.NONE;
     const below = this.getLevel(z - 1)[y][x];
     below.kind = K.FLOOR; below.built = B.STAIRS; below.ore = null; below.feature = F.NONE;
+  }
+
+  // Carve a ramp connecting (x,y,z) down to (x,y,z-1) — a second, purely
+  // cosmetic/build-cost-flavored alternative to carveStairs. Same portal
+  // mechanic (same-(x,y) stacking), same monster-access implications.
+  carveRamp(x, y, z) {
+    const here = this.getLevel(z)[y][x];
+    here.kind = K.FLOOR; here.built = B.RAMP; here.ore = null; here.feature = F.NONE;
+    const below = this.getLevel(z - 1)[y][x];
+    below.kind = K.FLOOR; below.built = B.RAMP; below.ore = null; below.feature = F.NONE;
   }
 
   inBounds(x, y) { return x >= 0 && y >= 0 && x < this.w && y < this.h; }
@@ -301,6 +323,37 @@ class World {
         // occasional regrowth
         t.feature = rng() < 0.5 ? F.SAPLING : F.MUSHROOM;
         t.growth = rng() < 0.5 ? 0.1 : 0.2;
+      }
+    }
+  }
+
+  // Aquifer floods slowly creep into adjacent mined-out floor tiles, bounded
+  // per-level per-tick so one vein can't drown a whole floor. Mirrors
+  // tickGrowth's bounded-random-sample cadence/shape. A dwarf already
+  // mid-path across a tile that floods this tick isn't interrupted — nothing
+  // else in the codebase invalidates in-flight paths on tile changes either
+  // (e.g. a wall built mid-path isn't special-cased) — only future
+  // pathfinding sees the new water.
+  tickFlood(rng) {
+    for (let z = this.minZ; z < 0; z++) {
+      const tiles = this.levels.get(z);
+      if (!tiles) continue;
+      for (let i = 0; i < 6; i++) {
+        const x = Math.floor(rng() * this.w), y = Math.floor(rng() * this.h);
+        const t = tiles[y][x];
+        if (t.kind !== K.WATER || !t.flooded) continue;
+        const dirs = NEIGHBORS4.slice().sort(() => rng() - 0.5);
+        for (const [dx, dy] of dirs) {
+          const nx = x + dx, ny = y + dy;
+          if (!this.inBounds(nx, ny)) continue;
+          const nt = tiles[ny][nx];
+          if (nt.kind !== K.FLOOR || nt.built !== B.NONE || nt.item) continue;
+          if (rng() < 0.12) {
+            nt.kind = K.WATER; nt.flooded = true;
+            nt.designation = null; nt.buildJob = false; nt.stockpile = false;
+          }
+          break;
+        }
       }
     }
   }

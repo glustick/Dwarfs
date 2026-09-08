@@ -64,6 +64,6 @@ for (const t of TECHS) TECH_BY_ID[t.id] = t;
 
 // Tools/zones that stay hidden until their tech is researched.
 const TOOL_TECH = {
-  farm: "agriculture", study: "scholarship", hospital: "medicine", table: "furniture",
+  farm: "agriculture", study: "scholarship", hospital: "medicine", quarantine: "medicine", table: "furniture",
   conduit: "essence", generator: "essence", icebox: "essence",
 };

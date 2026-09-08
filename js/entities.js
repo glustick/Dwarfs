@@ -79,7 +79,7 @@ const LABORS = [
   { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
   { id: "taming",      job: "tame",   name: "Taming",      icon: "🐾" },
 ];
-const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining", tame: "taming" };
+const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining", rampdown: "mining", drain: "mining", tame: "taming" };
 
 // Schedule activities per shift.
 const ACTIVITIES = [
@@ -160,6 +160,13 @@ class Dwarf {
     // ---- infection (the outbreak) ----
     this.infected = false;     // bitten by an infectious enemy; racing the clock
     this.infectionTimer = 0;   // counts down to 0 (turns) or up to INFECTION_TIME (cured)
+
+    // ---- vampirism (the outbreak, phase 2 — hidden until exposed) ----
+    this.vampiric = false;       // secretly cursed by a Vampire's bite
+    this.vampireTimer = 0;       // counts down toward turning; once exposed+treated, counts back up to cure
+    this.vampireExposed = false; // a checkup revealed them — now routed to quarantine
+    this.checkupCooldown = 0;    // seconds until eligible for another Doctor checkup
+    this.beingInspected = false; // a doctor is currently examining them (claim flag, mirrors beingTreated)
   }
 
   skillLevel(id) { return this.skills[id] ? this.skills[id].level : 0; }
@@ -213,24 +220,29 @@ class Dwarf {
 
 // ---- Enemies (the outbreak & wildlife) --------------------------------------
 // `infectious` kinds have a chance to bite a dwarf they hit instead of just
-// hurting them — see Game.enemyHitDwarf / Game.turnZombie. `wolf`/`goblin`/
-// `troll` are kept (unused by spawnRaid) in case a future round wants them.
+// hurting them — see Game.enemyHitDwarf / Game.turnZombie. `curses` is the
+// vampire-branch analog of `infectious` (Game.enemyHitDwarf keeps the two
+// mutually exclusive — one bite makes a dwarf either infected or vampiric,
+// never both). `wolf`/`goblin`/`troll` are kept (unused by spawnRaid) in
+// case a future round wants them.
 const ENEMY_TYPES = {
-  wolf:     { name: "Wolf",       hp: 24, atk: 6,  speed: 3.9, color: "#7d7468" },
-  goblin:   { name: "Goblin",     hp: 42, atk: 11, speed: 3.0, color: "#5f7d3a" },
-  troll:    { name: "Troll",      hp: 95, atk: 20, speed: 2.4, color: "#6a5f7d" },
-  shambler: { name: "Shambler",   hp: 18, atk: 5,  speed: 2.0, color: "#5c6b4a", infectious: true, biteChance: 0.15 },
-  runner:   { name: "Runner",     hp: 30, atk: 8,  speed: 4.2, color: "#6e5a44", infectious: true, biteChance: 0.20 },
-  brute:    { name: "Brute",      hp: 110, atk: 22, speed: 2.1, color: "#4a4038", infectious: true, biteChance: 0.30 },
-  turned:   { name: "Turned Elf", hp: 55, atk: 9,  speed: 2.6, color: "#4a5f3a", infectious: true, biteChance: 0.20 },
+  wolf:         { name: "Wolf",         hp: 24,  atk: 6,  speed: 3.9, color: "#7d7468" },
+  goblin:       { name: "Goblin",       hp: 42,  atk: 11, speed: 3.0, color: "#5f7d3a" },
+  troll:        { name: "Troll",        hp: 95,  atk: 20, speed: 2.4, color: "#6a5f7d" },
+  shambler:     { name: "Shambler",     hp: 18,  atk: 5,  speed: 2.0, color: "#5c6b4a", infectious: true, biteChance: 0.15 },
+  runner:       { name: "Runner",       hp: 30,  atk: 8,  speed: 4.2, color: "#6e5a44", infectious: true, biteChance: 0.20 },
+  brute:        { name: "Brute",        hp: 110, atk: 22, speed: 2.1, color: "#4a4038", infectious: true, biteChance: 0.30 },
+  turned:       { name: "Turned Elf",   hp: 55,  atk: 9,  speed: 2.6, color: "#4a5f3a", infectious: true, biteChance: 0.20 },
+  vampire:      { name: "Vampire",      hp: 70,  atk: 14, speed: 3.3, color: "#7a2038", curses: true, curseChance: 0.5 },
+  vampire_lord: { name: "Vampire Lord", hp: 130, atk: 24, speed: 2.7, color: "#4a0f24", curses: true, curseChance: 0.35 },
 };
 
 class Enemy {
-  constructor(kind, x, y) {
+  constructor(kind, x, y, z = 0) {
     const t = ENEMY_TYPES[kind] || ENEMY_TYPES.goblin;
     this.kind = kind;
     this.name = t.name;
-    this.x = x; this.y = y; this.z = 0;
+    this.x = x; this.y = y; this.z = z;
     this.hp = t.hp; this.maxhp = t.hp;
     this.atk = t.atk; this.speed = t.speed; this.color = t.color;
     this.path = null; this.pathIdx = 0;
@@ -250,7 +262,7 @@ class Enemy {
     const dx = step.x - this.x, dy = step.y - this.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.02) {
-      this.x = step.x; this.y = step.y;
+      this.x = step.x; this.y = step.y; this.z = step.z;
       this.pathIdx++;
       if (this.pathIdx >= this.path.length) { this.path = null; return true; }
       return false;
@@ -264,7 +276,7 @@ class Enemy {
   }
 }
 
-// ---- Wildlife & tamed companions (surface-only, like raiders/caravans) -----
+// ---- Wildlife & tamed companions (surface-only by spawn logic) -------------
 // Wild ones wander the map; a dwarf with the Taming labor can win one over
 // (see JobManager.assignTame in jobs.js). A tamed animal bonds to its tamer,
 // roams near them, and lifts the mood of any elf who spends time nearby.
@@ -273,10 +285,10 @@ const ANIMAL_TYPES = {
 };
 
 class Animal {
-  constructor(kind, x, y) {
+  constructor(kind, x, y, z = 0) {
     const t = ANIMAL_TYPES[kind] || ANIMAL_TYPES.fox;
     this.kind = kind;
-    this.x = x; this.y = y; this.z = 0;
+    this.x = x; this.y = y; this.z = z;
     this.speed = t.speed;
     this.path = null; this.pathIdx = 0;
     this.repath = 0;
@@ -299,7 +311,7 @@ class Animal {
     const dx = step.x - this.x, dy = step.y - this.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.02) {
-      this.x = step.x; this.y = step.y;
+      this.x = step.x; this.y = step.y; this.z = step.z;
       this.pathIdx++;
       if (this.pathIdx >= this.path.length) { this.path = null; return true; }
       return false;
@@ -312,10 +324,10 @@ class Animal {
   }
 }
 
-// ---- Trading caravan (friendly, non-combatant) ------------------------------
+// ---- Trading caravan (friendly, non-combatant, surface-only by spawn logic) -
 class Caravan {
-  constructor(x, y) {
-    this.x = x; this.y = y; this.z = 0;
+  constructor(x, y, z = 0) {
+    this.x = x; this.y = y; this.z = z;
     this.speed = 3.0;
     this.path = null; this.pathIdx = 0;
     this.state = "approach"; // approach | trading | leave
@@ -335,7 +347,7 @@ class Caravan {
     const dx = step.x - this.x, dy = step.y - this.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.02) {
-      this.x = step.x; this.y = step.y;
+      this.x = step.x; this.y = step.y; this.z = step.z;
       this.pathIdx++;
       if (this.pathIdx >= this.path.length) { this.path = null; return true; }
       return false;

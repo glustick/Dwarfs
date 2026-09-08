@@ -38,4 +38,10 @@ const MILESTONES = [
   { id: "tamed", icon: "🦊", name: "Best Friend",
     desc: "Tame a wild animal.",
     check: g => g.milestoneFlags.tamed },
+  { id: "vampire_exposed", icon: "🧛", name: "Nosferatu Unmasked",
+    desc: "Expose a hidden vampire among your colonists.",
+    check: g => g.milestoneFlags.vampireExposed },
+  { id: "vampire_cured", icon: "💉", name: "Purged of the Curse",
+    desc: "Cure a colonist of vampirism.",
+    check: g => g.milestoneFlags.vampireCured },
 ];

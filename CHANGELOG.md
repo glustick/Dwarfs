@@ -4,6 +4,53 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.11.0 (build 35)
+Ship Tier 4 Phase 2: Z-levels get ramps, underground raids, flooding, and
+cave-ins — digging down now carries real weight instead of being purely
+upside.
+
+- **Ramps**: a 🌀 Dig Ramp designation is a faster/cheaper alternative to
+  stairs — same portal mechanic, just a distinct sloped-cut visual, no
+  monster-access difference of its own.
+- **Underground raids**: once a stairwell or ramp reaches underground, a
+  raid has a rising chance (scaling with how deep the colony has dug) to
+  follow it down and arrive at a stairhead instead of the surface edge —
+  "digging down always carries some risk." Enemies, and the combat AI that
+  reacts to them, are now fully floor-aware instead of hardcoded to the
+  surface.
+- **Aquifers & drain**: rare veins found while mining underground flood the
+  chamber permanently when struck, spreading a little into adjacent
+  mined-out floor over time. A 🪣 Drain designation reclaims a flooded tile
+  back to dry floor.
+- **Cave-ins**: a large mined-out room with no support pillars nearby can
+  randomly collapse back to solid stone, hurting (rarely killing) anyone
+  caught underneath — leave stone pillars when digging out big rooms.
+- Caravans, migrants, and wildlife deliberately stay surface-only — none of
+  them have a reason to know about a colony's private tunnels.
+
+## v1.10.0 (build 34)
+Ship Tier 5 Phase 2: The Outbreak's vampires — a hidden social-deduction
+threat layered on top of the existing zombie raids.
+
+- **A rare Vampire raider's bite curses an elf secretly**: no badge, no log
+  line, no change to their schedule — they keep working normally. This is
+  deliberately unlike an infected bite, which announces itself immediately.
+- **Doctor checkups**: a dwarf with the Medicine labor periodically examines
+  other elves for hidden tells (cooldown-gated, not tied to being wounded,
+  so it doesn't loop on one elf forever). A higher Medicine skill both
+  works the checkup faster and improves the reveal chance.
+- **Automatic cover-ups**: a partner, or anyone with a Friend-or-better
+  relationship, always throws off a checkup on their behalf — no dialogue,
+  just a quiet rule.
+- **Quarantine zone** (needs Medicine, like Hospital): an exposed vampire is
+  routed here and confined; a Doctor tending them can still cure the curse,
+  same healing-math shape as Hospital/infection.
+- **Turns hostile if never caught**: whether hidden or quarantined-but-
+  untreated, the curse eventually runs its course and the elf turns into a
+  Vampire Lord — mirrors the existing zombie Turned Elf mechanic exactly.
+- Two new milestones: Nosferatu Unmasked (expose a vampire), Purged of the
+  Curse (cure one).
+
 ## v1.9.6 (build 33)
 Autosave on exit — the 10-minute autosave timer now has a companion that
 fires the moment the tab is hidden or closed (`visibilitychange` +

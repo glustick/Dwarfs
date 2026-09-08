@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, tame: 2.4 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, rampdown: 1.6, drain: 4.0, tame: 2.4, checkup: 2.0 };
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -62,19 +62,20 @@ class Job {
     this.slot = null;      // equip slot: weapon|armor
     this.patient = null;   // doctor: the wounded Dwarf being treated
     this.animal = null;    // tame: the wild Animal being won over
+    this.suspect = null;   // checkup: the Dwarf being examined for hidden vampirism
   }
 }
 
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], tame: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], checkup: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], tame: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], checkup: [] };
     for (let z = 0; z >= w.minZ; z--) {
       const tiles = w.getLevel(z);
       if (!tiles) continue;
@@ -87,6 +88,8 @@ class JobManager {
           else if (t.designation === "gather" && w.hasWalkableNeighbor(x, y, z)) c.gather.push([x, y, z]);
           else if (t.designation === "forest" && w.hasWalkableNeighbor(x, y, z)) c.forest.push([x, y, z]);
           else if (t.designation === "stairsdown" && t.built !== B.STAIRS && t.kind !== K.WATER && w.hasWalkableNeighbor(x, y, z)) c.stairsdown.push([x, y, z]);
+          else if (t.designation === "rampdown" && t.built !== B.RAMP && t.built !== B.STAIRS && t.kind !== K.WATER && w.hasWalkableNeighbor(x, y, z)) c.rampdown.push([x, y, z]);
+          else if (t.designation === "drain" && t.kind === K.WATER && t.flooded && w.hasWalkableNeighbor(x, y, z)) c.drain.push([x, y, z]);
           if (t.buildJob && w.hasWalkableNeighbor(x, y, z)) c.build.push([x, y, z]);
           if (t.workshop && this.recipeAvailable(t) && w.hasWalkableNeighbor(x, y, z)) c.craft.push([x, y, z]);
           if (t.zone === ZONE.FARM && w.hasWalkableNeighbor(x, y, z)) {
@@ -96,9 +99,18 @@ class JobManager {
         }
       }
     }
-    // doctor candidates are dwarves, not tiles — resting patients not yet attended
+    // doctor candidates are dwarves, not tiles — resting patients not yet
+    // attended, including an exposed vampire confined to quarantine (reuses
+    // the Doctor job/labor/skill machinery to cure vampires, for free).
     for (const d of g.dwarves) {
       if ((d.wounded || d.infected) && d.state === "recover" && !d.beingTreated) c.doctor.push(d);
+      else if (d.vampireExposed && d.state === "quarantine" && !d.beingTreated) c.doctor.push(d);
+    }
+    // checkup candidates: any dwarf off cooldown and not currently being
+    // examined — includes innocent elves, since the checking doctor doesn't
+    // know who's cursed.
+    for (const d of g.dwarves) {
+      if (d.hp > 0 && !d.vampireExposed && d.checkupCooldown <= 0 && !d.beingInspected) c.checkup.push(d);
     }
     // tame candidates are wild animals, not tiles — unclaimed and not currently skittish
     c.tame = g.animals.filter(a => !a.tamed && !a.reserved && a.fleeTimer <= 0);
@@ -219,11 +231,12 @@ class JobManager {
     return best;
   }
 
-  // `preferHospital` biases the pick toward a Hospital-zoned bed (still the
-  // nearest among those) when one exists, for wounded elves seeking care.
-  // `dwarf`, if given, lets the search join a double bed its partner already
-  // occupies rather than treating it as full.
-  nearestFreeBed(x, y, z = 0, preferHospital = false, dwarf = null) {
+  // `preferZone` biases the pick toward a bed zoned as e.g. Hospital/
+  // Quarantine (still the nearest among those) when one exists, for elves
+  // seeking that particular kind of care. `dwarf`, if given, lets the
+  // search join a double bed its partner already occupies rather than
+  // treating it as full.
+  nearestFreeBed(x, y, z = 0, preferZone = null, dwarf = null) {
     const g = this.game;
     let best = null, bd = Infinity;
     for (const [bx, by, bz] of g.bedTiles) {
@@ -235,7 +248,7 @@ class JobManager {
       if (occ.length >= cap) continue;
       if (occ.length > 0 && !withPartner) continue; // occupied by someone else
       let d = dist3(bx, by, bz || 0, x, y, z);
-      if (preferHospital && t.zone === ZONE.HOSPITAL) d -= 1000;
+      if (preferZone && t.zone === preferZone) d -= 1000;
       if (withPartner) d -= 500; // prefer joining a partner over any other free bed
       if (d < bd) { bd = d; best = { x: bx, y: by, z: bz || 0 }; }
     }
@@ -278,7 +291,7 @@ class JobManager {
     const skill = JOB_SKILL[type];
     let mult = skill ? dwarf.workSpeedMult(skill) : 1;
     const g = this.game;
-    if ((type === "dig" || type === "build" || type === "stairsdown") && g.hasTech("tools")) mult *= 1.25;
+    if ((type === "dig" || type === "build" || type === "stairsdown" || type === "rampdown" || type === "drain") && g.hasTech("tools")) mult *= 1.25;
     if (type === "chop" && g.hasTech("axes")) mult *= 1.25;
     if (type === "craft" && g.hasTech("metallurgy")) mult *= 1.4;
     return base / mult;
@@ -292,6 +305,7 @@ class JobManager {
     const act = dwarf.activity || "work";
     if (act === "sleep") return this.assignSleep(dwarf);
     if (act === "recover") return this.assignRecover(dwarf);
+    if (act === "quarantine") return this.assignQuarantine(dwarf);
     if (act === "train") return this.assignTrain(dwarf);
     if (act === "eat") {
       if (dwarf.hunger > 35 && this.assignEat(dwarf, true)) return true;
@@ -310,7 +324,7 @@ class JobManager {
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
     if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
-    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   assignWork(dwarf) {
@@ -321,6 +335,7 @@ class JobManager {
       ["craft", this.candidates.craft],
       ["plant", this.candidates.plant], ["harvest", this.candidates.harvest],
       ["forest", this.candidates.forest], ["stairsdown", this.candidates.stairsdown],
+      ["rampdown", this.candidates.rampdown], ["drain", this.candidates.drain],
     ];
     let best = null, bestD = Infinity;
     for (const [type, list] of pools) {
@@ -364,6 +379,7 @@ class JobManager {
         craft: `Off to the ${WORKSHOP_INFO[t.workshop] ? WORKSHOP_INFO[t.workshop].name.toLowerCase() : "workshop"}`,
         plant: "Off to plant a crop", harvest: "Off to harvest the farm",
         forest: "Off to plant a sapling", stairsdown: "Carving a stairwell down",
+        rampdown: "Carving a ramp down", drain: "Draining a flooded chamber",
       }[best.type];
     }
     dwarf.job = job; dwarf.state = "goto";
@@ -498,7 +514,7 @@ class JobManager {
 
   assignSleep(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
-    const bed = this.nearestFreeBed(dx, dy, dz, false, dwarf);
+    const bed = this.nearestFreeBed(dx, dy, dz, null, dwarf);
     const job = new Job("sleep", bed ? bed.x : dx, bed ? bed.y : dy, bed ? bed.z : dz);
     job.phase = "move";
     if (bed) {
@@ -518,7 +534,7 @@ class JobManager {
   // A badly wounded elf seeks a bed (a Hospital bed if one's free) to rest and heal.
   assignRecover(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
-    const bed = this.nearestFreeBed(dx, dy, dz, true, dwarf);
+    const bed = this.nearestFreeBed(dx, dy, dz, ZONE.HOSPITAL, dwarf);
     const job = new Job("recover", bed ? bed.x : dx, bed ? bed.y : dy, bed ? bed.z : dz);
     job.phase = "move";
     if (bed) {
@@ -554,6 +570,53 @@ class JobManager {
     job.patient = patient; job.phase = "move";
     dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
     dwarf.thought = `Off to treat ${patient.name}`;
+    return true;
+  }
+
+  // A dwarf with the Medicine labor examines the nearest checkup-eligible
+  // elf for hidden-vampire tells. Mirrors assignDoctor's shape but the
+  // target may be moving (routine work), not resting in a bed — so
+  // onArrive re-verifies proximity like assignTame does for a wandering animal.
+  assignCheckup(dwarf) {
+    if (!dwarf.labors.has("medicine")) return false;
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
+    const list = this.candidates.checkup;
+    if (!list.length) return false;
+    let suspect = null, bd = Infinity;
+    for (const p of list) {
+      if (p === dwarf) continue;
+      const d = dist3(p.tileX, p.tileY, p.z, dx, dy, dz);
+      if (d < bd) { bd = d; suspect = p; }
+    }
+    if (!suspect) return false;
+    const path = pathAdjacent(g.world, dx, dy, dz, suspect.tileX, suspect.tileY, suspect.z) || pathTo(g.world, dx, dy, dz, suspect.tileX, suspect.tileY, suspect.z);
+    if (!path) return false;
+    suspect.beingInspected = true;
+    const job = new Job("checkup", suspect.tileX, suspect.tileY, suspect.z);
+    job.suspect = suspect; job.phase = "move";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = `Off to check on ${suspect.name}`;
+    return true;
+  }
+
+  // An exposed vampire is walked to a Quarantine-zoned bed (falls back to a
+  // free bed anywhere, then to confinement-in-place, same fallback ladder
+  // as assignRecover).
+  assignQuarantine(dwarf) {
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
+    const bed = this.nearestFreeBed(dx, dy, dz, ZONE.QUARANTINE, dwarf);
+    const job = new Job("quarantine", bed ? bed.x : dx, bed ? bed.y : dy, bed ? bed.z : dz);
+    job.phase = "move";
+    if (bed) {
+      const path = pathTo(g.world, dx, dy, dz, bed.x, bed.y, bed.z);
+      if (path) {
+        this.claimBed(dwarf, bed);
+        dwarf.setPath(path); dwarf.thought = "Exposed — confined to quarantine";
+      } else { dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Shunned where they stand"; }
+    } else {
+      dwarf.bed = null; dwarf.setPath(null); dwarf.thought = "Shunned where they stand";
+    }
+    dwarf.job = job; dwarf.state = "goto";
     return true;
   }
 
@@ -656,6 +719,12 @@ class JobManager {
         if (!dwarf.wounded && !dwarf.infected) this.finishRecover(dwarf);
         break;
       }
+      case "quarantine": {
+        // Mirrors "recover" — the actual curse-timer math happens in
+        // Game.updateDwarf; this just watches for the cure to land.
+        if (!dwarf.vampireExposed) this.finishQuarantine(dwarf);
+        break;
+      }
       default: dwarf.state = "idle";
     }
   }
@@ -701,9 +770,19 @@ class JobManager {
       case "recover":
         dwarf.state = "recover";
         break;
+      case "quarantine":
+        dwarf.state = "quarantine";
+        break;
       case "doctor":
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "doctor");
         break;
+      case "checkup": {
+        const s = job.suspect;
+        const stillThere = s && s.hp > 0 && Math.max(Math.abs(dwarf.tileX - s.tileX), Math.abs(dwarf.tileY - s.tileY)) <= 1;
+        if (!stillThere) { if (s) s.beingInspected = false; this.cancel(dwarf); }
+        else { dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "checkup"); }
+        break;
+      }
       case "tame": {
         const a = job.animal;
         const stillThere = a && !a.tamed && Math.max(Math.abs(dwarf.tileX - a.tileX), Math.abs(dwarf.tileY - a.tileY)) <= 1;
@@ -729,7 +808,7 @@ class JobManager {
       case "equip":
         dwarf.state = "work"; dwarf.workTimer = WORK_TIME.equip;
         break;
-      default: // dig / chop / gather / forest / stairsdown
+      default: // dig / chop / gather / forest / stairsdown / rampdown / drain
         dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, job.type);
     }
   }
@@ -774,17 +853,27 @@ class JobManager {
     if (job.type === "dig" && t) {
       t.designation = null; t.reserved = false;
       const ore = t.ore;
-      t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
-      this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
-      if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
-      g.stats.mined++;
-      g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
-      g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
-      dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 1), 0, 100);
+      if (t.aquifer) {
+        // Struck groundwater — the chamber floods instead of yielding stone/ore.
+        t.kind = K.WATER; t.flooded = true; t.aquifer = false; t.ore = null; t.feature = F.NONE;
+        g.stats.mined++;
+        g.log(`${dwarf.name} struck an aquifer — the chamber floods!`, "bad", "labor");
+        g.triggerAutoPause(`${dwarf.name} struck an aquifer`);
+        dwarf.mood = clamp(dwarf.mood - 6, 0, 100);
+      } else {
+        t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
+        this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
+        if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
+        g.stats.mined++;
+        g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
+        g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
+        dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 1), 0, 100);
+      }
     } else if (job.type === "stairsdown" && t) {
       t.designation = null; t.reserved = false;
       const wasStone = t.kind === K.STONE;
       const ore = t.ore;
+      t.aquifer = false; // reinforced during construction — never floods
       if (wasStone) {
         this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
         if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
@@ -793,6 +882,25 @@ class JobManager {
       g.log(`${dwarf.name} carved a stairwell down${ore ? ", striking " + ore + "!" : "."}`, ore ? "good" : "", "labor");
       g.awardXp(dwarf, "mining", 16); g.awardXp(dwarf, "fitness", 2);
       dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 2), 0, 100);
+    } else if (job.type === "rampdown" && t) {
+      t.designation = null; t.reserved = false;
+      const wasStone = t.kind === K.STONE;
+      const ore = t.ore;
+      t.aquifer = false;
+      if (wasStone) {
+        this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
+        if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
+      }
+      g.world.carveRamp(job.x, job.y, job.z);
+      g.log(`${dwarf.name} carved a ramp down${ore ? ", striking " + ore + "!" : "."}`, ore ? "good" : "", "labor");
+      g.awardXp(dwarf, "mining", 14); g.awardXp(dwarf, "fitness", 2);
+      dwarf.mood = clamp(dwarf.mood + (ore ? 6 : 2), 0, 100);
+    } else if (job.type === "drain" && t) {
+      t.designation = null; t.reserved = false;
+      t.kind = K.FLOOR; t.built = B.NONE; t.flooded = false; t.aquifer = false;
+      g.log(`${dwarf.name} drained a flooded chamber.`, "good", "labor");
+      g.awardXp(dwarf, "mining", 10); g.awardXp(dwarf, "fitness", 2);
+      dwarf.mood = clamp(dwarf.mood + 3, 0, 100);
     } else if (job.type === "chop" && t) {
       t.designation = null; t.reserved = false;
       t.feature = F.NONE; t.growth = 0;
@@ -910,14 +1018,50 @@ class JobManager {
     } else if (job.type === "doctor") {
       const patient = job.patient;
       if (patient) patient.beingTreated = false;
-      if (patient && patient.hp > 0 && (patient.wounded || patient.infected)) {
+      if (patient && patient.hp > 0 && (patient.wounded || patient.infected || patient.vampireExposed)) {
         g.awardXp(dwarf, "medicine", 14);
         dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
-        g.log(patient.infected
-          ? `${dwarf.name} fights to keep ${patient.name}'s infection at bay.`
-          : `${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
+        g.log(patient.vampireExposed
+          ? `${dwarf.name} tends to ${patient.name}, fighting to break the vampiric curse.`
+          : patient.infected
+            ? `${dwarf.name} fights to keep ${patient.name}'s infection at bay.`
+            : `${dwarf.name} treated ${patient.name}'s wounds.`, "good", "labor");
       } else {
         dwarf.thought = "No patient to treat";
+      }
+    } else if (job.type === "checkup") {
+      const suspect = job.suspect;
+      if (suspect) suspect.beingInspected = false;
+      if (suspect && suspect.hp > 0) {
+        suspect.checkupCooldown = CHECKUP_COOLDOWN;
+        if (suspect.vampiric && !suspect.vampireExposed) {
+          if (g.hasCoverUp(suspect)) {
+            g.awardXp(dwarf, "medicine", 4);
+            dwarf.thought = "Found nothing unusual";
+            g.log(`${dwarf.name} examined ${suspect.name} and found nothing amiss.`, "", "labor");
+          } else {
+            const reveal = CHECKUP_REVEAL_BASE + dwarf.skillLevel("medicine") * 0.05;
+            if (w.rng() < reveal) {
+              suspect.vampireExposed = true;
+              g.milestoneFlags.vampireExposed = true;
+              g.awardXp(dwarf, "medicine", 20);
+              dwarf.mood = clamp(dwarf.mood + 4, 0, 100);
+              g.triggerAutoPause(`${suspect.name} has been exposed as a vampire!`);
+              g.log(`${dwarf.name} uncovers the horrifying truth — ${suspect.name} is a vampire!`, "bad", "combat");
+              if (colonyDB) colonyDB.logEvent(`${suspect.name} was exposed as a vampire`, Math.floor(g.time / DAY_LENGTH) + 1);
+            } else {
+              g.awardXp(dwarf, "medicine", 8);
+              dwarf.thought = "Something seemed off, but couldn't confirm it";
+              g.log(`${dwarf.name} suspects something is wrong with ${suspect.name}, but can't prove it.`, "", "labor");
+            }
+          }
+        } else {
+          g.awardXp(dwarf, "medicine", 6);
+          dwarf.thought = "Checkup complete — all clear";
+          g.log(`${dwarf.name} gave ${suspect.name} a clean bill of health.`, "", "labor");
+        }
+      } else {
+        dwarf.thought = "No one to examine";
       }
     } else if (job.type === "tame") {
       const a = job.animal;
@@ -967,6 +1111,16 @@ class JobManager {
     this.cancel(dwarf, true);
   }
 
+  finishQuarantine(dwarf) {
+    const g = this.game;
+    this.releaseBed(dwarf);
+    if (!dwarf.vampireExposed) {
+      dwarf.thought = "Cured";
+      g.log(`${dwarf.name} has been cured of the vampiric curse.`, "good", "colony");
+    }
+    this.cancel(dwarf, true);
+  }
+
   // Marble is a vein like iron/gold/coal but isn't smelted — it drops as its
   // own item, ready to build with directly, instead of ITEM.ORE.
   spawnOreOrMarble(ore, x, y, z) {
@@ -1011,16 +1165,18 @@ class JobManager {
   cancel(dwarf, completed = false) {
     const job = dwarf.job;
     if (job) {
-      const isBedJob = job.type === "sleep" || job.type === "recover";
+      const isBedJob = job.type === "sleep" || job.type === "recover" || job.type === "quarantine";
       // A doctor's job.x/y is the patient's tile (their bed) — never owned by
       // this job. Same for tame: job.x/y is wherever the wild animal happens
-      // to be, not a tile the job reserved. A sleep/recover job's x/y is the
-      // dwarf's own bed, released via releaseBed() below (which respects a
-      // double bed's other occupant).
-      const t = (job.type === "doctor" || job.type === "tame" || isBedJob) ? null : this.game.world.get(job.x, job.y, job.z);
+      // to be, not a tile the job reserved. Same for checkup: job.x/y is the
+      // suspect's tile. A sleep/recover/quarantine job's x/y is the dwarf's
+      // own bed, released via releaseBed() below (which respects a double
+      // bed's other occupant).
+      const t = (job.type === "doctor" || job.type === "tame" || job.type === "checkup" || isBedJob) ? null : this.game.world.get(job.x, job.y, job.z);
       if (t && !completed) t.reserved = false;
       if (!completed && job.item) job.item.hauled = false;
       if (!completed && job.type === "doctor" && job.patient) job.patient.beingTreated = false;
+      if (!completed && job.type === "checkup" && job.suspect) job.suspect.beingInspected = false;
       if (!completed && job.type === "tame" && job.animal) job.animal.reserved = false;
       if (!completed && isBedJob) this.releaseBed(dwarf);
     }

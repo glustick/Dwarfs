@@ -53,6 +53,12 @@ const SAVED_EVENTS = 600;      // how many recent events persist in a save
 const INFECTION_TIME = 90;     // game-seconds an untreated bite takes to turn
 const OUTBREAK_LABELS = ["Calm", "Stirring", "Restless", "Ravenous", "Overrun"];
 
+// ---- The outbreak, phase 2: vampirism — hidden until a Doctor checkup
+// exposes it (or it's never caught and simply runs its course).
+const VAMPIRE_TIME = 150;        // longer than INFECTION_TIME — nothing but a checkup can intervene while hidden
+const CHECKUP_COOLDOWN = 100;    // seconds before the same elf is checkup-eligible again
+const CHECKUP_REVEAL_BASE = 0.4; // base reveal chance on an uncovered checkup
+
 // ---- Essence Craft: an Essence Well powers a network of Arcane Conduits;
 // a powered Frost Chamber slows spoilage for food resting nearby.
 const FOOD_SPOIL_TIME = 600;     // game-seconds for an unchilled food item to fully spoil
@@ -85,6 +91,7 @@ class Game {
     this.farmTiles = [];
     this.studyTiles = [];
     this.hospitalTiles = [];
+    this.quarantineTiles = [];
     this.tableCount = 0;
 
     this.selectedDwarf = null;
@@ -122,8 +129,14 @@ class Game {
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
     this.combatFx = [];               // transient hit sparks {x,y,t,bad}
 
+    // ---- Z-levels phase 2: cave-ins & flooding (underground only) ----
+    // Fixed initial value like raidTimer above — world.rng() isn't available
+    // yet this early in the constructor; re-rolled randomly after it first fires.
+    this.caveInTimer = DAY_LENGTH * 2;
+    this.floodTimer = 2;
+
     // ---- milestones: persistent achievements, across every colony ----
-    this.milestoneFlags = { cured: false, turned: false, traded: false, tamed: false };
+    this.milestoneFlags = { cured: false, turned: false, traded: false, tamed: false, vampireExposed: false, vampireCured: false, vampireTurned: false };
     this.unlockedMilestones = new Set();
     this._milestonesLoaded = false;
     this.milestoneTimer = 0;
@@ -187,9 +200,10 @@ class Game {
       })),
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
       enemies: this.enemies.map(e => ({
-        kind: e.kind, x: e.x, y: e.y, hp: e.hp, facing: e.facing, facingV: e.facingV,
+        kind: e.kind, x: e.x, y: e.y, z: e.z || 0, hp: e.hp, facing: e.facing, facingV: e.facingV,
       })),
       raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
+      caveInTimer: this.caveInTimer, floodTimer: this.floodTimer,
       research: this.research, tech: this.tech,
       events: this.events.slice(-SAVED_EVENTS),
       nextItemId: this._nextItemId,
@@ -198,7 +212,7 @@ class Game {
       time: this.time, speedIdx: this.speedIdx, paused: this.paused,
       weather: this.weather, weatherTimer: this.weatherTimer,
       animals: this.animals.map(a => ({
-        kind: a.kind, x: a.x, y: a.y, tamed: a.tamed ? 1 : 0, ownerId: a.ownerId,
+        kind: a.kind, x: a.x, y: a.y, z: a.z || 0, tamed: a.tamed ? 1 : 0, ownerId: a.ownerId,
       })),
       stats: this.stats,
       popHistory: this.popHistory,
@@ -226,6 +240,8 @@ class Game {
           t.stockpileFilter || 0,
           t.conduit ? 1 : 0,
           t.buildMaterial || 0,
+          t.aquifer ? 1 : 0,
+          t.flooded ? 1 : 0,
         ];
       }
     }
@@ -239,6 +255,8 @@ class Game {
       hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
       infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
+      vampiric: d.vampiric ? 1 : 0, vampireTimer: d.vampireTimer || 0, vampireExposed: d.vampireExposed ? 1 : 0,
+      checkupCooldown: d.checkupCooldown || 0, beingInspected: d.beingInspected ? 1 : 0,
       weapon: d.weapon, armor: d.armor,
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0, parch: d.parch || 0,
@@ -291,6 +309,8 @@ class Game {
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
       d.infected = !!o.infected; d.infectionTimer = o.infectionTimer || 0;
+      d.vampiric = !!o.vampiric; d.vampireTimer = o.vampireTimer || 0; d.vampireExposed = !!o.vampireExposed;
+      d.checkupCooldown = o.checkupCooldown || 0; d.beingInspected = !!o.beingInspected;
       d.relationships = o.relationships || {}; d.partnerId = o.partnerId || null;
       d.state = o.state; d.thought = o.thought; d.workTimer = o.workTimer;
       d.idleWander = o.idleWander || 0; d.bob = o.bob || 0; d.starve = o.starve || 0; d.parch = o.parch || 0;
@@ -313,7 +333,7 @@ class Game {
     });
 
     this.enemies = (data.enemies || []).map(o => {
-      const e = new Enemy(o.kind, o.x, o.y);
+      const e = new Enemy(o.kind, o.x, o.y, o.z || 0);
       if (o.hp != null) e.hp = o.hp;
       e.facing = o.facing || 1;
       e.facingV = o.facingV || 1;
@@ -322,6 +342,8 @@ class Game {
     this.raidTimer = data.raidTimer != null ? data.raidTimer : DAY_LENGTH * 3;
     this.raidCount = data.raidCount || 0;
     this.tradeTimer = data.tradeTimer != null ? data.tradeTimer : DAY_LENGTH * 2;
+    this.caveInTimer = data.caveInTimer != null ? data.caveInTimer : DAY_LENGTH * 2;
+    this.floodTimer = data.floodTimer != null ? data.floodTimer : 2;
     this.events = Array.isArray(data.events) ? data.events : [];
     this._eventSeq = this.events.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
     this.research = data.research || 0;
@@ -334,7 +356,7 @@ class Game {
     this.weather = data.weather || "clear";
     this.weatherTimer = data.weatherTimer != null ? data.weatherTimer : 30;
     this.animals = (data.animals || []).map(o => {
-      const a = new Animal(o.kind, o.x, o.y);
+      const a = new Animal(o.kind, o.x, o.y, o.z || 0);
       a.tamed = !!o.tamed; a.ownerId = o.ownerId || null;
       return a;
     });
@@ -522,6 +544,10 @@ class Game {
     this.growthTimer -= dt;
     if (this.growthTimer <= 0) { this.world.tickGrowth(this.world.rng); this.growthTimer = 0.5; }
 
+    // aquifer floods slowly spread into adjacent mined-out chambers
+    this.floodTimer -= dt;
+    if (this.floodTimer <= 0) { this.world.tickFlood(this.world.rng); this.floodTimer = 2; }
+
     // relationships drift between nearby elves
     this.relTimer -= dt;
     if (this.relTimer <= 0) { this.updateRelationships(); this.relTimer = 4; }
@@ -561,6 +587,15 @@ class Game {
       const day = Math.floor(this.time / DAY_LENGTH) + 1;
       this.raidTimer = randint(this.world.rng, DAY_LENGTH * 2, DAY_LENGTH * 3);
       if (day >= 3) this.spawnRaid();
+    }
+
+    // cave-ins: only relevant once something's actually been dug out
+    if (this.world.minZ < 0) {
+      this.caveInTimer -= dt;
+      if (this.caveInTimer <= 0) {
+        this.caveInTimer = randint(this.world.rng, DAY_LENGTH * 1.5, DAY_LENGTH * 3);
+        this.tryCaveIn();
+      }
     }
 
     // migration
@@ -734,6 +769,7 @@ class Game {
   resolveActivity(d) {
     if (d.hunger > 85) return "eat";
     if (d.thirst > 85) return "drink";
+    if (d.vampireExposed) return "quarantine";
     if (d.wounded || d.infected) return "recover";
     if (d.energy < 15) return "sleep";
     return d.schedule[this.shift()] || "work";
@@ -828,12 +864,38 @@ class Game {
       }
     }
 
+    // The curse clock: ticks toward turning whether hidden or quarantined.
+    // While hidden it's a flat, unmodifiable rate — nothing but a checkup
+    // can intervene. Once exposed, Quarantine zone + Medicine tech + an
+    // active doctor can push the rate negative, same shape as infection.
+    if (d.vampiric) {
+      let rate = 1;
+      if (d.vampireExposed) {
+        const here = this.world.get(d.tileX, d.tileY, d.z);
+        if (here && here.zone === ZONE.QUARANTINE) rate -= 0.5;
+        if (this.hasTech("medicine")) rate -= 0.4;
+        if (d.beingTreated) rate -= 0.6;
+        rate = Math.max(-0.5, rate);
+      }
+      d.vampireTimer -= rate * dt;
+      if (d.vampireTimer <= 0) { this.turnVampire(d); return; }
+      if (d.vampireExposed && d.vampireTimer >= VAMPIRE_TIME) {
+        d.vampiric = false;
+        d.vampireExposed = false;
+        d.mood = clamp(d.mood + 10, 0, 100);
+        this.log(`${d.name} has been cured of the vampiric curse!`, "good", "colony");
+        this.milestoneFlags.vampireCured = true;
+      }
+    }
+
     // overall happiness gauge (health + mood + satisfied needs)
     d.happiness = this.computeHappiness(d);
 
-    // combat takes over whenever enemies are on the map — raiders are
-    // surface-only in this release, so an elf underground stays safely at work.
-    if (this.enemies.length && d.z === 0 && this.handleCombat(d, dt)) return;
+    // combat takes over whenever enemies are on the map — no longer
+    // surface-only, since a raid can now follow a stairwell/ramp down;
+    // handleCombat/nearestEnemy are z-aware so this only ever matches a
+    // threat on the dwarf's own floor.
+    if (this.enemies.length && this.handleCombat(d, dt)) return;
 
     if (d.job) {
       this.jobs.execute(d, dt);
@@ -937,7 +999,7 @@ class Game {
       }
     }
     (this._toRemove || (this._toRemove = [])).push(d);
-    const turned = new Enemy("turned", d.x, d.y);
+    const turned = new Enemy("turned", d.x, d.y, d.z || 0);
     this.enemies.push(turned);
     if (colonyDB) {
       const skills = {};
@@ -947,6 +1009,36 @@ class Game {
         profession: professionOf(d), day,
       }).catch(() => {});
       colonyDB.logEvent(`${d.name} turned into a zombie`, day);
+    }
+  }
+
+  // The curse ran its full course, unexposed or untreated: the colonist is
+  // lost, and a Vampire Lord rises in their place. Mirrors turnZombie.
+  turnVampire(d) {
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    this.milestoneFlags.vampireTurned = true;
+    this.log(`${d.name}'s curse consumed them — they rise as a vampire!`, "bad", "combat");
+    this.triggerAutoPause(`${d.name} has turned into a vampire!`);
+    this.jobs.releaseBed(d);
+    if (d.partnerId) {
+      const partner = this.dwarves.find(o => o.dbId === d.partnerId);
+      if (partner) {
+        partner.partnerId = null;
+        partner.mood = clamp(partner.mood - 25, 0, 100);
+        this.log(`${partner.name} watches in horror as ${d.name} turns.`, "bad", "colony");
+      }
+    }
+    (this._toRemove || (this._toRemove = [])).push(d);
+    const turned = new Enemy("vampire_lord", d.x, d.y, d.z || 0);
+    this.enemies.push(turned);
+    if (colonyDB) {
+      const skills = {};
+      for (const id in d.skills) skills[id] = d.skills[id].level;
+      colonyDB.putDwarf({
+        id: d.dbId, name: d.name, color: d.color, alive: false, cause: "turned into a vampire", skills,
+        profession: professionOf(d), day,
+      }).catch(() => {});
+      colonyDB.logEvent(`${d.name} turned into a vampire`, day);
     }
   }
 
@@ -1018,6 +1110,17 @@ class Game {
     return a.relationships[b.dbId];
   }
 
+  // Does this dwarf have a bond strong enough that whoever's covering for
+  // them can throw off a checkup? A partner is always the strongest bond;
+  // otherwise fall back to their single best relationship vs. the existing
+  // "Friend" threshold (25, RELATIONSHIP_THRESHOLDS in entities.js).
+  hasCoverUp(d) {
+    if (d.partnerId) return true;
+    let best = -Infinity;
+    for (const id in d.relationships) best = Math.max(best, d.relationships[id].affinity);
+    return best >= 25;
+  }
+
   // Nearby elves' opinions of each other drift over time. Each pair has a
   // fixed "chemistry" (some just click, some just don't) plus a bump from
   // Charisma and from the context (idle chatter < socializing < sharing a
@@ -1087,21 +1190,26 @@ class Game {
   soldierCount() { let n = 0; for (const d of this.dwarves) if (d.military) n++; return n; }
   addFx(x, y, bad) { this.combatFx.push({ x, y, t: 0.3, bad: !!bad }); }
 
-  nearestEnemy(x, y) {
+  // z-aware for the same reason as nearestDwarf — without this, a dwarf on
+  // one floor could be matched to an enemy on another once raids can reach
+  // underground (see handleCombat's call site, no longer surface-only).
+  nearestEnemy(x, y, z = 0) {
     let best = null, bd = Infinity;
     for (const e of this.enemies) {
-      if (e.hp <= 0) continue;
+      if (e.hp <= 0 || (e.z || 0) !== z) continue;
       const d = dist2(e.x, e.y, x, y);
       if (d < bd) { bd = d; best = e; }
     }
     return best;
   }
 
-  // Raiders are surface-only this release, so only z=0 elves are valid targets.
-  nearestDwarf(x, y) {
+  // Only elves on the same floor as the searching enemy are valid targets —
+  // raids can now follow a stairwell/ramp down (see spawnRaid), so this is
+  // z-aware rather than hardcoded to the surface.
+  nearestDwarf(x, y, z = 0) {
     let best = null, bd = Infinity;
     for (const d of this.dwarves) {
-      if (d.hp <= 0 || d.z !== 0) continue;
+      if (d.hp <= 0 || d.z !== z) continue;
       const dd = dist2(d.x, d.y, x, y) * (d.military ? 0.55 : 1); // enemies favour soldiers
       if (dd < bd) { bd = dd; best = d; }
     }
@@ -1110,7 +1218,8 @@ class Game {
 
   // Returns true if combat took control of this dwarf this frame.
   handleCombat(d, dt) {
-    const foe = this.nearestEnemy(d.x, d.y);
+    const dz = d.z || 0;
+    const foe = this.nearestEnemy(d.x, d.y, dz);
     if (!foe) { d.fleeing = false; return false; }
     const fdist = Math.hypot(foe.x - d.x, foe.y - d.y);
 
@@ -1126,7 +1235,7 @@ class Game {
         d.combatRepath -= dt;
         if (!d.path || d.combatRepath <= 0) {
           d.combatRepath = 0.4;
-          const p = pathAdjacent(this.world, d.tileX, d.tileY, 0, foe.tileX, foe.tileY, 0);
+          const p = pathAdjacent(this.world, d.tileX, d.tileY, dz, foe.tileX, foe.tileY, dz);
           if (p) d.setPath(p);
         }
         d.state = "goto"; d.move(dt);
@@ -1135,7 +1244,8 @@ class Game {
       return true;
     }
 
-    // civilians flee toward the colony centre when a foe is near
+    // civilians flee toward the surface entrance when a foe is near — a
+    // starting z other than 0 is fine, pathTo can route them up a stairwell.
     if (fdist < 8) {
       if (d.job) this.jobs.cancel(d);
       d.fleeing = true; d.thought = "Fleeing the enemy!";
@@ -1143,7 +1253,7 @@ class Game {
       d.combatRepath -= dt;
       if (!d.path || d.combatRepath <= 0) {
         d.combatRepath = 0.5;
-        const p = pathTo(this.world, d.tileX, d.tileY, 0, this.world.spawnX, this.world.spawnY, 0);
+        const p = pathTo(this.world, d.tileX, d.tileY, dz, this.world.spawnX, this.world.spawnY, 0);
         if (p) d.setPath(p);
       }
       d.state = "goto"; d.move(dt);
@@ -1174,12 +1284,19 @@ class Game {
       this.log(`${d.name} has been badly wounded!`, "bad", "combat");
     }
     const bite = ENEMY_TYPES[e.kind];
-    if (bite && bite.infectious && !d.infected) {
+    if (bite && bite.infectious && !d.infected && !d.vampiric) {
       if (this.world.rng() < (bite.biteChance || 0.2)) {
         d.infected = true;
         d.infectionTimer = INFECTION_TIME;
         d.mood = clamp(d.mood - 12, 0, 100);
         this.log(`${d.name} was bitten!`, "bad", "combat");
+      }
+    } else if (bite && bite.curses && !d.vampiric && !d.infected) {
+      if (this.world.rng() < (bite.curseChance || 0.2)) {
+        // Deliberately no mood hit, no log line — a vampiric bite must look
+        // like nothing happened, unlike the infected branch above.
+        d.vampiric = true;
+        d.vampireTimer = VAMPIRE_TIME;
       }
     }
   }
@@ -1199,13 +1316,19 @@ class Game {
     for (const e of this.enemies) {
       if (e.hp <= 0) continue;
       e.attackCd -= dt;
-      const tgt = this.nearestDwarf(e.x, e.y);
+      const ez = e.z || 0;
+      const tgt = this.nearestDwarf(e.x, e.y, ez);
       if (!tgt) {
-        e.repath -= dt;
-        if (!e.path || e.repath <= 0) {
-          e.repath = 0.6;
-          const p = pathTo(this.world, e.tileX, e.tileY, 0, this.world.spawnX, this.world.spawnY, 0, true);
-          if (p) e.setPath(p);
+        // Underground with no target has nowhere to retreat to (no literal
+        // map "edge" down there) — just keep wandering along the existing
+        // path. Only surface enemies fall back toward the colony center.
+        if (ez === 0) {
+          e.repath -= dt;
+          if (!e.path || e.repath <= 0) {
+            e.repath = 0.6;
+            const p = pathTo(this.world, e.tileX, e.tileY, 0, this.world.spawnX, this.world.spawnY, 0, true);
+            if (p) e.setPath(p);
+          }
         }
         e.move(dt);
         continue;
@@ -1218,7 +1341,7 @@ class Game {
         e.repath -= dt;
         if (!e.path || e.repath <= 0) {
           e.repath = 0.5;
-          const p = pathAdjacent(this.world, e.tileX, e.tileY, 0, tgt.tileX, tgt.tileY, 0, true);
+          const p = pathAdjacent(this.world, e.tileX, e.tileY, ez, tgt.tileX, tgt.tileY, tgt.z, true);
           if (p) e.setPath(p);
         }
         e.move(dt);
@@ -1243,11 +1366,35 @@ class Game {
     return null;
   }
 
+  // Underground has no map "edge" — a stairhead/ramphead on the deepest dug
+  // level is the analogous entry point for a raid that "follows the colony
+  // down" (see spawnRaid). Returns null if nothing's been dug yet.
+  randomStairheadTile() {
+    const w = this.world;
+    if (w.minZ >= 0) return null;
+    const z = w.minZ;
+    const tiles = w.getLevel(z);
+    const heads = [];
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        const t = tiles[y][x];
+        if (t.built === B.STAIRS || t.built === B.RAMP) heads.push({ x, y });
+      }
+    }
+    if (!heads.length) return null;
+    const pick = heads[randint(w.rng, 0, heads.length - 1)];
+    return { x: pick.x, y: pick.y, z };
+  }
+
   // Rolls one zombie's kind, weighted by how deep the colony has gone into
   // the tech tree — shamblers early, runners and eventually brutes as the
   // outbreak worsens.
   rollZombieKind(score) {
     const r = this.world.rng();
+    // Vampires are rare and only show up once deep in the tech tree — a
+    // separate, first-priority slice of the roll ahead of the zombie mix.
+    const vampireChance = clamp((score - 2.5) * 0.12, 0, 0.12);
+    if (r < vampireChance) return "vampire";
     const bruteChance = clamp((score - 2) * 0.25, 0, 0.5);
     const runnerChance = clamp((score - 0.5) * 0.3, 0, 0.45);
     if (r < bruteChance) return "brute";
@@ -1259,17 +1406,26 @@ class Game {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const score = this.techTierScore();
     const n = clamp(1 + Math.floor(score) + Math.floor(this.dwarves.length / 6), 1, 10);
-    const edge = this.randomEdgeTile();
-    if (!edge) return;
+
+    // Once a stairwell/ramp reaches underground, raids have a rising chance
+    // to follow it down instead of approaching from the surface edge —
+    // "digging down always carries some risk." Scales with depth dug.
+    const depth = -this.world.minZ;
+    const undergroundChance = depth > 0 ? clamp(0.1 + depth * 0.08, 0, 0.6) : 0;
+    const underground = depth > 0 && this.world.rng() < undergroundChance;
+    const site = underground ? this.randomStairheadTile() : this.randomEdgeTile();
+    if (!site) return;
+    const z = site.z || 0;
+
     let spawned = 0;
     const counts = {};
     for (let k = 0; k < n; k++) {
       for (let t = 0; t < 14; t++) {
-        const x = clamp(edge.x + randint(this.world.rng, -3, 3), 0, this.world.w - 1);
-        const y = clamp(edge.y + randint(this.world.rng, -3, 3), 0, this.world.h - 1);
-        if (this.world.isWalkable(x, y)) {
+        const x = clamp(site.x + randint(this.world.rng, -3, 3), 0, this.world.w - 1);
+        const y = clamp(site.y + randint(this.world.rng, -3, 3), 0, this.world.h - 1);
+        if (this.world.isWalkable(x, y, z)) {
           const kind = this.rollZombieKind(score);
-          this.enemies.push(new Enemy(kind, x, y));
+          this.enemies.push(new Enemy(kind, x, y, z));
           counts[kind] = (counts[kind] || 0) + 1;
           spawned++;
           break;
@@ -1281,10 +1437,91 @@ class Game {
     const label = Object.entries(counts)
       .map(([kind, c]) => `${c} ${ENEMY_TYPES[kind].name}${c > 1 ? "s" : ""}`)
       .join(", ");
-    this.log(`🧟 An outbreak! ${label} shamble in from the wilds!`, "bad", "combat");
+    const originTxt = underground ? ` up through the stairwell on B${-z}` : " in from the wilds";
+    this.log(`🧟 An outbreak! ${label} shamble${originTxt}!`, "bad", "combat");
     if (window.App) window.App.toast(`🧟 Outbreak — ${spawned} infected!`);
     if (colonyDB) colonyDB.logEvent(`Outbreak of ${label} attacked`, day);
     this.triggerAutoPause(`an outbreak of ${spawned} infected is approaching`);
+  }
+
+  // A mined-out floor tile counts as "supported" if solid stone/wall exists
+  // within a small radius on the same level — leave pillars when digging big
+  // rooms, mirroring real support-pillar play. Computed live (no per-tile
+  // persistent field) — simpler, and avoids yet another save-format field.
+  isUnsupported(x, y, z) {
+    const w = this.world, R = 4;
+    for (let dy = -R; dy <= R; dy++) {
+      for (let dx = -R; dx <= R; dx++) {
+        if (Math.abs(dx) + Math.abs(dy) > R) continue;
+        const t = w.get(x + dx, y + dy, z);
+        if (t && (t.kind === K.STONE || t.built === B.WALL)) return false;
+      }
+    }
+    return true;
+  }
+
+  // Bounded random sample (mirrors tickGrowth's sampling shape) — cheap even
+  // on a large dug-out level, and avoids a full-grid scan every check.
+  tryCaveIn() {
+    const w = this.world;
+    const candidates = [];
+    for (let i = 0; i < 60; i++) {
+      const z = randint(w.rng, w.minZ, -1);
+      const tiles = w.getLevel(z);
+      const x = randint(w.rng, 0, w.w - 1), y = randint(w.rng, 0, w.h - 1);
+      const t = tiles[y][x];
+      if (t.kind !== K.FLOOR || t.built !== B.NONE) continue; // natural mined floor only — never a built floor/stairs/ramp
+      if (this.isUnsupported(x, y, z)) candidates.push({ x, y, z });
+    }
+    if (!candidates.length) return;
+    const chance = clamp(0.05 + candidates.length * 0.01, 0.05, 0.4);
+    if (w.rng() >= chance) return;
+    const origin = candidates[randint(w.rng, 0, candidates.length - 1)];
+    this.collapseCluster(origin.x, origin.y, origin.z);
+  }
+
+  // Flood-fills a small cluster of unsupported floor tiles back to solid stone.
+  collapseCluster(x, y, z) {
+    const w = this.world;
+    const cluster = [];
+    const seen = new Set([`${x},${y}`]);
+    const stack = [{ x, y }];
+    while (stack.length && cluster.length < 6) {
+      const c = stack.pop();
+      const t = w.get(c.x, c.y, z);
+      if (!t || t.kind !== K.FLOOR || t.built !== B.NONE) continue;
+      cluster.push(c);
+      for (const [dx, dy] of NEIGHBORS4) {
+        const nx = c.x + dx, ny = c.y + dy, key = `${nx},${ny}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        stack.push({ x: nx, y: ny });
+      }
+    }
+    if (!cluster.length) return;
+    for (const c of cluster) {
+      const t = w.get(c.x, c.y, z);
+      t.kind = K.STONE; t.ore = null; t.item = null;
+      t.designation = null; t.buildJob = false; t.stockpile = false; t.zone = null; t.reserved = false;
+    }
+    for (const d of this.dwarves) {
+      if (d.z !== z) continue;
+      if (cluster.some(c => c.x === d.tileX && c.y === d.tileY)) this.caveInHitDwarf(d);
+    }
+    this.log(`💥 A cave-in collapses an unsupported chamber on B${-z}!`, "bad", "colony");
+    this.triggerAutoPause("a cave-in has struck the colony");
+  }
+
+  // Almost always just wounds/knocks the elf down — an 8% instant-death roll
+  // (mirroring recordDeath) covers the rare "fully buried" case, so this
+  // doesn't feel too punishing/RNG-swingy for a colony sim.
+  caveInHitDwarf(d) {
+    if (this.world.rng() < 0.08) { this.recordDeath(d, "been buried in a cave-in"); return; }
+    const raw = 15 + randint(this.world.rng, 0, 15);
+    d.hp = Math.max(1, d.hp - d.damageTaken(raw));
+    if (!d.wounded) { d.wounded = true; d.mood = clamp(d.mood - 10, 0, 100); }
+    this.addFx(d.x, d.y, true);
+    this.log(`${d.name} was caught in the cave-in!`, "bad", "combat");
   }
 
   // ---- trade caravans ----
@@ -1380,7 +1617,7 @@ class Game {
 
   rebuildZones() {
     this.bedTiles = []; this.diningTiles = [];
-    this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = [];
+    this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = []; this.quarantineTiles = [];
     this.depotTiles = []; this.doorTiles = [];
     this.tableCount = 0; this.decorCount = {};
     const w = this.world;
@@ -1405,6 +1642,7 @@ class Game {
           else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y, z]);
           else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y, z]);
           else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y, z]);
+          else if (t.zone === ZONE.QUARANTINE) this.quarantineTiles.push([x, y, z]);
           else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y, z]);
           if (t.built === B.DOOR) this.doorTiles.push([x, y, z]);
         }
@@ -1567,7 +1805,7 @@ class Game {
       const hap = d.happiness != null ? d.happiness : 60;
       const face = hap > 70 ? "😀" : hap > 45 ? "🙂" : hap > 25 ? "😕" : "😣";
       const sel = this.selectedDwarf === d ? " sel" : "";
-      const badge = d.infected ? "🧟" : d.wounded ? "🩹" : d.military ? "⚔️" : "";
+      const badge = d.infected ? "🧟" : d.vampireExposed ? "🧛" : d.wounded ? "🩹" : d.military ? "⚔️" : "";
       html += `<div class="cbar-chip${sel}" data-idx="${i}" title="${d.name} — ${professionOf(d)}">
         <span class="cbar-face" style="background:${d.color}">${face}</span>
         <span class="cbar-name">${d.name.split(" ")[0]}</span>

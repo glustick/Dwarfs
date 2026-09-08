@@ -2,7 +2,7 @@
 
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
-  dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate",
+  dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate", rampdown: "designate", drain: "designate",
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
   doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
@@ -206,7 +206,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", a: "rampdown", v: "drain", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -284,6 +284,12 @@ class Input {
           case "stairsdown":
             if (t.built !== B.STAIRS && t.kind !== K.WATER && !t.designation && w.hasWalkableNeighbor(x, y, z)) { t.designation = "stairsdown"; count++; }
             break;
+          case "rampdown":
+            if (t.built !== B.RAMP && t.built !== B.STAIRS && t.kind !== K.WATER && !t.designation && w.hasWalkableNeighbor(x, y, z)) { t.designation = "rampdown"; count++; }
+            break;
+          case "drain":
+            if (t.kind === K.WATER && t.flooded && !t.designation && w.hasWalkableNeighbor(x, y, z)) { t.designation = "drain"; count++; }
+            break;
           case "stockpile":
             if (w.isWalkable(x, y, z) && !t.stockpile) { t.stockpile = true; count++; }
             break;
@@ -338,6 +344,9 @@ class Input {
           case "hospital":
             if (w.isWalkable(x, y, z) && t.zone !== ZONE.HOSPITAL) { t.zone = ZONE.HOSPITAL; count++; }
             break;
+          case "quarantine":
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.QUARANTINE) { t.zone = ZONE.QUARANTINE; count++; }
+            break;
           case "table":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; t.buildMaterial = this.material; count++; }
             break;
@@ -358,17 +367,18 @@ class Input {
     }
 
     if (this.tool === "stockpile" || this.tool === "depot" || this.tool === "erase") g.rebuildStockpiles();
-    if (["bedroom", "dining", "farm", "study", "hospital", "erase", "bed", "depot"].includes(this.tool)) g.rebuildZones();
+    if (["bedroom", "dining", "farm", "study", "hospital", "quarantine", "erase", "bed", "depot"].includes(this.tool)) g.rebuildZones();
     g.jobs.reindex();
     if (count) {
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         forest: "Marked to plant trees", stairsdown: "Marked to dig stairs down",
+        rampdown: "Marked to dig a ramp down", drain: "Marked to drain",
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
         well: "Well queued", brewery: "Brewery queued", doublebed: "Double beds queued", painting: "Paintings queued",
         table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
-        farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", erase: "Cleared",
+        farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", quarantine: "Quarantine zoned", erase: "Cleared",
         conduit: "Arcane conduits queued", generator: "Essence Well queued", icebox: "Frost Chamber queued",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
