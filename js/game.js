@@ -59,6 +59,12 @@ const VAMPIRE_TIME = 150;        // longer than INFECTION_TIME — nothing but a
 const CHECKUP_COOLDOWN = 100;    // seconds before the same elf is checkup-eligible again
 const CHECKUP_REVEAL_BASE = 0.4; // base reveal chance on an uncovered checkup
 
+// ---- defensive structures ----
+const WATCHTOWER_ATK_MULT = 1.3;   // damage bonus for a soldier fighting from a watchtower tile
+const WATCHTOWER_DEF_MULT = 0.75;  // damage taken multiplier while standing on one (lower = safer)
+const TRAP_DAMAGE = 18;            // flat damage dealt to a hostile that triggers a trap
+const TRAP_COOLDOWN = 8;           // seconds before a triggered trap can fire again
+
 // ---- Essence Craft: an Essence Well powers a network of Arcane Conduits;
 // a powered Frost Chamber slows spoilage for food resting nearby.
 const FOOD_SPOIL_TIME = 600;     // game-seconds for an unchilled food item to fully spoil
@@ -92,6 +98,8 @@ class Game {
     this.studyTiles = [];
     this.hospitalTiles = [];
     this.quarantineTiles = [];
+    this.watchtowerTiles = [];
+    this.trapTiles = [];
     this.tableCount = 0;
 
     this.selectedDwarf = null;
@@ -242,6 +250,7 @@ class Game {
           t.buildMaterial || 0,
           t.aquifer ? 1 : 0,
           t.flooded ? 1 : 0,
+          Math.round(t.trapCooldown) || 0,
         ];
       }
     }
@@ -547,6 +556,14 @@ class Game {
     // aquifer floods slowly spread into adjacent mined-out chambers
     this.floodTimer -= dt;
     if (this.floodTimer <= 0) { this.world.tickFlood(this.world.rng); this.floodTimer = 2; }
+
+    // trap cooldowns tick down regardless of whether a raider is nearby
+    if (this.trapTiles.length) {
+      for (const [tx, ty, tz] of this.trapTiles) {
+        const t = this.world.get(tx, ty, tz);
+        if (t && t.trapCooldown > 0) t.trapCooldown = Math.max(0, t.trapCooldown - dt);
+      }
+    }
 
     // relationships drift between nearby elves
     this.relTimer -= dt;
@@ -1263,8 +1280,18 @@ class Game {
     return false;
   }
 
+  // A soldier fighting from a watchtower tile is both harder-hitting and
+  // safer — the passive bonus this round settled on instead of giving
+  // watchtowers their own ranged-attack/targeting mechanic.
+  isOnWatchtower(entity) {
+    const t = this.world.get(entity.tileX, entity.tileY, entity.z || 0);
+    return !!(t && t.furniture === FURN.WATCHTOWER);
+  }
+
   dwarfHitEnemy(d, foe) {
-    foe.hp -= d.attackDamage();
+    let dmg = d.attackDamage();
+    if (this.isOnWatchtower(d)) dmg *= WATCHTOWER_ATK_MULT;
+    foe.hp -= dmg;
     this.addFx(foe.x, foe.y, false);
     if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 5); this.awardXp(d, "fitness", 1);
@@ -1272,7 +1299,9 @@ class Game {
   }
 
   enemyHitDwarf(e, d) {
-    d.hp -= d.damageTaken(e.atk);
+    let dmg = d.damageTaken(e.atk);
+    if (this.isOnWatchtower(d)) dmg *= WATCHTOWER_DEF_MULT;
+    d.hp -= dmg;
     this.addFx(d.x, d.y, true);
     if (window.sound) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 2);
@@ -1317,6 +1346,18 @@ class Game {
       if (e.hp <= 0) continue;
       e.attackCd -= dt;
       const ez = e.z || 0;
+
+      // Traps trigger on any hostile standing on them, reusable once the
+      // cooldown expires — never on a dwarf, this is a raider-only hazard.
+      const hereTile = this.world.get(e.tileX, e.tileY, ez);
+      if (hereTile && hereTile.furniture === FURN.TRAP && (hereTile.trapCooldown || 0) <= 0) {
+        hereTile.trapCooldown = TRAP_COOLDOWN;
+        this.addFx(e.x, e.y, false);
+        e.hp -= TRAP_DAMAGE;
+        if (e.hp <= 0) { this.killEnemy(e, null); continue; }
+        this.log(`A trap springs on a ${e.name}!`, "good", "combat");
+      }
+
       const tgt = this.nearestDwarf(e.x, e.y, ez);
       if (!tgt) {
         // Underground with no target has nowhere to retreat to (no literal
@@ -1619,6 +1660,7 @@ class Game {
     this.bedTiles = []; this.diningTiles = [];
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = []; this.quarantineTiles = [];
     this.depotTiles = []; this.doorTiles = [];
+    this.watchtowerTiles = []; this.trapTiles = [];
     this.tableCount = 0; this.decorCount = {};
     const w = this.world;
     for (let z = 0; z >= w.minZ; z--) {
@@ -1629,6 +1671,8 @@ class Game {
           const t = tiles[y][x];
           if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y, z]);
           else if (t.furniture === FURN.TABLE) this.tableCount++;
+          else if (t.furniture === FURN.WATCHTOWER) this.watchtowerTiles.push([x, y, z]);
+          else if (t.furniture === FURN.TRAP) this.trapTiles.push([x, y, z]);
           if (t.zone) {
             // decor: paintings, plus a small bonus for nicer build materials
             // (marble/metal) on any wall/floor/door/furniture in the zone —
@@ -2051,12 +2095,17 @@ class Game {
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
-      if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX) {
+      if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX || tile.furniture === FURN.WATCHTOWER || tile.furniture === FURN.TRAP) {
         const info = FURN_INFO[tile.furniture];
         parts.push(`Furniture: <span class="tag">${info.icon} ${info.name}</span>`);
         if (tile.furniture === FURN.ICEBOX) {
           parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
           if (tile.powered) parts.push(`<div class="mini">Slows spoilage for food within ${ESSENCE_CHILL_RADIUS} tiles.</div>`);
+        } else if (tile.furniture === FURN.WATCHTOWER) {
+          parts.push(`<div class="mini">A soldier fighting from here deals ${Math.round((WATCHTOWER_ATK_MULT - 1) * 100)}% more damage and takes ${Math.round((1 - WATCHTOWER_DEF_MULT) * 100)}% less.</div>`);
+        } else if (tile.furniture === FURN.TRAP) {
+          const ready = !tile.trapCooldown || tile.trapCooldown <= 0;
+          parts.push(`Status: <span class="tag" style="color:${ready ? "#8fd08f" : "#e08a6a"}">${ready ? "armed" : `resetting (${Math.ceil(tile.trapCooldown)}s)`}</span>`);
         }
       } else if (tile.furniture) {
         parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);

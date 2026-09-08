@@ -48,11 +48,15 @@ production counters, and a cross-colony cause-of-death breakdown), and
 **Essence Craft** (Essence Well → Arcane Conduit → Frost Chamber power
 network, food spoilage as the problem it solves, proper Build-menu buttons
 and visuals — it had been left half-wired with no toolbar entry, no
-rendering, and no actual power logic), and **build materials** (a Wood/
+rendering, and no actual power logic), **build materials** (a Wood/
 Stone/Marble/Metal picker in the Build fly-out applies to walls, floors,
 doors, and furniture; Marble is a new decorative vein found while mining,
 Metal reuses forged iron bars, and both give a small mood bonus over
-plain stone/wood — same pattern paintings already used).
+plain stone/wood — same pattern paintings already used), and **defensive
+structures** (a Palisade is a quick stake wall built in half the usual
+time; a Watchtower gives a soldier fighting from it a passive damage/
+defense bonus; a reusable Trap damages a raider that steps on it, never
+colonists, and resets after a cooldown).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -134,15 +138,17 @@ plain stone/wood — same pattern paintings already used).
       (relationship affinity ≥ Friend), and if the curse is never caught —
       hidden or quarantined-but-untreated — it runs its course and the elf
       turns into a Vampire Lord, mirroring the zombie Turned Elf mechanic.
-- [ ] **The Outbreak — defensive structures (future)**: palisades,
-      watchtowers, traps, to lean further into the tower-defense angle —
-      split out from Phase 2 above since it's a distinct build-menu-and-
-      combat feature, not part of the vampire mechanic.
+- [x] ~~The Outbreak — defensive structures~~ — a Palisade is a quick stake
+      wall, half the build time of a proper wall (same wall otherwise, just
+      faster to erect — mirrors how a Ramp differs from Stairs). A
+      Watchtower gives any soldier fighting from that tile a passive combat
+      bonus (more damage dealt, less taken) rather than its own ranged-
+      attack mechanic. A Trap damages a raider that steps on it and resets
+      after a cooldown — never affects colonists, purely a raider hazard.
 
 ---
 
 ### Notes
-- **Tiers 1–5, plus both Phase 2 rounds (Z-levels and The Outbreak), are
-  all shipped.** What's left is genuinely optional: defensive structures
-  (palisades/watchtowers/traps, split out above), undo-designation,
+- **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
+  shipped.** What's left is genuinely optional: undo-designation,
   blueprint copy/paste, or smaller quality-of-life ideas as they come up.

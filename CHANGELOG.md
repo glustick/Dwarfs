@@ -4,6 +4,18 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.11.1 (build 36)
+Defensive structures — three new Defenses buildables, all ungated.
+
+- **Palisade**: a quick stake wall, half the build time of a proper wall
+  and otherwise identical (a wall is a wall) — the same "cheaper/faster
+  alternative" pattern as Ramp vs. Stairs.
+- **Watchtower**: a soldier fighting from a watchtower tile deals 30% more
+  damage and takes 25% less — a passive bonus rather than a new ranged-
+  attack/targeting mechanic.
+- **Trap**: damages a raider that steps on it, then resets after an 8s
+  cooldown — reusable, and never triggers on a colonist.
+
 ## v1.11.0 (build 35)
 Ship Tier 4 Phase 2: Z-levels get ramps, underground raids, flooding, and
 cave-ins — digging down now carries real weight instead of being purely

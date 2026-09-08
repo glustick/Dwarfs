@@ -743,7 +743,11 @@ class JobManager {
           if (p) { dwarf.setPath(p); dwarf.state = "goto"; job.phase = "toSite"; dwarf.thought = "Carrying materials"; }
           else this.cancel(dwarf);
         } else {
-          dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "build");
+          dwarf.state = "work";
+          // A palisade is a quick stake fence, not a proper wall — half the
+          // usual build time is the entire differentiator from a wood wall.
+          const mult = job.buildKind === "palisade" ? 0.5 : 1;
+          dwarf.workTimer = this.workDuration(dwarf, "build") * mult;
         }
         break;
       case "eat":
@@ -965,6 +969,18 @@ class JobManager {
       else if (kind === "icebox") {
         t.furniture = FURN.ICEBOX;
         g.log(`${dwarf.name} built a Frost Chamber.`, "good", "build");
+      }
+      else if (kind === "palisade") {
+        t.built = B.WALL; t.feature = F.NONE;
+        g.log(`${dwarf.name} erected a ${matName} palisade.`, "", "build");
+      }
+      else if (kind === "watchtower") {
+        t.furniture = FURN.WATCHTOWER; g.rebuildZones();
+        g.log(`${dwarf.name} built a watchtower.`, "good", "build");
+      }
+      else if (kind === "trap") {
+        t.furniture = FURN.TRAP; t.trapCooldown = 0; g.rebuildZones();
+        g.log(`${dwarf.name} set a trap.`, "good", "build");
       }
       else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a ${matName} wall.`, "", "build"); }
       t.buildKind = null;

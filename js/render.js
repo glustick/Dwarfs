@@ -573,6 +573,8 @@ class Renderer {
     else if (t.furniture === FURN.PAINTING) this.drawPainting(ctx, sx, sy, ts, t.buildMaterial);
     else if (t.furniture === FURN.GENERATOR) this.drawGenerator(ctx, sx, sy, ts);
     else if (t.furniture === FURN.ICEBOX) this.drawIcebox(ctx, sx, sy, ts, t.powered);
+    else if (t.furniture === FURN.WATCHTOWER) this.drawWatchtower(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.TRAP) this.drawTrap(ctx, sx, sy, ts, t.trapCooldown);
   }
 
   // -- Essence Craft: power network furniture & wiring -----------------------
@@ -621,6 +623,43 @@ class Renderer {
     ctx.fillText("❄️", sx + ts * 0.5, sy + ts * 0.24);
     ctx.globalAlpha = 1;
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+
+  // -- defensive structures --------------------------------------------------
+  drawWatchtower(ctx, sx, sy, ts) {
+    const cx = sx + ts * 0.5;
+    ctx.fillStyle = "#6a5f4a";
+    ctx.beginPath();
+    ctx.moveTo(cx - ts * 0.28, sy + ts * 0.92);
+    ctx.lineTo(cx - ts * 0.14, sy + ts * 0.2);
+    ctx.lineTo(cx + ts * 0.14, sy + ts * 0.2);
+    ctx.lineTo(cx + ts * 0.28, sy + ts * 0.92);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#3a3222"; ctx.lineWidth = Math.max(1, ts * 0.03);
+    ctx.stroke();
+    // platform
+    ctx.fillStyle = "#8a7a56";
+    ctx.fillRect(cx - ts * 0.34, sy + ts * 0.12, ts * 0.68, ts * 0.12);
+    ctx.strokeRect(cx - ts * 0.34, sy + ts * 0.12, ts * 0.68, ts * 0.12);
+    // crenellations
+    ctx.fillStyle = "#6a5f4a";
+    for (const off of [-0.28, -0.08, 0.12]) ctx.fillRect(cx + off * ts, sy + ts * 0.04, ts * 0.1, ts * 0.1);
+  }
+
+  drawTrap(ctx, sx, sy, ts, cooldown) {
+    const cx = sx + ts * 0.5, cy = sy + ts * 0.5, r = ts * 0.3;
+    const armed = !cooldown || cooldown <= 0;
+    ctx.fillStyle = armed ? "rgba(40,32,20,0.7)" : "rgba(60,50,40,0.4)";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+    ctx.strokeStyle = armed ? "#c9a25c" : "#6a5a44";
+    ctx.lineWidth = Math.max(1, ts * 0.03);
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * r * 0.3, cy + Math.sin(a) * r * 0.3);
+      ctx.lineTo(cx + Math.cos(a) * r * 0.9, cy + Math.sin(a) * r * 0.9);
+      ctx.stroke();
+    }
   }
 
   // Embedded wiring: a dim cross when dormant, a glowing lilac one once part

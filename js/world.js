@@ -29,11 +29,13 @@ const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs", RAMP: "ramp" };
 
 // Furniture placed on a tile.
-const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox" };
-// Display info for the Essence Craft furniture (used by the inspector).
+const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox", WATCHTOWER: "watchtower", TRAP: "trap" };
+// Display info for furniture that isn't self-explanatory in the inspector.
 const FURN_INFO = {
   generator: { name: "Essence Well", icon: "🔮" },
   icebox: { name: "Frost Chamber", icon: "❄️" },
+  watchtower: { name: "Watchtower", icon: "🗼" },
+  trap: { name: "Trap", icon: "⚠️" },
 };
 
 // Zones a tile can belong to (in addition to stockpile).
@@ -46,7 +48,7 @@ const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well",
 // What a queued construction will produce.
 const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting", CONDUIT: "conduit", GENERATOR: "generator", ICEBOX: "icebox" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood", palisade: "wood", watchtower: "stone", trap: "wood" };
 
 class Tile {
   constructor(kind) {
@@ -73,6 +75,7 @@ class Tile {
     this.doorLocked = false;  // built === DOOR: barred against raiders
     this.conduit = false;     // carries Essence between generators/consumers
     this.powered = false;     // computed each network tick — part of a satisfied network
+    this.trapCooldown = 0;    // FURN.TRAP only: seconds until it can trigger again
   }
 }
 
@@ -156,7 +159,8 @@ class World {
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
   //                workshop,workshopRecipe,doorLocked,bedOccupants,
-  //                stockpileFilter,conduit,buildMaterial,aquifer,flooded]
+  //                stockpileFilter,conduit,buildMaterial,aquifer,flooded,
+  //                trapCooldown]
   loadLevelTiles(z, data, itemsById) {
     let tiles = this.levels.get(z);
     if (!tiles) {
@@ -184,6 +188,7 @@ class World {
         t.buildMaterial = a[19] || null;
         t.aquifer = !!a[20];
         t.flooded = !!a[21];
+        t.trapCooldown = a[22] || 0;
         t.powered = false;
       }
     }

@@ -5,6 +5,7 @@ const TOOL_CAT = {
   dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate", rampdown: "designate", drain: "designate",
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
   doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
+  palisade: "build", watchtower: "build", trap: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
 
@@ -319,7 +320,12 @@ class Input {
             break;
           case "generator":
           case "icebox":
+          case "watchtower":
+          case "trap":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
+            break;
+          case "palisade":
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "palisade"; t.buildMaterial = this.material; count++; }
             break;
           case "conduit":
             // A conduit is embedded wiring, not a furniture slot — it coexists
@@ -380,6 +386,7 @@ class Input {
         table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", quarantine: "Quarantine zoned", erase: "Cleared",
         conduit: "Arcane conduits queued", generator: "Essence Well queued", icebox: "Frost Chamber queued",
+        palisade: "Palisades queued", watchtower: "Watchtowers queued", trap: "Traps queued",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
     }
