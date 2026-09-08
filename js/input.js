@@ -13,12 +13,22 @@ class Input {
     this.game = game;
     this.canvas = canvas;
     this.tool = "select";
+    this.material = "stone"; // currently selected build material for wall/floor/door/furniture
     this.dragStart = null;   // tile {x,y}
     this.dragCur = null;
     this.panning = false;
     this.panLast = null;
     this.keys = new Set();
     this.bind();
+    this.setMaterial(this.material);
+  }
+
+  setMaterial(material) {
+    this.material = material;
+    document.querySelectorAll(".mat-btn").forEach(b =>
+      b.classList.toggle("active", b.dataset.material === material));
+    const badge = document.getElementById("build-mat-badge");
+    if (badge && MATERIALS[material]) badge.textContent = MATERIALS[material].icon;
   }
 
   setTool(tool) {
@@ -77,7 +87,14 @@ class Input {
 
     // Toolbar tool buttons (also present inside fly-outs)
     document.querySelectorAll(".tool").forEach(btn => {
+      if (!btn.dataset.tool) return; // material swatches share .tool's look but aren't tools
       btn.addEventListener("click", () => { this.setTool(btn.dataset.tool); this.closeFlyout(); });
+    });
+
+    // Material swatches (Build fly-out) — pick what wall/floor/door/furniture
+    // designations queue next; doesn't change the active tool or close the menu.
+    document.querySelectorAll(".mat-btn").forEach(btn => {
+      btn.addEventListener("click", () => this.setMaterial(btn.dataset.material));
     });
 
     // Category buttons open their fly-out submenu
@@ -271,19 +288,19 @@ class Input {
             if (w.isWalkable(x, y, z) && !t.stockpile) { t.stockpile = true; count++; }
             break;
           case "build":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "wall"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "wall"; t.buildMaterial = this.material; count++; }
             break;
           case "floor":
-            if (w.isWalkable(x, y, z) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; count++; }
+            if (w.isWalkable(x, y, z) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; t.buildMaterial = this.material; count++; }
             break;
           case "bed":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; t.buildMaterial = this.material; count++; }
             break;
           case "doublebed":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; t.buildMaterial = this.material; count++; }
             break;
           case "painting":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; t.buildMaterial = this.material; count++; }
             break;
           case "smelter":
           case "forge":
@@ -292,7 +309,7 @@ class Input {
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "door":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; t.buildMaterial = this.material; count++; }
             break;
           case "generator":
           case "icebox":
@@ -322,7 +339,7 @@ class Input {
             if (w.isWalkable(x, y, z) && t.zone !== ZONE.HOSPITAL) { t.zone = ZONE.HOSPITAL; count++; }
             break;
           case "table":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; count++; }
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; t.buildMaterial = this.material; count++; }
             break;
           case "erase":
             if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR || t.conduit) {
@@ -331,7 +348,8 @@ class Input {
               t.furniture = null; t.bedOccupants = []; // deconstruct any furniture (bed, table, double bed, painting, generator, icebox)
               t.workshop = null; // deconstruct workshop
               t.conduit = false; t.powered = false; // remove any embedded conduit
-              if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; } // deconstruct door
+              if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; t.buildMaterial = null; } // deconstruct door
+              else if (!t.built) t.buildMaterial = null; // clear a cancelled (not-yet-built) queue's material choice
               count++;
             }
             break;

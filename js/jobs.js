@@ -166,11 +166,13 @@ class JobManager {
     return best;
   }
 
-  findStoredItem(kind, nearX, nearY, nearZ = 0) {
+  // `sub`, if given, restricts the match to that item.sub (e.g. "metal"
+  // building material must be iron bars specifically, not gold ones).
+  findStoredItem(kind, nearX, nearY, nearZ = 0, sub = null) {
     const g = this.game, w = g.world;
     let best = null, bd = Infinity;
     for (const it of g.items) {
-      if (it.kind !== kind || it.hauled) continue;
+      if (it.kind !== kind || it.hauled || (sub && it.sub !== sub)) continue;
       const t = w.get(it.x, it.y, it.z);
       if (!t || !t.stockpile) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
@@ -179,19 +181,19 @@ class JobManager {
     return best;
   }
 
-  findGroundItem(kind, nearX, nearY, nearZ = 0) {
+  findGroundItem(kind, nearX, nearY, nearZ = 0, sub = null) {
     const g = this.game;
     let best = null, bd = Infinity;
     for (const it of g.items) {
-      if (it.kind !== kind || it.hauled) continue;
+      if (it.kind !== kind || it.hauled || (sub && it.sub !== sub)) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
       if (d < bd) { bd = d; best = it; }
     }
     return best;
   }
 
-  findAnyItem(kind, nearX, nearY, nearZ = 0) {
-    return this.findStoredItem(kind, nearX, nearY, nearZ) || this.findGroundItem(kind, nearX, nearY, nearZ);
+  findAnyItem(kind, nearX, nearY, nearZ = 0, sub = null) {
+    return this.findStoredItem(kind, nearX, nearY, nearZ, sub) || this.findGroundItem(kind, nearX, nearY, nearZ, sub);
   }
 
   findLooseItem(nearX, nearY, nearZ = 0) {
@@ -260,9 +262,15 @@ class JobManager {
     dwarf.bed = null;
   }
 
+  // The material actually resolves per-tile now (t.buildMaterial, chosen at
+  // designation time) — BUILD_MATERIAL is only the fallback for tiles queued
+  // before this existed (old saves) or workshops/arcane fixtures that don't
+  // offer a material choice.
   buildMaterialKind(t) {
-    const m = BUILD_MATERIAL[t.buildKind || "wall"];
-    return m === "wood" ? ITEM.WOOD : ITEM.STONE;
+    return materialItem(t.buildMaterial || BUILD_MATERIAL[t.buildKind || "wall"]).kind;
+  }
+  buildMaterialSub(t) {
+    return materialItem(t.buildMaterial || BUILD_MATERIAL[t.buildKind || "wall"]).sub;
   }
 
   workDuration(dwarf, type) {
@@ -322,7 +330,7 @@ class JobManager {
         if (t.reserved) continue;
         if (type === "build") {
           if (!t.buildJob) continue;
-          if (!this.findAnyItem(this.buildMaterialKind(t), dx, dy, dz)) continue;
+          if (!this.findAnyItem(this.buildMaterialKind(t), dx, dy, dz, this.buildMaterialSub(t))) continue;
         } else if (type === "craft") {
           if (!t.workshop || !this.recipeAvailable(t)) continue;
         } else if (type === "plant" || type === "harvest") {
@@ -343,11 +351,12 @@ class JobManager {
     if (best.type === "build") {
       job.buildKind = t.buildKind || "wall";
       const matKind = this.buildMaterialKind(t);
-      const mat = this.findAnyItem(matKind, dx, dy, dz);
+      const mat = this.findAnyItem(matKind, dx, dy, dz, this.buildMaterialSub(t));
       mat.hauled = true; job.item = mat; job.phase = "toMat";
       const p2 = pathAdjacent(g.world, dx, dy, dz, mat.x, mat.y, mat.z) || pathTo(g.world, dx, dy, dz, mat.x, mat.y, mat.z);
       if (!p2) { t.reserved = false; mat.hauled = false; return false; }
-      dwarf.setPath(p2); dwarf.thought = `Fetching ${matKind} to build`;
+      const matLabel = (MATERIALS[t.buildMaterial] || MATERIALS.stone).name;
+      dwarf.setPath(p2); dwarf.thought = `Fetching ${matLabel.toLowerCase()} to build`;
     } else {
       job.phase = "move"; dwarf.setPath(path);
       dwarf.thought = {
@@ -767,7 +776,7 @@ class JobManager {
       const ore = t.ore;
       t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
       this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
-      if (ore) this.spawnItem(ITEM.ORE, job.x, job.y, ore, job.z);
+      if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
       g.stats.mined++;
       g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
       g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
@@ -778,7 +787,7 @@ class JobManager {
       const ore = t.ore;
       if (wasStone) {
         this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
-        if (ore) this.spawnItem(ITEM.ORE, job.x, job.y, ore, job.z);
+        if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
       }
       g.world.carveStairs(job.x, job.y, job.z);
       g.log(`${dwarf.name} carved a stairwell down${ore ? ", striking " + ore + "!" : "."}`, ore ? "good" : "", "labor");
@@ -822,19 +831,20 @@ class JobManager {
       t.reserved = false; t.buildJob = false;
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
       const kind = job.buildKind || "wall";
+      const matName = (MATERIALS[t.buildMaterial] || MATERIALS.stone).name.toLowerCase();
       g.stats.built++;
-      if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a stone floor.`, "", "build"); }
-      else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a bed.`, "good", "build"); }
-      else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a double bed.`, "good", "build"); }
-      else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a table.`, "good", "build"); }
-      else if (kind === "painting") { t.furniture = FURN.PAINTING; g.rebuildZones(); g.log(`${dwarf.name} hung a painting.`, "good", "build"); }
+      if (kind === "floor") { t.kind = K.FLOOR; t.built = B.FLOOR; g.log(`${dwarf.name} built a ${matName} floor.`, "", "build"); }
+      else if (kind === "bed") { t.furniture = FURN.BED; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} bed.`, "good", "build"); }
+      else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} double bed.`, "good", "build"); }
+      else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} table.`, "good", "build"); }
+      else if (kind === "painting") { t.furniture = FURN.PAINTING; g.rebuildZones(); g.log(`${dwarf.name} hung a painting in a ${matName} frame.`, "good", "build"); }
       else if (kind === "smelter" || kind === "forge" || kind === "well" || kind === "brewery") {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
       }
       else if (kind === "door") {
         t.built = B.DOOR; t.doorLocked = false; g.rebuildZones();
-        g.log(`${dwarf.name} built a door.`, "good", "build");
+        g.log(`${dwarf.name} built a ${matName} door.`, "good", "build");
       }
       else if (kind === "conduit") {
         t.conduit = true;
@@ -848,7 +858,7 @@ class JobManager {
         t.furniture = FURN.ICEBOX;
         g.log(`${dwarf.name} built a Frost Chamber.`, "good", "build");
       }
-      else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a stone wall.`, "", "build"); }
+      else { t.built = B.WALL; t.feature = F.NONE; g.log(`${dwarf.name} built a ${matName} wall.`, "", "build"); }
       t.buildKind = null;
       g.awardXp(dwarf, "building", 12); g.awardXp(dwarf, "fitness", 1);
     } else if (job.type === "craft" && t && t.workshop) {
@@ -955,6 +965,13 @@ class JobManager {
       g.log(`${dwarf.name} has recovered.`, "good", "colony");
     }
     this.cancel(dwarf, true);
+  }
+
+  // Marble is a vein like iron/gold/coal but isn't smelted — it drops as its
+  // own item, ready to build with directly, instead of ITEM.ORE.
+  spawnOreOrMarble(ore, x, y, z) {
+    if (ore === "marble") this.spawnItem(ITEM.MARBLE, x, y, null, z);
+    else this.spawnItem(ITEM.ORE, x, y, ore, z);
   }
 
   spawnItem(kind, x, y, sub = null, z = 0) {

@@ -4,6 +4,41 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.9.2 (build 29)
+Build materials — walls, floors, doors, and furniture no longer have to be
+plain wood/stone.
+
+- **Material picker**: the Build fly-out gets a Wood/Stone/Marble/Metal row
+  above the construction/furniture buttons. Pick one, then queue a wall,
+  floor, bed, double bed, table, painting, or door as normal — the current
+  choice shows as a badge on the Build category button.
+- **Marble**: a new decorative vein found while mining, alongside iron/gold/
+  coal — drops as its own item and builds directly, no smelting.
+- **Metal**: reuses forged iron bars, so it's gated behind the existing
+  smelter/forge chain rather than being a new resource.
+- Marble and metal each give a small mood bonus over plain stone/wood when
+  used in a zone, the same pattern paintings already use.
+- Walls/floors/doors/furniture render in their material's color (including a
+  metal sheen and marble veining), and the tile Inspect panel shows a
+  Material line. Old saves default to stone/wood, matching pre-existing
+  builds.
+
+## v1.9.1 (build 28)
+Reworked the ambient score — it was a musically directionless random walk
+with no chords, plus a scale-math bug that quietly capped it to one octave.
+
+- **Real harmony**: a 4-chord root progression (i-iv-v-VII) the bass drone
+  now cycles through, instead of two notes alternating forever.
+- **A melody that belongs to the chords**: replaced the unconstrained random
+  walk with a short contour replayed (and lightly varied) each chord,
+  transposed to the current root — it resolves instead of just wandering.
+- **Fixed** a scale bug where any melody degree past the 5th just repeated
+  the same pitch instead of climbing an octave, quietly limiting the melody's
+  range this whole time.
+- **Reverb**: a procedural hall reverb (shaped noise, no asset file) run
+  alongside the dry signal — music was completely dry before, which read as
+  thin/harsh. SFX are untouched, still crisp and dry for punchy feedback.
+
 ## v1.9.0 (build 27)
 Sprite animation pass — elves, enemies, and wildlife feel more alive without
 any new art: everything is the same procedural canvas shapes, just posed

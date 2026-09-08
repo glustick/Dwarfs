@@ -11,12 +11,31 @@ const ITEM = {
   ARMOR: "armor",   // forged armor (sub = shield/mail)
   WATER: "water",   // drawn from a Well
   ALE: "ale",       // brewed from water + food; quenches thirst better
+  MARBLE: "marble", // a rare vein found while mining; used directly as a building material, no smelting
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
-  water: "Water", ale: "Ale",
+  water: "Water", ale: "Ale", marble: "Marble",
 };
+
+// Build materials for walls/floors/doors/furniture: which item (kind[+sub])
+// each one consumes, its Build-menu icon/name, and — matching the existing
+// decor-mood pattern paintings already use — a small mood bonus for nicer
+// ones. "Metal" means iron specifically; gold stays a pure trade commodity.
+const MATERIALS = {
+  wood:   { name: "Wood",   icon: "🪵" },
+  stone:  { name: "Stone",  icon: "🪨" },
+  marble: { name: "Marble", icon: "⬜", moodBonus: 2 },
+  metal:  { name: "Metal",  icon: "⚙️", moodBonus: 1 },
+};
+// Resolve a material id to the actual {kind, sub} item it consumes.
+function materialItem(id) {
+  if (id === "marble") return { kind: ITEM.MARBLE, sub: null };
+  if (id === "metal") return { kind: ITEM.BAR, sub: "iron" };
+  if (id === "wood") return { kind: ITEM.WOOD, sub: null };
+  return { kind: ITEM.STONE, sub: null };
+}
 
 // Stockpile filters group item kinds so a pile can be restricted to just one
 // kind of goods (e.g. "Arms only") for cleaner logistics.
@@ -28,7 +47,7 @@ const STOCKPILE_CATEGORIES = [
   { id: "arms", name: "Arms", icon: "⚔️" },
 ];
 const STOCKPILE_CATEGORY_OF = {
-  wood: "building", stone: "building",
+  wood: "building", stone: "building", marble: "building",
   ore: "ore", bar: "ore",
   food: "food",
   water: "drink", ale: "drink",

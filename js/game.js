@@ -224,6 +224,8 @@ class Game {
           t.doorLocked ? 1 : 0,
           t.bedOccupants && t.bedOccupants.length ? t.bedOccupants.join(",") : 0,
           t.stockpileFilter || 0,
+          t.conduit ? 1 : 0,
+          t.buildMaterial || 0,
         ];
       }
     }
@@ -1389,7 +1391,15 @@ class Game {
           const t = tiles[y][x];
           if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y, z]);
           else if (t.furniture === FURN.TABLE) this.tableCount++;
-          else if (t.furniture === FURN.PAINTING && t.zone) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + 1;
+          if (t.zone) {
+            // decor: paintings, plus a small bonus for nicer build materials
+            // (marble/metal) on any wall/floor/door/furniture in the zone —
+            // reuses the same bonus the bedroom sleep loop already reads.
+            let bonus = t.furniture === FURN.PAINTING ? 1 : 0;
+            const mat = t.buildMaterial && MATERIALS[t.buildMaterial];
+            if (mat && mat.moodBonus) bonus += mat.moodBonus;
+            if (bonus) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + bonus;
+          }
           if (t.zone === ZONE.DINING) this.diningTiles.push([x, y, z]);
           else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y, z]);
           else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y, z]);
@@ -1793,7 +1803,12 @@ class Game {
       const t = this.selectedTile;
       const tile = this.world.get(t.x, t.y, t.z || 0);
       const parts = [`<b>Tile ${t.x}, ${t.y}</b>${t.z ? ` <span class="tag">B${-t.z}</span>` : ""}`];
-      parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? "stone wall" : tile.built === B.DOOR ? "door" : tile.kind}</span>`);
+      const matInfo = tile.buildMaterial && MATERIALS[tile.buildMaterial];
+      const wallLabel = matInfo ? `${matInfo.name.toLowerCase()} wall` : "stone wall";
+      parts.push(`Terrain: <span class="tag">${tile.built === B.WALL ? wallLabel : tile.built === B.DOOR ? "door" : tile.kind}</span>`);
+      if (matInfo && (tile.built === B.WALL || tile.built === B.FLOOR || tile.built === B.DOOR)) {
+        parts.push(`Material: <span class="tag">${matInfo.icon} ${matInfo.name}</span>`);
+      }
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
@@ -1804,7 +1819,10 @@ class Game {
           parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
           if (tile.powered) parts.push(`<div class="mini">Slows spoilage for food within ${ESSENCE_CHILL_RADIUS} tiles.</div>`);
         }
-      } else if (tile.furniture) parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+      } else if (tile.furniture) {
+        parts.push(`Furniture: <span class="tag">${tile.furniture}</span>`);
+        if (matInfo) parts.push(`Material: <span class="tag">${matInfo.icon} ${matInfo.name}</span>`);
+      }
       if (tile.conduit) parts.push(`<span class="tag" style="color:${tile.powered ? "#c9a8ff" : "#9c8a64"}">🔗 conduit · ${tile.powered ? "powered" : "dormant"}</span>`);
       if (tile.workshop) {
         const list = RECIPES[tile.workshop] || [];

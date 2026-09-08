@@ -66,7 +66,7 @@
     <div id="archbar">
       <button class="tool active" data-tool="select" title="Inspect (Q)"><span class="ico">🔍</span><span class="lbl">Inspect</span></button>
       <button class="cat" data-cat="designate" title="Designate orders"><span class="ico">⛏️</span><span class="lbl">Orders</span></button>
-      <button class="cat" data-cat="build" title="Build structures"><span class="ico">🏗️</span><span class="lbl">Build</span></button>
+      <button class="cat" data-cat="build" title="Build structures"><span class="ico">🏗️</span><span class="lbl">Build</span><span class="cat-badge" id="build-mat-badge">🪨</span></button>
       <button class="cat" data-cat="zone" title="Designate zones"><span class="ico">📐</span><span class="lbl">Zones</span></button>
       <button class="tool" data-tool="erase" title="Cancel / deconstruct (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
     </div>
@@ -85,17 +85,24 @@
       </div>
       <div class="fly-group" data-group="build">
         <div class="fly-title">🏗️ Build Structures</div>
+        <div class="fly-sub">Material — applies to wall/floor/door/furniture below</div>
+        <div class="fly-tools">
+          <button class="tool mat-btn" data-material="wood" title="Wood"><span class="ico">🪵</span><span class="lbl">Wood</span></button>
+          <button class="tool mat-btn active" data-material="stone" title="Stone"><span class="ico">🪨</span><span class="lbl">Stone</span></button>
+          <button class="tool mat-btn" data-material="marble" title="Marble — a rare vein found while mining; small mood bonus in a bedroom"><span class="ico">⬜</span><span class="lbl">Marble</span></button>
+          <button class="tool mat-btn" data-material="metal" title="Metal — iron bars; small mood bonus in a bedroom"><span class="ico">⚙️</span><span class="lbl">Metal</span></button>
+        </div>
         <div class="fly-sub">Construction</div>
         <div class="fly-tools">
-          <button class="tool" data-tool="build" title="Stone wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
-          <button class="tool" data-tool="floor" title="Stone floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
+          <button class="tool" data-tool="build" title="Wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
+          <button class="tool" data-tool="floor" title="Floor (F)"><span class="ico">▦</span><span class="lbl">Floor</span></button>
         </div>
         <div class="fly-sub">Furniture</div>
         <div class="fly-tools">
-          <button class="tool" data-tool="bed" title="Bed — costs wood (E)"><span class="ico">🛏️</span><span class="lbl">Bed</span></button>
-          <button class="tool" data-tool="doublebed" title="Double bed — costs wood; partners can share it"><span class="ico">💞</span><span class="lbl">Double Bed</span></button>
-          <button class="tool" data-tool="table" title="Table — costs wood · needs Fine Furniture" style="display:none"><span class="ico">🪑</span><span class="lbl">Table</span></button>
-          <button class="tool" data-tool="painting" title="Painting — costs wood; lifts mood for elves in the same zone"><span class="ico">🖼️</span><span class="lbl">Painting</span></button>
+          <button class="tool" data-tool="bed" title="Bed (E)"><span class="ico">🛏️</span><span class="lbl">Bed</span></button>
+          <button class="tool" data-tool="doublebed" title="Double bed — partners can share it"><span class="ico">💞</span><span class="lbl">Double Bed</span></button>
+          <button class="tool" data-tool="table" title="Table — needs Fine Furniture" style="display:none"><span class="ico">🪑</span><span class="lbl">Table</span></button>
+          <button class="tool" data-tool="painting" title="Painting — lifts mood for elves in the same zone"><span class="ico">🖼️</span><span class="lbl">Painting</span></button>
         </div>
         <div class="fly-sub">Workshops</div>
         <div class="fly-tools">

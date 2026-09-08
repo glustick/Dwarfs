@@ -21,9 +21,9 @@ const F = {
   CROP: "crop",       // planted in a Farm zone; matures via growth, then harvested
 };
 
-// Ores embedded in stone
-const ORES = ["iron", "gold", "coal"];
-const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a" };
+// Ores (and marble, a decorative stone) embedded in solid rock
+const ORES = ["iron", "gold", "coal", "marble"];
+const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "#e8e2d8" };
 
 // Built structures
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs" };
@@ -58,6 +58,7 @@ class Tile {
     this.built = B.NONE;      // constructed wall/floor
     this.buildJob = false;    // construction queued here
     this.buildKind = null;    // 'wall' | 'floor' | 'bed' when buildJob
+    this.buildMaterial = null; // 'wood'|'stone'|'marble'|'metal' chosen for this build; null = old default for buildKind
     this.stockpile = false;   // part of a stockpile zone
     this.stockpileFilter = null; // null = accepts anything, else a STOCKPILE_CATEGORIES id
     this.zone = ZONE.NONE;    // 'bedroom' | 'dining'
@@ -145,7 +146,7 @@ class World {
   // Array layout: [kind,feature,ore,growth,designation,built,buildJob,
   //                buildKind,stockpile,reserved,itemId,zone,furniture,
   //                workshop,workshopRecipe,doorLocked,bedOccupants,
-  //                stockpileFilter,conduit]
+  //                stockpileFilter,conduit,buildMaterial]
   loadLevelTiles(z, data, itemsById) {
     let tiles = this.levels.get(z);
     if (!tiles) {
@@ -170,6 +171,7 @@ class World {
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
         t.stockpileFilter = a[17] || null;
         t.conduit = !!a[18];
+        t.buildMaterial = a[19] || null;
         t.powered = false;
       }
     }

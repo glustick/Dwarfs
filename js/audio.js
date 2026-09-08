@@ -15,10 +15,23 @@ const SFX_BASE_GAIN = 0.6;
 // from A used to build note frequencies across octaves.
 const PENTA = [0, 3, 5, 7, 10];
 const A2 = 110; // Hz
+// `degree` carries across octaves (e.g. 7 is one octave above degree 2), and
+// wraps correctly for negative degrees too — without this, anything past the
+// 5th degree just repeated the same pitch instead of climbing higher.
 function pentaFreq(octave, degree) {
-  const semis = PENTA[((degree % PENTA.length) + PENTA.length) % PENTA.length];
-  return A2 * Math.pow(2, octave + semis / 12);
+  const idx = ((degree % PENTA.length) + PENTA.length) % PENTA.length;
+  const octShift = Math.floor(degree / PENTA.length);
+  return A2 * Math.pow(2, octave + octShift + PENTA[idx] / 12);
 }
+
+// A short root-degree progression the bass drone cycles through (one chord
+// per 16 steps) — i - iv - v - VII in the pentatonic's modal flavor — instead
+// of the old two-chord alternation, plus a melodic contour (relative scale
+// degrees) replayed each chord, transposed to the current root. Together
+// these give the ambient score an actual harmonic shape and a recognizable
+// (if quietly varied) tune, instead of an unconstrained random walk.
+const CHORD_DEGREES = [0, 2, 3, 4];
+const PHRASE_SHAPE = [0, 1, 2, 1, 3, 2, 1, 0];
 
 class SoundManager {
   constructor() {
@@ -105,6 +118,18 @@ class SoundManager {
     this.musicFilter.connect(this.musicGain);
     this.musicGain.connect(this.master);
 
+    // A synthetic hall reverb (noise shaped into an exponential decay, no
+    // asset file needed) run in parallel with the dry signal — this is what
+    // actually separates "atmospheric" from "dry bleeps." Music only; SFX
+    // stay crisp/dry for punchy feedback.
+    this.reverb = this.ctx.createConvolver();
+    this.reverb.buffer = this._makeReverbIR(2.4, 3.2);
+    this.reverbGain = this.ctx.createGain();
+    this.reverbGain.gain.value = 0.18;
+    this.musicFilter.connect(this.reverb);
+    this.reverb.connect(this.reverbGain);
+    this.reverbGain.connect(this.master);
+
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.gain.value = SFX_BASE_GAIN * this.sfxVol;
     this.sfxGain.connect(this.master);
@@ -114,6 +139,21 @@ class SoundManager {
     this.noiseBuf = this.ctx.createBuffer(1, n, this.ctx.sampleRate);
     const data = this.noiseBuf.getChannelData(0);
     for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
+  }
+
+  // Procedural impulse response for the music reverb: stereo noise shaped by
+  // an exponential decay curve. No file, cheap to generate once per session.
+  _makeReverbIR(duration, decay) {
+    const rate = this.ctx.sampleRate;
+    const length = Math.floor(rate * duration);
+    const buf = this.ctx.createBuffer(2, length, rate);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+      }
+    }
+    return buf;
   }
 
   // ---- primitive voices ----
@@ -263,15 +303,24 @@ class SoundManager {
     } catch (e) {}
     const t = this.ctx.currentTime;
     const mv = this.musicVol;
+    const dry = (inCombat ? 0.4 : (night ? 0.22 : 0.32)) * mv;
     this.musicFilter.frequency.setTargetAtTime(inCombat ? 650 : (night ? 850 : 1500), t, 0.8);
-    this.musicGain.gain.setTargetAtTime((inCombat ? 0.4 : (night ? 0.22 : 0.32)) * mv, t, 0.8);
+    this.musicGain.gain.setTargetAtTime(dry, t, 0.8);
+    this.reverbGain.gain.setTargetAtTime(dry * 0.55, t, 0.8); // wet path tracks the dry level
     this._stepMs = inCombat ? 160 : 260; // faster tempo ramps the tension
 
-    // Bass drone every 16 steps, alternating root / fourth.
-    if (s % 16 === 0) {
-      const deg = (s % 32 === 0) ? 0 : 2; // A ... D
-      this._tone(pentaFreq(0, deg), 4.0, { type: "sine", gain: 0.16 * mv, attack: 0.6, dest: this.musicFilter });
-      this._tone(pentaFreq(1, deg), 4.0, { type: "triangle", gain: 0.05 * mv, attack: 0.6, dest: this.musicFilter });
+    // Harmony: a short root-degree progression, one chord per 16 steps
+    // (i - iv - v - VII), instead of two notes alternating forever.
+    const CHORD_LEN = 16;
+    const chordIdx = Math.floor(s / CHORD_LEN) % CHORD_DEGREES.length;
+    const chordRoot = CHORD_DEGREES[chordIdx];
+
+    if (s % CHORD_LEN === 0) {
+      this._tone(pentaFreq(0, chordRoot), 4.0, { type: "sine", gain: 0.16 * mv, attack: 0.6, dest: this.musicFilter });
+      this._tone(pentaFreq(1, chordRoot), 4.0, { type: "triangle", gain: 0.05 * mv, attack: 0.6, detune: -6, dest: this.musicFilter });
+      // a quiet fifth above (just-intonation ratio, not scale-locked) fills
+      // the chord out without needing a full harmony engine
+      this._tone(pentaFreq(1, chordRoot) * 1.5, 3.6, { type: "sine", gain: 0.035 * mv, attack: 0.9, dest: this.musicFilter });
     }
 
     // A tense low throb under combat, on top of the regular drone.
@@ -279,15 +328,24 @@ class SoundManager {
       this._tone(55, 0.35, { type: "sawtooth", gain: 0.1 * mv, attack: 0.02, dest: this.musicFilter });
     }
 
-    // Melody: a soft pluck on every other step, random-walking the scale.
-    if (s % 2 === 0 && Math.random() < 0.72) {
-      this._melIdx += Math.floor(Math.random() * 3) - 1; // -1, 0, +1
-      if (this._melIdx < 0) this._melIdx = 1;
-      if (this._melIdx > 9) this._melIdx = 8;
-      const oct = night ? 1 : 2;
-      this._tone(pentaFreq(oct, this._melIdx), 0.5, {
-        type: "triangle", gain: 0.12 * mv, attack: 0.02, dest: this.musicFilter,
-      });
+    // Melody: a short contour (PHRASE_SHAPE) replayed each chord, transposed
+    // to the current root, with an occasional passing-tone nudge or rest so
+    // it breathes instead of repeating identically — chord-tone-anchored
+    // instead of an unconstrained random walk, so it always resolves back
+    // to something that belongs with the harmony underneath.
+    if (s % 2 === 0) {
+      const slot = Math.floor((s % CHORD_LEN) / 2); // 0..7 within the chord
+      const rest = Math.random() < 0.15;
+      if (!rest) {
+        let shape = PHRASE_SHAPE[slot % PHRASE_SHAPE.length];
+        if (Math.random() < 0.25) shape += Math.random() < 0.5 ? 1 : -1;
+        this._melIdx = chordRoot + shape;
+        const oct = night ? 1 : 2;
+        const dur = (slot === 0 || slot === 4) ? 0.75 : 0.42; // linger on phrase downbeats
+        this._tone(pentaFreq(oct, this._melIdx), dur, {
+          type: "triangle", gain: 0.12 * mv, attack: 0.02, dest: this.musicFilter,
+        });
+      }
     }
 
     // Occasional high sparkle by day.

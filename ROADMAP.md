@@ -43,7 +43,11 @@ production counters, and a cross-colony cause-of-death breakdown), and
 **Essence Craft** (Essence Well → Arcane Conduit → Frost Chamber power
 network, food spoilage as the problem it solves, proper Build-menu buttons
 and visuals — it had been left half-wired with no toolbar entry, no
-rendering, and no actual power logic).
+rendering, and no actual power logic), and **build materials** (a Wood/
+Stone/Marble/Metal picker in the Build fly-out applies to walls, floors,
+doors, and furniture; Marble is a new decorative vein found while mining,
+Metal reuses forged iron bars, and both give a small mood bonus over
+plain stone/wood — same pattern paintings already used).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.

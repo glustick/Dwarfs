@@ -12,6 +12,15 @@ const ZONE_STYLE = {
   trade:    { fill: "rgba(210,120,220,0.15)", stroke: "rgba(230,150,240,0.50)", glyph: "🐎" },
 };
 
+// Colors for the buildable materials (wall/floor/door/furniture).
+const MATERIAL_PALETTE = {
+  wood:   { base: "#7a4f34", dark: "#5a3823", light: "#8a5f34" },
+  stone:  { base: "#7a7570", dark: "#5a564f", light: "#928c82" },
+  marble: { base: "#e8e2d8", dark: "#c9c2b4", light: "#f7f3ea" },
+  metal:  { base: "#7a828c", dark: "#565c64", light: "#a4acb6" },
+};
+function matPalette(material) { return MATERIAL_PALETTE[material] || MATERIAL_PALETTE.stone; }
+
 class Renderer {
   constructor(game, canvas) {
     this.game = game;
@@ -229,7 +238,7 @@ class Renderer {
       case K.SAND: base = "#c9b878"; break;
       case K.WATER: base = null; break;
       case K.STONE: base = "#6d6a64"; break;
-      case K.FLOOR: base = "#8a8378"; break;
+      case K.FLOOR: base = (t.built === B.FLOOR && t.buildMaterial) ? matPalette(t.buildMaterial).base : "#8a8378"; break;
       default: base = "#333";
     }
 
@@ -260,7 +269,7 @@ class Renderer {
     if (t.kind === K.STONE && t.built === B.NONE) {
       this.drawStoneWall(ctx, t, sx, sy, s, gx, gy);
     }
-    if (t.built === B.WALL) this.drawBrickWall(ctx, sx, sy, s);
+    if (t.built === B.WALL) this.drawBrickWall(ctx, sx, sy, s, t.buildMaterial);
     if (t.built === B.DOOR) this.drawDoor(ctx, t, sx, sy, ts);
     if (t.kind === K.FLOOR || t.built === B.FLOOR) this.drawFloorGrid(ctx, sx, sy, ts);
     if (t.built === B.STAIRS) this.drawStairs(ctx, sx, sy, ts);
@@ -313,10 +322,11 @@ class Renderer {
     }
   }
 
-  drawBrickWall(ctx, sx, sy, s) {
-    ctx.fillStyle = "#7a4f34";
+  drawBrickWall(ctx, sx, sy, s, material) {
+    const p = matPalette(material);
+    ctx.fillStyle = p.base;
     ctx.fillRect(sx, sy, s, s);
-    ctx.strokeStyle = "#5a3823";
+    ctx.strokeStyle = p.dark;
     ctx.lineWidth = Math.max(1, s * 0.05);
     const rows = 3, rh = s / rows;
     for (let r = 0; r < rows; r++) {
@@ -326,13 +336,24 @@ class Renderer {
       ctx.beginPath(); ctx.moveTo(sx + off, y); ctx.lineTo(sx + off, y + rh); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(sx + (off + s / 2) % s, y); ctx.lineTo(sx + (off + s / 2) % s, y + rh); ctx.stroke();
     }
+    if (material === "metal") {
+      // a subtle sheen across the top for a metallic read
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      ctx.fillRect(sx, sy, s, s * 0.12);
+    } else if (material === "marble") {
+      // a couple of veins
+      ctx.strokeStyle = "rgba(170,160,145,0.5)"; ctx.lineWidth = Math.max(1, s * 0.02);
+      ctx.beginPath(); ctx.moveTo(sx + s * 0.15, sy); ctx.lineTo(sx + s * 0.55, sy + s); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx + s * 0.7, sy + s * 0.2); ctx.lineTo(sx + s * 0.9, sy + s * 0.7); ctx.stroke();
+    }
   }
 
   drawDoor(ctx, t, sx, sy, ts) {
+    const p = matPalette(t.buildMaterial || "wood");
     const pad = ts * 0.12;
-    ctx.fillStyle = t.doorLocked ? "#6b3a2a" : "#8a5a34";
+    ctx.fillStyle = t.doorLocked ? p.dark : p.base;
     ctx.fillRect(sx + pad, sy, ts - pad * 2, ts);
-    ctx.strokeStyle = "#3a2416"; ctx.lineWidth = Math.max(1, ts * 0.05);
+    ctx.strokeStyle = p.dark; ctx.lineWidth = Math.max(1, ts * 0.05);
     ctx.strokeRect(sx + pad, sy, ts - pad * 2, ts);
     ctx.fillStyle = "#e8d8a0";
     ctx.beginPath(); ctx.arc(sx + ts * 0.68, sy + ts * 0.5, ts * 0.05, 0, 7); ctx.fill();
@@ -515,10 +536,10 @@ class Renderer {
   }
 
   drawFurniture(ctx, t, sx, sy, ts) {
-    if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts);
-    else if (t.furniture === FURN.DOUBLE_BED) this.drawBed(ctx, sx, sy, ts, true);
-    else if (t.furniture === FURN.TABLE) this.drawTable(ctx, sx, sy, ts);
-    else if (t.furniture === FURN.PAINTING) this.drawPainting(ctx, sx, sy, ts);
+    if (t.furniture === FURN.BED) this.drawBed(ctx, sx, sy, ts, false, t.buildMaterial);
+    else if (t.furniture === FURN.DOUBLE_BED) this.drawBed(ctx, sx, sy, ts, true, t.buildMaterial);
+    else if (t.furniture === FURN.TABLE) this.drawTable(ctx, sx, sy, ts, t.buildMaterial);
+    else if (t.furniture === FURN.PAINTING) this.drawPainting(ctx, sx, sy, ts, t.buildMaterial);
     else if (t.furniture === FURN.GENERATOR) this.drawGenerator(ctx, sx, sy, ts);
     else if (t.furniture === FURN.ICEBOX) this.drawIcebox(ctx, sx, sy, ts, t.powered);
   }
@@ -584,13 +605,14 @@ class Renderer {
     ctx.beginPath(); ctx.arc(cx, cy, ts * 0.08, 0, 7); ctx.fill();
   }
 
-  drawTable(ctx, sx, sy, ts) {
+  drawTable(ctx, sx, sy, ts, material) {
+    const p = matPalette(material || "wood");
     const pad = ts * 0.2;
-    ctx.fillStyle = "#6a4526";
+    ctx.fillStyle = p.dark;
     ctx.fillRect(sx + pad, sy + pad, ts - pad * 2, ts - pad * 2);
-    ctx.fillStyle = "#8a5f34";
+    ctx.fillStyle = p.base;
     ctx.fillRect(sx + pad, sy + pad, ts - pad * 2, (ts - pad * 2) * 0.4);
-    ctx.strokeStyle = "#4a2f18"; ctx.lineWidth = 1;
+    ctx.strokeStyle = p.dark; ctx.lineWidth = 1;
     ctx.strokeRect(sx + pad + 0.5, sy + pad + 0.5, ts - pad * 2 - 1, ts - pad * 2 - 1);
   }
 
@@ -646,11 +668,12 @@ class Renderer {
     }
   }
 
-  drawBed(ctx, sx, sy, ts, double = false) {
+  drawBed(ctx, sx, sy, ts, double = false, material = null) {
+    const p = matPalette(material || "wood");
     const pad = ts * 0.14;
     const x = sx + pad, y = sy + pad, w = ts - pad * 2, h = ts - pad * 2;
     // frame
-    ctx.fillStyle = "#7a4f2c";
+    ctx.fillStyle = p.base;
     ctx.fillRect(x, y, w, h);
     // mattress
     ctx.fillStyle = "#c9b8a0";
@@ -668,10 +691,11 @@ class Renderer {
     ctx.fillRect(x + w * 0.12, y + h * 0.62, w * 0.76, h * 0.26);
   }
 
-  drawPainting(ctx, sx, sy, ts) {
+  drawPainting(ctx, sx, sy, ts, material) {
+    const p = matPalette(material || "wood");
     const pad = ts * 0.2;
     const x = sx + pad, y = sy + pad * 0.6, w = ts - pad * 2, h = ts * 0.55;
-    ctx.fillStyle = "#5a3a1e";
+    ctx.fillStyle = p.dark;
     ctx.fillRect(x - ts * 0.03, y - ts * 0.03, w + ts * 0.06, h + ts * 0.06);
     ctx.fillStyle = "#cbb87a";
     ctx.fillRect(x, y, w, h);
@@ -700,6 +724,16 @@ class Renderer {
       ctx.closePath(); ctx.fill();
       ctx.fillStyle = "#b8b2a6";
       ctx.beginPath(); ctx.arc(cx - ts * 0.02, cy - ts * 0.02, ts * 0.05, 0, 7); ctx.fill();
+    } else if (it.kind === ITEM.MARBLE) {
+      ctx.fillStyle = "#e8e2d8";
+      ctx.beginPath();
+      ctx.moveTo(cx - ts * 0.16, cy + ts * 0.08);
+      ctx.lineTo(cx - ts * 0.05, cy - ts * 0.13);
+      ctx.lineTo(cx + ts * 0.15, cy - ts * 0.05);
+      ctx.lineTo(cx + ts * 0.16, cy + ts * 0.1);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(170,160,145,0.6)"; ctx.lineWidth = Math.max(1, ts * 0.02);
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.08, cy); ctx.lineTo(cx + ts * 0.08, cy - ts * 0.08); ctx.stroke();
     } else if (it.kind === ITEM.ORE) {
       ctx.fillStyle = "#6b675e";
       ctx.beginPath(); ctx.arc(cx, cy, ts * 0.16, 0, 7); ctx.fill();
@@ -829,7 +863,7 @@ class Renderer {
 
     // carried item indicator
     if (d.carrying) {
-      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0", water: "#4a7a9a", ale: "#e8b84a" }[d.carrying.kind] || "#fff";
+      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", marble: "#e8e2d8", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0", water: "#4a7a9a", ale: "#e8b84a" }[d.carrying.kind] || "#fff";
       ctx.fillRect(cx + r * 0.5, cy - r * 0.3, r * 0.5, r * 0.5);
     }
 

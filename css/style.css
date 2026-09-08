@@ -87,6 +87,16 @@ html, body {
 }
 .cat:hover { border-color: #a9843e; background: linear-gradient(#4a3a26, #2c2113); }
 .cat.active { border-color: #ffcf6b; background: linear-gradient(#5a4426, #2c2113); box-shadow: 0 0 10px #ffcf6b44; }
+/* current build-material indicator, shown on the Build category button */
+.cat-badge {
+  position: absolute; left: 3px; bottom: 3px;
+  font-size: 11px; line-height: 1;
+  background: #00000066; border-radius: 4px; padding: 1px 2px;
+}
+/* material swatches (Build fly-out) share .tool's look; .active highlight
+   is managed by Input.setMaterial, separately from the current tool */
+.mat-btn { opacity: .85; }
+.mat-btn.active { opacity: 1; }
 
 /* fly-out submenu panel — expands upward from the archbar, centered above it */
 #flyout {
