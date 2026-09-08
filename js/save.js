@@ -34,9 +34,28 @@ const SaveManager = {
     }
   },
 
+  // Store already-parsed save data (e.g. from an imported file) as-is,
+  // without needing a live Game instance to serialize — see App.importFromFile.
+  saveRaw(name, data) {
+    try {
+      const json = JSON.stringify({ ...data, name });
+      localStorage.setItem(this.key(name), json);
+      return { ok: true, bytes: json.length };
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
+  },
+
   delete(name) { localStorage.removeItem(this.key(name)); },
 
   exists(name) { return localStorage.getItem(this.key(name)) !== null; },
+
+  // An import shouldn't silently clobber an existing slot with the same name.
+  uniqueName(base) {
+    let name = base, n = 2;
+    while (this.exists(name)) name = `${base} (${n++})`;
+    return name;
+  },
 
   // Return metadata for every save, most-recent first.
   list() {

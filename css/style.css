@@ -524,11 +524,12 @@ html, body {
 .slot .slot-name { color: #ffe9a8; font-size: 15px; }
 .slot .slot-meta { color: #9c8a64; font-size: 12px; margin-top: 2px; }
 .slot .slot-main:hover .slot-name { text-decoration: underline; }
-.slot .slot-del {
+.slot .slot-del, .slot .slot-export {
   background: none; border: 1px solid #5a4630; color: #cbb98f;
   border-radius: 6px; padding: 5px 9px; cursor: pointer; font-size: 13px;
 }
 .slot .slot-del:hover { border-color: #e08a6a; color: #e08a6a; }
+.slot .slot-export:hover { border-color: #8ac0e0; color: #8ac0e0; }
 .slot.auto { border-color: #6b5a30; background: #ffcf6b0f; }
 .slot .badge { font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
   background: #6b4f22; color: #ffe9a8; padding: 2px 7px; border-radius: 8px; }

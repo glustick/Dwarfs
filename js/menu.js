@@ -18,6 +18,13 @@ class App {
     // Autosave loop (real time).
     setInterval(() => this.autosave(), AUTOSAVE_MINUTES * 60 * 1000);
 
+    // Also autosave the moment the tab is hidden or closed — not just on the
+    // 10-minute timer — so switching away/closing up doesn't lose progress
+    // made since the last tick. Doesn't catch a hard crash/force-quit, but
+    // covers the normal close/tab-switch/navigate-away case.
+    document.addEventListener("visibilitychange", () => { if (document.hidden) this.autosave(); });
+    window.addEventListener("pagehide", () => this.autosave());
+
     this.openMainMenu();
   }
 
@@ -90,7 +97,7 @@ class App {
             <span>Continue<br><span style="font-size:12px;color:#b7a988">${recent.name} · Day ${recent.day} · ${recent.pop} elves · ${SaveManager.timeAgo(recent.savedAt)}</span></span>
           </button>` : ``}
           <button class="menu-btn" id="mm-new"><span class="mi">✨</span><span>New Game</span></button>
-          <button class="menu-btn ${saves.length ? "" : ""}" id="mm-load" ${saves.length ? "" : "disabled"}>
+          <button class="menu-btn" id="mm-load">
             <span class="mi">📂</span><span>Load Game ${saves.length ? `<span style="color:#9c8a64">(${saves.length})</span>` : ""}</span>
           </button>
         </div>
@@ -99,8 +106,10 @@ class App {
 
     if (recent) document.getElementById("mm-continue").onclick = () => this.startGame(SaveManager.load(recent.name));
     document.getElementById("mm-new").onclick = () => this.startGame(null);
-    const load = document.getElementById("mm-load");
-    if (load && saves.length) load.onclick = () => this.openLoadDialog();
+    // Always reachable, even with zero saves — that's also where importing a
+    // save from a file lives, e.g. carrying a save over to a freshly hosted
+    // copy of the game (a new origin means fresh, empty localStorage).
+    document.getElementById("mm-load").onclick = () => this.openLoadDialog();
   }
 
   // ---- PAUSE / IN-GAME MENU ----
@@ -211,8 +220,10 @@ class App {
         ${saves.length ? `<div class="slot-list" id="ld-list"></div>`
           : `<div class="menu-empty">No saved games yet.</div>`}
         <div class="menu-btns" style="margin-top:18px">
+          <button class="menu-btn" id="ld-import"><span class="mi">📤</span><span>Import Save…</span></button>
           <button class="menu-btn ghost" id="ld-back"><span class="mi">←</span><span>Back</span></button>
         </div>
+        <input type="file" accept="application/json,.json" id="ld-import-input" style="display:none">
       </div>`, "load");
 
     const list = document.getElementById("ld-list");
@@ -225,11 +236,16 @@ class App {
             <div class="slot-name">${s.name} ${s.auto ? '<span class="badge">auto</span>' : ""}</div>
             <div class="slot-meta">Day ${s.day} · ${s.pop} elves · ${SaveManager.timeAgo(s.savedAt)}${s.build ? ` · build ${s.build}` : ""}</div>
           </div>
+          <button class="slot-export" title="Export to file">⬇</button>
           <button class="slot-del" title="Delete">🗑</button>`;
         row.querySelector(".slot-main").onclick = () => {
           const data = SaveManager.load(s.name);
           if (data) this.startGame(data);
           else this.toast("That save is corrupt.");
+        };
+        row.querySelector(".slot-export").onclick = (e) => {
+          e.stopPropagation();
+          this.exportSave(s.name);
         };
         row.querySelector(".slot-del").onclick = (e) => {
           e.stopPropagation();
@@ -242,6 +258,43 @@ class App {
       }
     }
     document.getElementById("ld-back").onclick = backTo;
+    document.getElementById("ld-import").onclick = () => document.getElementById("ld-import-input").click();
+    document.getElementById("ld-import-input").addEventListener("change", (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (file) this.importFromFile(file);
+    });
+  }
+
+  // ---- export / import (a save as a downloadable/uploadable .json file —
+  // localStorage doesn't survive moving the game to a new host/origin) ----
+  exportSave(name) {
+    const raw = localStorage.getItem(SaveManager.key(name));
+    if (!raw) { this.toast("Could not export — save missing."); return; }
+    const blob = new Blob([raw], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const slug = name.replace(/[^a-z0-9-_ ]/gi, "").trim().replace(/\s+/g, "-").toLowerCase() || "save";
+    a.download = `elven-empire-${slug}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  importFromFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let data;
+      try { data = JSON.parse(reader.result); } catch (e) { this.toast("Not a valid save file."); return; }
+      if (!data || !data.world || !data.dwarves) { this.toast("Not a valid Elven Empire save."); return; }
+      const name = SaveManager.uniqueName((data.name || "Imported Save").trim() || "Imported Save");
+      const res = SaveManager.saveRaw(name, data);
+      if (res.ok) { this.toast(`Imported “${name}”`); this.openLoadDialog(); }
+      else this.toast("Import failed: " + res.error);
+    };
+    reader.onerror = () => this.toast("Could not read that file.");
+    reader.readAsText(file);
   }
 
   // ---- autosave ----

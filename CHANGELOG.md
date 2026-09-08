@@ -4,6 +4,27 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.9.6 (build 33)
+Autosave on exit — the 10-minute autosave timer now has a companion that
+fires the moment the tab is hidden or closed (`visibilitychange` +
+`pagehide`), instead of only on the fixed timer. Covers a normal tab
+switch/close/navigate-away; doesn't catch a hard crash or force-quit.
+
+## v1.9.5 (build 32)
+Save export/import — saves are no longer trapped in one browser's
+localStorage.
+
+- **Export**: a ⬇ button on every save slot (Load Game screen) downloads
+  that save as a `.json` file.
+- **Import**: an "Import Save…" button on the same screen reads a save
+  file back in as a new slot, ready to load — auto-renamed (`Name (2)`,
+  `(3)`, …) if a slot with that name already exists, so it never silently
+  overwrites one.
+- **Load Game is now always reachable from the main menu**, even with zero
+  saves, since that's also where importing your first save on a fresh
+  install lives — e.g. carrying a colony over after moving the game to a
+  new host (localStorage doesn't follow you across origins).
+
 ## v1.9.4 (build 31)
 The ambient score stopped being a short loop on repeat — v1.9.1 fixed the
 harmony, but a single fixed 4-chord progression and one melodic phrase still
