@@ -146,9 +146,42 @@ colonists, and resets after a cooldown).
       attack mechanic. A Trap damages a raider that steps on it and resets
       after a cooldown — never affects colonists, purely a raider hazard.
 
+## Player-requested backlog
+
+- [ ] **Manual military control** — select one soldier or a group of them
+      and click a destination to give a direct move order during combat,
+      for fine-grained positioning instead of leaving them entirely to the
+      automatic nearest-enemy AI.
+- [ ] **Medicine moved to Tier 2** — it currently sits behind Scholarship
+      at Tier 3, too late in the tree given how early injuries start
+      mattering. Move Medicine (and its Hospital unlock) earlier so it's
+      accessible sooner. Small — mostly a tier/`requires` change in
+      `research.js`, worth a quick balance pass rather than its own round.
+- [ ] **Deconstruct & refund** — a destroy option distinct from today's
+      Cancel/Erase (which just deletes with nothing back) that returns a
+      portion of the material originally spent building the thing.
+- [ ] **Wine** — a new Brewery recipe alongside Ale, more thematically
+      elven. Needs a source ingredient decision (a fruit/grape crop, or a
+      simpler Water+Food variant with its own flavor/mood profile).
+- [ ] **Elf sprites with pointed ears** — the current sprite reads more
+      dwarf than elf; give it visibly pointed ears (and reconsider the
+      beard, also a dwarf trait) to better fit the setting.
+- [ ] **True per-item material choice** — today material is a separate
+      mode picker (Wood/Stone/Marble/Metal in the Build fly-out) applied to
+      whatever build tool is clicked next. Replace with combined choices
+      (e.g. distinct "Wooden Door"/"Metal Door"/"Marble Door" entries) so
+      material is picked as part of choosing the item, not a prior,
+      separate step — a UX rework of the picker added in the build-
+      materials round, not new mechanics.
+- [ ] **Skills visible from the Schedule tab** — show each elf's skill
+      grid inline in the Schedule/labor panel (or a merged panel) so
+      assigning labors and reviewing skills don't need flipping between
+      the Colony and Schedule tabs.
+
 ---
 
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-  shipped.** What's left is genuinely optional: undo-designation,
-  blueprint copy/paste, or smaller quality-of-life ideas as they come up.
+  shipped.** What's left is the player-requested backlog above, plus
+  smaller quality-of-life ideas (undo-designation, blueprint copy/paste)
+  as they come up.
