@@ -177,6 +177,16 @@ colonists, and resets after a cooldown).
       grid inline in the Schedule/labor panel (or a merged panel) so
       assigning labors and reviewing skills don't need flipping between
       the Colony and Schedule tabs.
+- [ ] **Check for updates on launch** — on the main menu, compare the
+      running `RELEASE_VERSION`/`BUILD_NUMBER` (`js/version.js`) against
+      the latest release on `glustick/Dwarfs` via the GitHub API, and show
+      an "update available" banner/link if the local copy is behind. Note
+      the realistic shape this takes: since the game is a static page with
+      no build step or server, opened via `file://` or a plain static host,
+      it can check-and-notify but can't silently rewrite its own files —
+      "update" means walking the player through pulling/downloading the
+      new version (`git pull`, re-download the release zip, or refresh a
+      hosted deployment), not an automatic in-place patch.
 
 ---
 
