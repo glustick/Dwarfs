@@ -1785,7 +1785,7 @@ class Game {
     document.getElementById("stat-stone").textContent = this.countItems(ITEM.STONE);
     document.getElementById("stat-ore").textContent = this.countItems(ITEM.ORE);
     document.getElementById("stat-food").textContent = this.countItems(ITEM.FOOD);
-    document.getElementById("stat-water").textContent = this.countItems(ITEM.WATER) + this.countItems(ITEM.ALE);
+    document.getElementById("stat-water").textContent = this.countItems(ITEM.WATER) + this.countItems(ITEM.ALE) + this.countItems(ITEM.WINE);
     const f = this.dayFraction() * 24;
     const hh = String(Math.floor(f)).padStart(2, "0");
     const mm = String(Math.floor((f % 1) * 60)).padStart(2, "0");

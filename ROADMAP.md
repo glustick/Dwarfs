@@ -152,20 +152,18 @@ colonists, and resets after a cooldown).
       and click a destination to give a direct move order during combat,
       for fine-grained positioning instead of leaving them entirely to the
       automatic nearest-enemy AI.
-- [ ] **Medicine moved to Tier 2** — it currently sits behind Scholarship
-      at Tier 3, too late in the tree given how early injuries start
-      mattering. Move Medicine (and its Hospital unlock) earlier so it's
-      accessible sooner. Small — mostly a tier/`requires` change in
-      `research.js`, worth a quick balance pass rather than its own round.
-- [ ] **Deconstruct & refund** — a destroy option distinct from today's
-      Cancel/Erase (which just deletes with nothing back) that returns a
-      portion of the material originally spent building the thing.
-- [ ] **Wine** — a new Brewery recipe alongside Ale, more thematically
-      elven. Needs a source ingredient decision (a fruit/grape crop, or a
-      simpler Water+Food variant with its own flavor/mood profile).
-- [ ] **Elf sprites with pointed ears** — the current sprite reads more
-      dwarf than elf; give it visibly pointed ears (and reconsider the
-      beard, also a dwarf trait) to better fit the setting.
+- [x] ~~Medicine moved to Tier 2~~ — was behind Scholarship at Tier 3, too
+      late in the tree given how early injuries start mattering. Now only
+      needs Rations, and costs less (260→160).
+- [x] ~~Deconstruct & refund~~ — Cancel/Erase now tears down an
+      already-built wall, floor, door, furniture piece, workshop, or
+      conduit (walls/floors previously couldn't be removed at all) and
+      refunds the exact material spent building it as a loose item.
+- [x] ~~Wine~~ — a new Brewery recipe (Food + Food, no Water), more
+      thematically elven than ale; quenches thirst less but lifts mood
+      more, and elves prefer it when available.
+- [x] ~~Elf sprites with pointed ears~~ — pointed ears added, the
+      dwarvish beard removed.
 - [ ] **True per-item material choice** — today material is a separate
       mode picker (Wood/Stone/Marble/Metal in the Build fly-out) applied to
       whatever build tool is clicked next. Replace with combined choices

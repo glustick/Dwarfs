@@ -11,12 +11,13 @@ const ITEM = {
   ARMOR: "armor",   // forged armor (sub = shield/mail)
   WATER: "water",   // drawn from a Well
   ALE: "ale",       // brewed from water + food; quenches thirst better
+  WINE: "wine",     // brewed from food + food; less thirst-quenching, more mood, more elven
   MARBLE: "marble", // a rare vein found while mining; used directly as a building material, no smelting
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
-  water: "Water", ale: "Ale", marble: "Marble",
+  water: "Water", ale: "Ale", wine: "Wine", marble: "Marble",
 };
 
 // Build materials for walls/floors/doors/furniture: which item (kind[+sub])
@@ -50,7 +51,7 @@ const STOCKPILE_CATEGORY_OF = {
   wood: "building", stone: "building", marble: "building",
   ore: "ore", bar: "ore",
   food: "food",
-  water: "drink", ale: "drink",
+  water: "drink", ale: "drink", wine: "drink",
   weapon: "arms", armor: "arms",
 };
 

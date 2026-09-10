@@ -27,6 +27,7 @@ const RECIPES = {
   ],
   brewery: [
     { name: "Brew ale", in: [{ kind: ITEM.WATER }, { kind: ITEM.FOOD }], out: { kind: ITEM.ALE }, time: 3.0 },
+    { name: "Brew wine", in: [{ kind: ITEM.FOOD }, { kind: ITEM.FOOD }], out: { kind: ITEM.WINE }, time: 3.6 },
   ],
 };
 const WORKSHOP_INFO = {
@@ -496,11 +497,11 @@ class JobManager {
     return true;
   }
 
-  // Prefers ale (brewed) over plain water when both are available.
+  // Prefers wine, then ale (both brewed), over plain water when available.
   assignDrink(dwarf, force) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
     if (!force && dwarf.thirst < 55) return false;
-    const drink = this.findAnyItem(ITEM.ALE, dx, dy, dz) || this.findAnyItem(ITEM.WATER, dx, dy, dz);
+    const drink = this.findAnyItem(ITEM.WINE, dx, dy, dz) || this.findAnyItem(ITEM.ALE, dx, dy, dz) || this.findAnyItem(ITEM.WATER, dx, dy, dz);
     if (!drink) return false;
     const path = pathAdjacent(g.world, dx, dy, dz, drink.x, drink.y, drink.z) || pathTo(g.world, dx, dy, dz, drink.x, drink.y, drink.z);
     if (!path) return false;
@@ -1024,12 +1025,15 @@ class JobManager {
       const here = w.get(dwarf.tileX, dwarf.tileY, dwarf.z);
       const inDining = here && here.zone === ZONE.DINING;
       const isAle = kind === ITEM.ALE;
-      dwarf.thirst = clamp(dwarf.thirst - (isAle ? 85 : 60), 0, 100);
-      const diningBonus = inDining ? (isAle ? 10 : 6) : (isAle ? 6 : 3);
+      const isWine = kind === ITEM.WINE;
+      dwarf.thirst = clamp(dwarf.thirst - (isAle ? 85 : isWine ? 55 : 60), 0, 100);
+      const diningBonus = inDining ? (isAle ? 10 : isWine ? 14 : 6) : (isAle ? 6 : isWine ? 9 : 3);
       dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
       if (inDining) g.awardXp(dwarf, "charisma", 3);
       dwarf.thought = isAle
         ? (inDining ? "Enjoyed ale in the hall" : "Enjoyed a mug of ale")
+        : isWine
+        ? (inDining ? "Savored wine in the hall" : "Savored a glass of wine")
         : (inDining ? "Refreshed in the hall" : "Had a drink");
     } else if (job.type === "doctor") {
       const patient = job.patient;

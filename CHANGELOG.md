@@ -4,6 +4,22 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.12.0 (build 37)
+Backlog round 1 — four small, independent player-requested fixes.
+
+- **Medicine moved to Tier 2** (was Tier 3, gated behind Scholarship):
+  now only needs Rations, and costs less — it was too late in the tree
+  given how early injuries start mattering.
+- **Wine** — a new Brewery recipe (Food + Food, no Water) alongside Ale;
+  quenches thirst less but lifts mood more, and elves prefer it over ale
+  or water when it's available. More thematically elven than beer.
+- **Deconstruct & refund** — Cancel/Erase can now also tear down an
+  already-built wall, floor, door, furniture piece, workshop, or conduit
+  (walls/floors couldn't be removed at all before this), and refunds the
+  exact material that was spent building it as a loose item on the spot.
+- **Elf sprites now look like elves** — pointed ears added, the dwarvish
+  beard removed.
+
 ## v1.11.1 (build 36)
 Defensive structures — three new Defenses buildables, all ungated.
 

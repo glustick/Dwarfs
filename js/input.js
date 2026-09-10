@@ -357,14 +357,29 @@ class Input {
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; t.buildMaterial = this.material; count++; }
             break;
           case "erase":
-            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop || t.built === B.DOOR || t.conduit) {
+            if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop
+                || t.built === B.DOOR || t.built === B.WALL || t.built === B.FLOOR || t.conduit) {
+              // Refund whatever material was actually spent building something
+              // physically standing here (not just a queued-but-unbuilt job —
+              // no material was ever consumed for those).
+              let refundId = null;
+              if (t.built === B.WALL) refundId = t.buildMaterial || BUILD_MATERIAL.wall;
+              else if (t.built === B.FLOOR) refundId = t.buildMaterial || BUILD_MATERIAL.floor;
+              else if (t.built === B.DOOR) refundId = t.buildMaterial || BUILD_MATERIAL.door;
+              else if (t.furniture) refundId = t.buildMaterial || BUILD_MATERIAL[t.furniture];
+              else if (t.workshop) refundId = t.buildMaterial || BUILD_MATERIAL[t.workshop];
+              else if (t.conduit) refundId = t.buildMaterial || BUILD_MATERIAL.conduit;
+              if (refundId) {
+                const mat = materialItem(refundId);
+                g.jobs.spawnItem(mat.kind, x, y, mat.sub, z);
+              }
               t.designation = null; t.buildJob = false; t.buildKind = null;
               t.stockpile = false; t.zone = null; t.reserved = false;
               t.furniture = null; t.bedOccupants = []; // deconstruct any furniture (bed, table, double bed, painting, generator, icebox)
               t.workshop = null; // deconstruct workshop
               t.conduit = false; t.powered = false; // remove any embedded conduit
-              if (t.built === B.DOOR) { t.built = B.NONE; t.doorLocked = false; t.buildMaterial = null; } // deconstruct door
-              else if (!t.built) t.buildMaterial = null; // clear a cancelled (not-yet-built) queue's material choice
+              if (t.built === B.DOOR || t.built === B.WALL || t.built === B.FLOOR) { t.built = B.NONE; t.doorLocked = false; }
+              t.buildMaterial = null;
               count++;
             }
             break;

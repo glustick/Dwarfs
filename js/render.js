@@ -861,6 +861,22 @@ class Renderer {
       ctx.fillRect(cx - ts * 0.1, cy - ts * 0.08, ts * 0.2, ts * 0.08);
       ctx.strokeStyle = "#5a3a1e"; ctx.lineWidth = Math.max(1, ts * 0.03);
       ctx.beginPath(); ctx.moveTo(cx + ts * 0.12, cy - ts * 0.05); ctx.lineTo(cx + ts * 0.18, cy - ts * 0.05); ctx.lineTo(cx + ts * 0.18, cy + ts * 0.06); ctx.lineTo(cx + ts * 0.12, cy + ts * 0.06); ctx.stroke();
+    } else if (it.kind === ITEM.WINE) {
+      // a slender glass with a stem, deep red wine inside
+      ctx.strokeStyle = "#c9c2b0"; ctx.lineWidth = Math.max(1, ts * 0.025);
+      ctx.beginPath(); ctx.moveTo(cx, cy - ts * 0.02); ctx.lineTo(cx, cy + ts * 0.14); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.06, cy + ts * 0.14); ctx.lineTo(cx + ts * 0.06, cy + ts * 0.14); ctx.stroke();
+      ctx.fillStyle = "#6a1a2e";
+      ctx.beginPath();
+      ctx.moveTo(cx - ts * 0.09, cy - ts * 0.16);
+      ctx.quadraticCurveTo(cx, cy - ts * 0.02, cx + ts * 0.09, cy - ts * 0.16);
+      ctx.quadraticCurveTo(cx, cy - ts * 0.06, cx - ts * 0.09, cy - ts * 0.16);
+      ctx.fill();
+      ctx.strokeStyle = "#c9c2b0";
+      ctx.beginPath();
+      ctx.moveTo(cx - ts * 0.1, cy - ts * 0.17);
+      ctx.quadraticCurveTo(cx, cy - ts * 0.01, cx + ts * 0.1, cy - ts * 0.17);
+      ctx.stroke();
     }
   }
 
@@ -911,6 +927,18 @@ class Renderer {
     ctx.fillStyle = "#e6c39a";
     ctx.beginPath(); ctx.arc(cx, cy - r * 0.5, r * 0.55, 0, 7); ctx.fill();
 
+    // pointed elf ears — the sprite's biggest tell of dwarf vs. elf
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.5, cy - r * 0.58);
+    ctx.lineTo(cx - r * 0.86, cy - r * 0.74);
+    ctx.lineTo(cx - r * 0.46, cy - r * 0.34);
+    ctx.closePath(); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(cx + r * 0.5, cy - r * 0.58);
+    ctx.lineTo(cx + r * 0.86, cy - r * 0.74);
+    ctx.lineTo(cx + r * 0.46, cy - r * 0.34);
+    ctx.closePath(); ctx.fill();
+
     if (d.facingV === -1) {
       // walking away from camera: back of the head, hair covers it entirely,
       // no face — this is what actually reads as "turned around" at a glance
@@ -923,16 +951,6 @@ class Renderer {
       ctx.fillStyle = "#4a3a26";
       ctx.beginPath(); ctx.arc(cx, cy - r * 0.62, r * 0.56, Math.PI, 0); ctx.fill();
 
-      // beard
-      ctx.fillStyle = "#b98a4a";
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.5, cy - r * 0.42);
-      ctx.lineTo(cx + r * 0.5, cy - r * 0.42);
-      ctx.lineTo(cx + r * 0.28, cy + r * 0.35);
-      ctx.lineTo(cx, cy + r * 0.5);
-      ctx.lineTo(cx - r * 0.28, cy + r * 0.35);
-      ctx.closePath(); ctx.fill();
-
       // eyes
       ctx.fillStyle = "#2a2018";
       const ex = d.facing * r * 0.12;
@@ -942,7 +960,7 @@ class Renderer {
 
     // carried item indicator
     if (d.carrying) {
-      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", marble: "#e8e2d8", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0", water: "#4a7a9a", ale: "#e8b84a" }[d.carrying.kind] || "#fff";
+      ctx.fillStyle = { wood: "#8a5a2c", stone: "#9a948a", marble: "#e8e2d8", ore: "#ffd34d", food: "#c0472e", bar: "#c4cad2", weapon: "#d8dde4", armor: "#8a94a0", water: "#4a7a9a", ale: "#e8b84a", wine: "#6a1a2e" }[d.carrying.kind] || "#fff";
       ctx.fillRect(cx + r * 0.5, cy - r * 0.3, r * 0.5, r * 0.5);
     }
 

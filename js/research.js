@@ -41,13 +41,13 @@ const TECHS = [
     desc: "Unlocks Tables; a furnished dining hall greatly improves happiness.",
     unlock: "table",
   },
-
-  // ---- Tier 3 ----
   {
-    id: "medicine", name: "Medicine", icon: "⚕️", tier: 3, cost: 260, requires: ["scholarship"],
+    id: "medicine", name: "Medicine", icon: "⚕️", tier: 2, cost: 160, requires: ["rations"],
     desc: "Unlocks the Hospital zone. Badly wounded elves recover far faster there — especially with a dedicated Doctor (Medicine labor) tending them.",
     unlock: "hospital",
   },
+
+  // ---- Tier 3 ----
   {
     id: "bookkeeping", name: "Bookkeeping", icon: "🧮", tier: 3, cost: 220, requires: ["scholarship"],
     desc: "Better-run colony: more migrants arrive and research speeds up 30%.",
