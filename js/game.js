@@ -105,6 +105,7 @@ class Game {
     this.selectedDwarf = null;
     this.selectedAnimal = null;
     this.selectedTile = null;
+    this.selectedSquad = []; // multi-selected soldiers (manual military control)
     this.hoverTile = null;
 
     // ---- weather (surface-only, layered on top of the season) ----
@@ -261,7 +262,7 @@ class Game {
     return {
       name: d.name, x: d.x, y: d.y, z: d.z || 0, color: d.color,
       hunger: d.hunger, thirst: d.thirst, energy: d.energy, mood: d.mood, facing: d.facing, facingV: d.facingV,
-      hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0,
+      hp: d.hp, maxhp: d.maxhp, military: d.military ? 1 : 0, manualOrder: d.manualOrder || null,
       wounded: d.wounded ? 1 : 0, beingTreated: d.beingTreated ? 1 : 0,
       infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
       vampiric: d.vampiric ? 1 : 0, vampireTimer: d.vampireTimer || 0, vampireExposed: d.vampireExposed ? 1 : 0,
@@ -316,6 +317,7 @@ class Game {
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
+      d.manualOrder = o.manualOrder || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
       d.infected = !!o.infected; d.infectionTimer = o.infectionTimer || 0;
       d.vampiric = !!o.vampiric; d.vampireTimer = o.vampireTimer || 0; d.vampireExposed = !!o.vampireExposed;
@@ -1198,6 +1200,7 @@ class Game {
       const i = this.dwarves.indexOf(d);
       if (i >= 0) this.dwarves.splice(i, 1);
       if (this.selectedDwarf === d) this.selectedDwarf = null;
+      if (this.selectedSquad.length) this.selectedSquad = this.selectedSquad.filter(x => x !== d);
     }
     this._toRemove = null;
     this.updatePanel();
@@ -1237,30 +1240,60 @@ class Game {
   handleCombat(d, dt) {
     const dz = d.z || 0;
     const foe = this.nearestEnemy(d.x, d.y, dz);
-    if (!foe) { d.fleeing = false; return false; }
-    const fdist = Math.hypot(foe.x - d.x, foe.y - d.y);
 
     if (d.military) {
       if (d.job && d.job.type === "equip") { this.jobs.execute(d, dt); return true; } // finish arming
       if (d.job) this.jobs.cancel(d); // drop civilian work to fight
-      const adj = Math.max(Math.abs(d.tileX - foe.tileX), Math.abs(d.tileY - foe.tileY)) <= 1;
-      if (adj) {
-        d.state = "fight"; d.path = null; d.facing = foe.x > d.x ? 1 : -1;
-        d.attackCd -= dt;
-        if (d.attackCd <= 0) { d.attackCd = 0.8; this.dwarfHitEnemy(d, foe); }
-      } else {
-        d.combatRepath -= dt;
-        if (!d.path || d.combatRepath <= 0) {
-          d.combatRepath = 0.4;
-          const p = pathAdjacent(this.world, d.tileX, d.tileY, dz, foe.tileX, foe.tileY, dz);
-          if (p) d.setPath(p);
+
+      // Adjacent to a foe? Always fight — a manual order never leaves a
+      // soldier standing still taking a free hit while "moving into position."
+      if (foe) {
+        const adj = Math.max(Math.abs(d.tileX - foe.tileX), Math.abs(d.tileY - foe.tileY)) <= 1;
+        if (adj) {
+          d.state = "fight"; d.path = null; d.facing = foe.x > d.x ? 1 : -1;
+          d.attackCd -= dt;
+          if (d.attackCd <= 0) { d.attackCd = 0.8; this.dwarfHitEnemy(d, foe); }
+          d.thought = "In battle!";
+          return true;
         }
-        d.state = "goto"; d.move(dt);
       }
+
+      // A player move order holds: march to the ordered spot, then stand
+      // fast there (rather than auto-chasing the nearest enemy) until a new
+      // order arrives or the raid ends.
+      if (d.manualOrder) {
+        const mo = d.manualOrder;
+        const atOrder = d.tileX === mo.x && d.tileY === mo.y && dz === mo.z;
+        if (!atOrder) {
+          d.combatRepath -= dt;
+          if (!d.path || d.combatRepath <= 0) {
+            d.combatRepath = 0.4;
+            const p = pathTo(this.world, d.tileX, d.tileY, dz, mo.x, mo.y, mo.z);
+            if (p) d.setPath(p); else d.manualOrder = null; // unreachable — drop the order
+          }
+          d.state = "goto"; d.move(dt);
+          d.thought = "Moving to position";
+        } else {
+          d.state = "idle"; d.path = null;
+          d.thought = "Holding position";
+        }
+        return true;
+      }
+
+      if (!foe) { d.fleeing = false; return false; } // nothing on this floor to do
+      d.combatRepath -= dt;
+      if (!d.path || d.combatRepath <= 0) {
+        d.combatRepath = 0.4;
+        const p = pathAdjacent(this.world, d.tileX, d.tileY, dz, foe.tileX, foe.tileY, dz);
+        if (p) d.setPath(p);
+      }
+      d.state = "goto"; d.move(dt);
       d.thought = "In battle!";
       return true;
     }
 
+    if (!foe) { d.fleeing = false; return false; }
+    const fdist = Math.hypot(foe.x - d.x, foe.y - d.y);
     // civilians flee toward the surface entrance when a foe is near — a
     // starting z other than 0 is fine, pathTo can route them up a stairwell.
     if (fdist < 8) {
@@ -1390,7 +1423,12 @@ class Game {
     }
     const before = this.enemies.length;
     this.enemies = this.enemies.filter(e => e.hp > 0);
-    if (before && !this.enemies.length) this.log("The colony has repelled the attack!", "good", "combat");
+    if (before && !this.enemies.length) {
+      this.log("The colony has repelled the attack!", "good", "combat");
+      // Manual move orders only make sense mid-fight — once it's over, hand
+      // soldiers back to their normal equip/idle/labor routine.
+      for (const d of this.dwarves) d.manualOrder = null;
+    }
   }
 
   randomEdgeTile(outsider = true) {
@@ -1971,11 +2009,11 @@ class Game {
       const hap = d.happiness != null ? d.happiness : 60;
       const hapColor = hap > 60 ? "#7ec86a" : hap > 35 ? "#e0b158" : "#e08a6a";
       const face = hap > 70 ? "😀" : hap > 45 ? "🙂" : hap > 25 ? "😕" : "😣";
-      const sel = this.selectedDwarf === d ? " sel" : "";
+      const sel = (this.selectedDwarf === d || this.selectedSquad.includes(d)) ? " sel" : "";
       html += `
         <div class="dwarf-row${sel}" data-idx="${i}">
           <span class="swatch" style="background:${d.color}"></span>
-          <span class="dname">${d.name}${d.wounded ? " 🩹" : ""}${d.infected ? " 🧟" : ""} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
+          <span class="dname">${d.name}${d.wounded ? " 🩹" : ""}${d.infected ? " 🧟" : ""}${d.manualOrder ? " 🎯" : ""} <span class="hap-face" title="Happiness ${Math.round(hap)}">${face}</span>
             <div class="dtask">${professionOf(d)} · ${this.taskLabel(d)}</div>
             <div class="bar" title="Happiness ${Math.round(hap)}"><i style="width:${hap}%;background:${hapColor}"></i></div>
           </span>
@@ -1987,6 +2025,7 @@ class Game {
       row.onclick = () => {
         const d = this.dwarves[+row.dataset.idx];
         this.selectedDwarf = d; this.selectedTile = null; this.selectedAnimal = null;
+        this.selectedSquad = d.military ? [d] : [];
         this.setViewZ(d.z);
         this.cam.x = d.x; this.cam.y = d.y; this.updatePanel();
         this.renderColonistBar();
@@ -2004,6 +2043,22 @@ class Game {
         d.military = !d.military;
         if (d.job) this.jobs.cancel(d); // re-evaluate role next tick
         this.log(`${d.name} ${d.military ? "enlists in the militia" : "returns to civilian life"}.`, "", "combat");
+        this.updatePanel();
+      };
+    }
+    const orderRelease = c.querySelector("#insp-order-release");
+    if (orderRelease && this.selectedDwarf) {
+      orderRelease.onclick = () => {
+        this.selectedDwarf.manualOrder = null;
+        this.log(`${this.selectedDwarf.name} is released to automatic AI.`, "", "combat");
+        this.updatePanel();
+      };
+    }
+    const squadRelease = c.querySelector("#insp-squad-release");
+    if (squadRelease) {
+      squadRelease.onclick = () => {
+        for (const d of this.selectedSquad) d.manualOrder = null;
+        this.log(`Squad released to automatic AI.`, "", "combat");
         this.updatePanel();
       };
     }
@@ -2049,6 +2104,14 @@ class Game {
   }
 
   inspectorHTML() {
+    if (this.selectedSquad && this.selectedSquad.length > 1) {
+      const names = this.selectedSquad.map(d => d.name).join(", ");
+      return `<b>Squad selected</b> <span class="tag">⚔ ${this.selectedSquad.length} soldiers</span><br/>
+        <div class="mini">${this.escapeHtml(names)}</div>
+        <div class="mini" style="opacity:.75">Click anywhere on the ground to send them there — they'll hold that
+        position and fight anything that comes adjacent, instead of chasing the nearest raider on their own.</div>
+        <button class="mini-btn" id="insp-squad-release">Release to automatic AI</button>`;
+    }
     if (this.selectedDwarf) {
       const d = this.selectedDwarf;
       let sk = `<div class="skill-grid">`;
@@ -2069,6 +2132,7 @@ class Game {
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="thought">“${d.thought || "..."}”</div>
         <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
+        ${d.military && d.manualOrder ? `<div class="mini">🎯 Holding a manual position order</div><button class="mini-btn" id="insp-order-release">Release to automatic AI</button>` : ""}
         <div class="mini2">Relationships</div>${this.relationshipsHTML(d)}
         <div class="mini2">Skills</div>${sk}`;
     }

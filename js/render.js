@@ -1031,11 +1031,20 @@ class Renderer {
       ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
     }
 
-    // selection ring
-    if (this.game.selectedDwarf === d) {
+    // selection ring — also lights up every soldier in a multi-select squad
+    if (this.game.selectedDwarf === d || this.game.selectedSquad.includes(d)) {
       ctx.strokeStyle = "#ffcf6b";
       ctx.lineWidth = Math.max(1.5, ts * 0.06);
       ctx.beginPath(); ctx.arc(cx, cy, r * 1.5, 0, 7); ctx.stroke();
+    }
+    // a soldier holding a manual position order gets a small ground marker
+    if (d.manualOrder && (d.manualOrder.z || 0) === (this.game.viewZ || 0)) {
+      const mx = (d.manualOrder.x + 0.5) * ts + ox, my = (d.manualOrder.y + 0.5) * ts + oy;
+      const pulse = 0.5 + Math.sin(this.game.time * 4) * 0.3;
+      ctx.strokeStyle = `rgba(255,207,107,${pulse})`;
+      ctx.lineWidth = Math.max(1, ts * 0.05);
+      ctx.beginPath(); ctx.moveTo(mx - ts * 0.15, my); ctx.lineTo(mx + ts * 0.15, my); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx, my - ts * 0.15); ctx.lineTo(mx, my + ts * 0.15); ctx.stroke();
     }
   }
 

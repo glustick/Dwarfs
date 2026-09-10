@@ -144,12 +144,8 @@ class Input {
         return;
       }
       const t = this.tileAt(e);
-      if (this.tool === "select") {
-        this.handleSelect(t, e);
-      } else {
-        this.dragStart = t;
-        this.dragCur = t;
-      }
+      this.dragStart = t;
+      this.dragCur = t;
     });
 
     c.addEventListener("pointermove", (e) => {
@@ -171,7 +167,8 @@ class Input {
     const endDrag = (e) => {
       if (this.panning) { this.panning = false; return; }
       if (this.dragStart && this.dragCur) {
-        this.applyTool(this.dragStart, this.dragCur);
+        if (this.tool === "select") this.handleSelectDrag(this.dragStart, this.dragCur, e);
+        else this.applyTool(this.dragStart, this.dragCur);
       }
       this.dragStart = null;
       this.dragCur = null;
@@ -255,6 +252,51 @@ class Input {
       g.selectedTile = g.world.inBounds(t.x, t.y) ? { x: t.x, y: t.y, z: g.viewZ || 0 } : null;
     }
     g.updatePanel();
+  }
+
+  // The Inspect tool's pointer-up handler: a plain click either selects a
+  // single dwarf/animal/tile (as before) or, if a squad of soldiers is
+  // already selected and the click lands on empty ground, issues them a
+  // manual move order instead. A real drag box-selects every soldier inside
+  // it (manual military control only — civilians stay fully automatic).
+  handleSelectDrag(a, b, ev) {
+    const g = this.game;
+    const isClick = a.x === b.x && a.y === b.y;
+
+    if (!isClick) {
+      const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x) + 1;
+      const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y) + 1;
+      const z = g.viewZ || 0;
+      const squad = g.dwarves.filter(d => d.military && (d.z || 0) === z
+        && d.x >= minX - 1 && d.x < maxX && d.y >= minY - 1 && d.y < maxY);
+      g.selectedSquad = squad;
+      g.selectedDwarf = squad.length === 1 ? squad[0] : null;
+      g.selectedAnimal = null; g.selectedTile = null;
+      g.updatePanel();
+      return;
+    }
+
+    if (g.selectedSquad.length) {
+      let clickedDwarf = null, bd = 0.7;
+      for (const d of g.dwarves) {
+        if ((d.z || 0) !== (g.viewZ || 0)) continue;
+        const dd = Math.hypot(d.x + 0.5 - (a.x + 0.5), d.y + 0.5 - (a.y + 0.5));
+        if (dd < bd) { bd = dd; clickedDwarf = d; }
+      }
+      if (!clickedDwarf && g.world.isWalkable(a.x, a.y, g.viewZ || 0)) {
+        this.issueMoveOrder(g.selectedSquad, a.x, a.y, g.viewZ || 0);
+        return;
+      }
+    }
+
+    this.handleSelect(a, ev);
+    g.selectedSquad = g.selectedDwarf && g.selectedDwarf.military ? [g.selectedDwarf] : [];
+  }
+
+  issueMoveOrder(squad, x, y, z) {
+    const g = this.game;
+    for (const d of squad) d.manualOrder = { x, y, z };
+    g.log(`Move order given to ${squad.length} soldier${squad.length > 1 ? "s" : ""}.`, "", "order");
   }
 
   applyTool(a, b) {

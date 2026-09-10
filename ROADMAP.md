@@ -148,10 +148,10 @@ colonists, and resets after a cooldown).
 
 ## Player-requested backlog
 
-- [ ] **Manual military control** — select one soldier or a group of them
-      and click a destination to give a direct move order during combat,
-      for fine-grained positioning instead of leaving them entirely to the
-      automatic nearest-enemy AI.
+- [x] ~~Manual military control~~ — box-select a soldier or squad with the
+      Inspect tool and click a destination for a direct move order; they
+      hold that ground (still fighting anything adjacent) instead of
+      auto-chasing the nearest raider. Civilians stay fully automatic.
 - [x] ~~Medicine moved to Tier 2~~ — was behind Scholarship at Tier 3, too
       late in the tree given how early injuries start mattering. Now only
       needs Rations, and costs less (260→160).

@@ -153,6 +153,7 @@ class Dwarf {
     this.attackCd = 0;       // swing cooldown
     this.combatRepath = 0;   // throttle for chasing/fleeing pathing
     this.fleeing = false;
+    this.manualOrder = null; // {x,y,z} — a player move order overriding the automatic nearest-enemy AI (soldiers only)
 
     // ---- injuries ----
     this.wounded = false;      // hp dropped low enough to need bed rest to heal

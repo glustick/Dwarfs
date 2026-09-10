@@ -4,6 +4,24 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.13.0 (build 38)
+Manual military control — the most-requested backlog item.
+
+- **Box-select a squad**: drag with the Inspect tool over any soldiers to
+  select them as a group (civilians are unaffected — they stay fully
+  automatic, as before).
+- **Click to give a move order**: with a squad selected, click any open
+  ground to send them there. They march to that spot and then hold it —
+  fighting anything that comes adjacent — instead of automatically
+  chasing whatever raider happens to be nearest.
+- Still fully safe: a soldier under manual order always fights back if an
+  enemy gets adjacent, never just stands there taking free hits.
+- Orders release automatically once a raid ends, or any time via a
+  "Release to automatic AI" button in the Inspector (single soldier or
+  whole squad).
+- A 🎯 marker shows each soldier's rally point on the map and in the
+  roster; save/load round-trips an in-progress order correctly.
+
 ## v1.12.0 (build 37)
 Backlog round 1 — four small, independent player-requested fixes.
 
