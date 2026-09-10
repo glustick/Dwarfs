@@ -42,6 +42,22 @@ const TECHS = [
     unlock: "table",
   },
   {
+    id: "crafting", name: "Crafting Basics", icon: "🛠️", tier: 1, cost: 80, requires: [],
+    desc: "Unlocks a Crafting Bench for components and cloth.", unlock: "crafting",
+  },
+  {
+    id: "weaponsmithing", name: "Weaponsmithing", icon: "🗡️", tier: 2, cost: 150, requires: ["crafting", "metallurgy"],
+    desc: "Unlocks a Weapons Bench for wooden, stone, and metal arms.", unlock: "weapons",
+  },
+  {
+    id: "tailoring", name: "Tailoring", icon: "🧵", tier: 2, cost: 130, requires: ["crafting"],
+    desc: "Unlocks a Clothing Bench for cloth and reinforced armor.", unlock: "clothing",
+  },
+  {
+    id: "electronics", name: "Electronics", icon: "⚡", tier: 3, cost: 260, requires: ["weaponsmithing", "essence"],
+    desc: "Unlocks an Electronics Bench and adds circuits and laser blades to the Weapons Bench.", unlock: "electronics",
+  },
+  {
     id: "medicine", name: "Medicine", icon: "⚕️", tier: 2, cost: 160, requires: ["rations"],
     desc: "Unlocks the Hospital zone. Badly wounded elves recover far faster there — especially with a dedicated Doctor (Medicine labor) tending them.",
     unlock: "hospital",
@@ -66,4 +82,5 @@ for (const t of TECHS) TECH_BY_ID[t.id] = t;
 const TOOL_TECH = {
   farm: "agriculture", study: "scholarship", hospital: "medicine", quarantine: "medicine", table: "furniture",
   conduit: "essence", generator: "essence", icebox: "essence",
+  crafting: "crafting", weapons: "weaponsmithing", clothing: "tailoring", electronics: "electronics",
 };

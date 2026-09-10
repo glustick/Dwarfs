@@ -3,7 +3,8 @@
 // Which toolbar category owns each tool (for fly-out highlighting).
 const TOOL_CAT = {
   dig: "designate", chop: "designate", gather: "designate", forest: "designate", stairsdown: "designate", rampdown: "designate", drain: "designate",
-  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build",
+  build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build", crafting: "build", weapons: "build", clothing: "build", electronics: "build",
+  copy: "utility", paste: "utility",
   doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
   palisade: "build", watchtower: "build", trap: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
@@ -20,13 +21,15 @@ class Input {
     this.panning = false;
     this.panLast = null;
     this.keys = new Set();
+    this.undoStack = [];
+    this.blueprint = null;
     this.bind();
     this.setMaterial(this.material);
   }
 
   setMaterial(material) {
     this.material = material;
-    document.querySelectorAll(".mat-btn").forEach(b =>
+    document.querySelectorAll(".material-btn").forEach(b =>
       b.classList.toggle("active", b.dataset.material === material));
     const badge = document.getElementById("build-mat-badge");
     if (badge && MATERIALS[material]) badge.textContent = MATERIALS[material].icon;
@@ -34,13 +37,92 @@ class Input {
 
   setTool(tool) {
     this.tool = tool;
-    document.querySelectorAll(".tool").forEach(b =>
-      b.classList.toggle("active", b.dataset.tool === tool));
+    document.querySelectorAll(".tool").forEach(b => b.classList.toggle("active", b.dataset.tool === tool));
     // highlight the category that owns this tool
     const cat = TOOL_CAT[tool] || null;
     document.querySelectorAll(".cat").forEach(b =>
       b.classList.toggle("active", b.dataset.cat === cat));
     this.canvas.style.cursor = tool === "select" ? "pointer" : "crosshair";
+  }
+
+  tileSnapshot(tile) {
+    return { ...tile, bedOccupants: tile.bedOccupants ? [...tile.bedOccupants] : [] };
+  }
+
+  updateUndoButton() {
+    const button = document.getElementById("undo-btn");
+    if (button) button.disabled = !this.undoStack.length;
+  }
+
+  undo() {
+    const action = this.undoStack.pop();
+    if (!action) return;
+    const g = this.game;
+    for (const change of action.changes) {
+      const tile = g.world.get(change.x, change.y, change.z);
+      for (const key of Object.keys(tile)) if (!(key in change.before)) delete tile[key];
+      Object.assign(tile, change.before);
+    }
+    g.items = action.items;
+    g._nextItemId = action.nextItemId;
+    g.rebuildStockpiles();
+    g.rebuildZones();
+    g.jobs.reindex();
+    this.updateUndoButton();
+    g.updatePanel();
+    g.updateStats();
+    g.log("Undid the last map action.", "", "order");
+  }
+
+  copyBlueprint(a, b) {
+    const z = this.game.viewZ || 0;
+    const minX = Math.min(a.x, b.x), minY = Math.min(a.y, b.y);
+    const maxX = Math.max(a.x, b.x), maxY = Math.max(a.y, b.y);
+    const tiles = [];
+    for (let y = minY; y <= maxY; y++) {
+      for (let x = minX; x <= maxX; x++) {
+        const t = this.game.world.get(x, y, z);
+        tiles.push({
+          x: x - minX, y: y - minY,
+          built: t.built, furniture: t.furniture, workshop: t.workshop,
+          workshopRecipe: t.workshopRecipe, buildMaterial: t.buildMaterial,
+          zone: t.zone, stockpile: t.stockpile, stockpileFilter: t.stockpileFilter,
+          conduit: t.conduit,
+        });
+      }
+    }
+    this.blueprint = { width: maxX - minX + 1, height: maxY - minY + 1, tiles };
+    this.setTool("paste");
+    this.game.log(`Blueprint copied: ${this.blueprint.width} × ${this.blueprint.height} tiles.`, "", "order");
+  }
+
+  pasteBlueprint(anchor) {
+    if (!this.blueprint) {
+      this.game.log("No blueprint copied yet.", "warn", "order");
+      return;
+    }
+    const g = this.game, z = g.viewZ || 0;
+    let count = 0;
+    for (const source of this.blueprint.tiles) {
+      const x = anchor.x + source.x, y = anchor.y + source.y;
+      const t = g.world.get(x, y, z);
+      if (!t || !g.world.isWalkable(x, y, z) || t.built !== B.NONE || t.buildJob || t.furniture || t.workshop || t.stockpile) continue;
+      if (source.built === B.WALL || source.built === B.FLOOR || source.built === B.DOOR) {
+        t.buildJob = true; t.buildKind = source.built === B.WALL ? "wall" : source.built === B.FLOOR ? "floor" : "door";
+        t.buildMaterial = source.buildMaterial || BUILD_MATERIAL[t.buildKind]; count++;
+      } else if (source.furniture) {
+        t.buildJob = true; t.buildKind = source.furniture; t.buildMaterial = source.buildMaterial || BUILD_MATERIAL[source.furniture]; count++;
+      } else if (source.workshop) {
+        t.buildJob = true; t.buildKind = source.workshop; t.buildMaterial = source.buildMaterial || BUILD_MATERIAL[source.workshop]; count++;
+      } else if (source.conduit) {
+        t.buildJob = true; t.buildKind = "conduit"; count++;
+      }
+      if (source.stockpile) { t.stockpile = true; t.stockpileFilter = source.stockpileFilter; }
+      if (source.zone) t.zone = source.zone;
+    }
+    g.rebuildStockpiles(); g.rebuildZones(); g.jobs.reindex();
+    g.log(`Blueprint pasted: ${count} construction${count === 1 ? "" : "s"} queued.`, "", "order");
+    this.setTool("select");
   }
 
   toggleFlyout(cat) {
@@ -85,16 +167,16 @@ class Input {
     // NOTE: handlers must read `this.game` freshly — the Input instance is
     // reused across games, so a captured reference would go stale.
     const c = this.canvas;
-
     // Toolbar tool buttons (also present inside fly-outs)
     document.querySelectorAll(".tool").forEach(btn => {
       if (!btn.dataset.tool) return; // material swatches share .tool's look but aren't tools
-      btn.addEventListener("click", () => { this.setTool(btn.dataset.tool); this.closeFlyout(); });
+      btn.addEventListener("click", () => {
+        this.setTool(btn.dataset.tool);
+        this.closeFlyout();
+      });
     });
 
-    // Material swatches (Build fly-out) — pick what wall/floor/door/furniture
-    // designations queue next; doesn't change the active tool or close the menu.
-    document.querySelectorAll(".mat-btn").forEach(btn => {
+    document.querySelectorAll(".material-btn").forEach(btn => {
       btn.addEventListener("click", () => this.setMaterial(btn.dataset.material));
     });
 
@@ -119,6 +201,26 @@ class Input {
 
     const autoPauseBtn = document.getElementById("autopause-btn");
     if (autoPauseBtn) autoPauseBtn.addEventListener("click", () => this.game.toggleAutoPause());
+
+    const colonyBar = document.getElementById("colonistbar");
+    const colonyBarToggle = document.getElementById("colonistbar-toggle");
+    if (colonyBar && colonyBarToggle) {
+      let hidden = false;
+      try { hidden = localStorage.getItem("ee_colonybar_hidden") === "1"; } catch (e) {}
+      const updateColonyBarToggle = () => {
+        colonyBar.classList.toggle("collapsed", hidden);
+        colonyBarToggle.textContent = hidden ? "👁️" : "👥";
+        colonyBarToggle.title = hidden ? "Show colony bar" : "Hide colony bar";
+        colonyBarToggle.setAttribute("aria-label", colonyBarToggle.title);
+        colonyBarToggle.setAttribute("aria-pressed", String(hidden));
+      };
+      updateColonyBarToggle();
+      colonyBarToggle.addEventListener("click", () => {
+        hidden = !hidden;
+        try { localStorage.setItem("ee_colonybar_hidden", hidden ? "1" : "0"); } catch (e) {}
+        updateColonyBarToggle();
+      });
+    }
 
     // Z-level (floor) navigation
     const zUpBtn = document.getElementById("zlevel-up");
@@ -194,6 +296,11 @@ class Input {
     // Keyboard
     window.addEventListener("keydown", (e) => {
       const g = this.game;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        if (!window.appMenuOpen) this.undo();
+        return;
+      }
       // Escape closes an open submenu first, otherwise toggles the in-game menu.
       if (e.key === "Escape") {
         const fly = document.getElementById("flyout");
@@ -211,6 +318,8 @@ class Input {
       if (e.key === "[" || e.key === "PageUp") { g.setViewZ(g.viewZ + 1); e.preventDefault(); }
       if (e.key === "]" || e.key === "PageDown") { g.setViewZ(g.viewZ - 1); e.preventDefault(); }
     });
+    const undoButton = document.getElementById("undo-btn");
+    if (undoButton) undoButton.addEventListener("click", () => this.undo());
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
   }
 
@@ -300,6 +409,8 @@ class Input {
   }
 
   applyTool(a, b) {
+    if (this.tool === "copy") { this.copyBlueprint(a, b); return; }
+    if (this.tool === "paste") { this.pasteBlueprint({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y) }); return; }
     const g = this.game, w = g.world, z = g.viewZ || 0;
     const tiles = w.getLevel(z);
     const minX = Math.max(0, Math.min(a.x, b.x));
@@ -307,10 +418,15 @@ class Input {
     const maxX = Math.min(w.w - 1, Math.max(a.x, b.x));
     const maxY = Math.min(w.h - 1, Math.max(a.y, b.y));
     let count = 0;
+    const changes = [];
+    const itemsBefore = g.items.slice();
+    const nextItemIdBefore = g._nextItemId;
 
     for (let y = minY; y <= maxY; y++) {
       for (let x = minX; x <= maxX; x++) {
         const t = tiles[y][x];
+        const countBefore = count;
+        const before = this.tileSnapshot(t);
         switch (this.tool) {
           case "dig":
             if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y, z)) { t.designation = "dig"; count++; }
@@ -355,6 +471,10 @@ class Input {
           case "forge":
           case "well":
           case "brewery":
+          case "crafting":
+          case "weapons":
+          case "clothing":
+          case "electronics":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "door":
@@ -426,6 +546,7 @@ class Input {
             }
             break;
         }
+        if (count > countBefore) changes.push({ x, y, z, before });
       }
     }
 
@@ -433,6 +554,8 @@ class Input {
     if (["bedroom", "dining", "farm", "study", "hospital", "quarantine", "erase", "bed", "depot"].includes(this.tool)) g.rebuildZones();
     g.jobs.reindex();
     if (count) {
+      this.undoStack.push({ changes, items: itemsBefore, nextItemId: nextItemIdBefore });
+      this.updateUndoButton();
       const verb = {
         dig: "Marked for mining", chop: "Marked for chopping", gather: "Marked to gather",
         forest: "Marked to plant trees", stairsdown: "Marked to dig stairs down",

@@ -688,7 +688,7 @@ class Renderer {
 
   drawWorkshop(ctx, t, sx, sy, ts) {
     // stone platform
-    const bg = { forge: "#4a4038", smelter: "#4a4340", well: "#3a4048", brewery: "#4a3d28" }[t.workshop] || "#4a4340";
+    const bg = { forge: "#4a4038", smelter: "#4a4340", well: "#3a4048", brewery: "#4a3d28", crafting: "#4a4638", weapons: "#403c48", clothing: "#493d4a", electronics: "#354b4d" }[t.workshop] || "#4a4340";
     ctx.fillStyle = bg;
     ctx.fillRect(sx + ts * 0.08, sy + ts * 0.08, ts * 0.84, ts * 0.84);
     ctx.strokeStyle = "#2a2420"; ctx.lineWidth = Math.max(1, ts * 0.05);
@@ -735,6 +735,24 @@ class Renderer {
       // bubbling glow
       ctx.fillStyle = `rgba(210,160,60,${0.5 + pulse * 0.3})`;
       ctx.beginPath(); ctx.arc(cx, cy - ts * 0.14, ts * 0.07, 0, 7); ctx.fill();
+    } else if (t.workshop === "crafting" || t.workshop === "weapons" || t.workshop === "clothing" || t.workshop === "electronics") {
+      const cx = sx + ts * 0.5, cy = sy + ts * 0.56;
+      const accent = { crafting: "#c49b58", weapons: "#b7c9df", clothing: "#d18fc0", electronics: "#73d5d0" }[t.workshop];
+      ctx.fillStyle = "#252b29";
+      ctx.fillRect(sx + ts * 0.22, sy + ts * 0.44, ts * 0.56, ts * 0.28);
+      ctx.fillStyle = accent;
+      ctx.fillRect(sx + ts * 0.3, sy + ts * 0.31, ts * 0.4, ts * 0.12);
+      ctx.strokeStyle = accent; ctx.lineWidth = Math.max(1, ts * 0.04);
+      ctx.beginPath(); ctx.arc(cx, cy, ts * 0.16, 0, 7); ctx.stroke();
+      if (t.workshop === "electronics") {
+        ctx.fillStyle = `rgba(115,213,208,${0.35 + pulse * 0.35})`;
+        ctx.fillRect(cx - ts * 0.08, sy + ts * 0.38, ts * 0.16, ts * 0.16);
+        ctx.beginPath(); ctx.moveTo(cx - ts * 0.24, sy + ts * 0.46); ctx.lineTo(cx - ts * 0.08, sy + ts * 0.46); ctx.lineTo(cx + ts * 0.08, sy + ts * 0.62); ctx.lineTo(cx + ts * 0.24, sy + ts * 0.62); ctx.stroke();
+      } else if (t.workshop === "weapons") {
+        ctx.beginPath(); ctx.moveTo(cx - ts * 0.2, sy + ts * 0.25); ctx.lineTo(cx + ts * 0.2, sy + ts * 0.68); ctx.stroke();
+      } else if (t.workshop === "clothing") {
+        ctx.beginPath(); ctx.moveTo(cx - ts * 0.16, sy + ts * 0.26); ctx.lineTo(cx, sy + ts * 0.72); ctx.lineTo(cx + ts * 0.16, sy + ts * 0.26); ctx.stroke();
+      }
     }
   }
 
@@ -984,6 +1002,8 @@ class Renderer {
       ctx.fillRect(cx - bw / 2, cy - r * 1.7, bw * frac, r * 0.24);
     }
 
+    this.drawActivityBadge(ctx, d, cx, cy, r, ts);
+
     // fighting spark
     if (d.state === "fight") {
       const t = this.game.time;
@@ -998,6 +1018,7 @@ class Renderer {
 
     // work animation — swing/strike/reach per job type, or a generic spark
     if (d.state === "work") this.drawWorkAnim(ctx, d, cx, cy, r, ts);
+    if (d.state === "work" || d.state === "carry") this.drawActionSprite(ctx, d, cx, cy, r, ts);
 
     // sleeping: Zzz
     if (d.state === "sleep") {
@@ -1046,6 +1067,102 @@ class Renderer {
       ctx.beginPath(); ctx.moveTo(mx - ts * 0.15, my); ctx.lineTo(mx + ts * 0.15, my); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(mx, my - ts * 0.15); ctx.lineTo(mx, my + ts * 0.15); ctx.stroke();
     }
+  }
+
+  drawActivityBadge(ctx, d, cx, cy, r, ts) {
+    const activities = {
+      dig: ["⛏", "Mining", "#d5d9df"], chop: ["🪓", "Chopping", "#d6a76a"],
+      gather: ["🌿", "Gathering", "#9fca8c"], harvest: ["🌾", "Harvesting", "#c9b45b"],
+      plant: ["🌱", "Planting", "#9fca8c"], forest: ["🌲", "Foresting", "#72b879"],
+      build: ["🧱", "Building", "#d3a86b"], craft: ["🔨", "Crafting", "#e0c47c"],
+      haul: ["📦", "Hauling", "#b6c9d9"], doctor: ["⚕", "Doctoring", "#e58d78"],
+      fight: ["⚔", "Fighting", "#ed806e"], equip: ["🛡", "Equipping", "#b7c9df"],
+      train: ["⚔", "Training", "#c9d7e8"], socialize: ["💬", "Socializing", "#d9a9df"],
+      eat: ["🍽", "Eating", "#b7d98d"], drink: ["💧", "Drinking", "#80c6e5"],
+      sleep: ["💤", "Sleeping", "#aab4e3"], recover: ["✚", "Recovering", "#e58d78"],
+      quarantine: ["⛓", "Quarantine", "#c78bd1"], tame: ["🐾", "Taming", "#d9a06e"],
+    };
+    let key = d.state === "fight" ? "fight" : d.state;
+    if (!activities[key] && d.job) key = d.job.type;
+    if (!activities[key]) return;
+    const [icon, label, color] = activities[key];
+    const text = `${icon} ${label}`;
+    ctx.save();
+    ctx.font = `600 ${Math.max(9, Math.floor(ts * 0.16))}px "Avenir Next", sans-serif`;
+    const width = ctx.measureText(text).width + ts * 0.22;
+    const height = Math.max(14, ts * 0.24);
+    const x = cx - width / 2, y = cy - r * 2.05 - height;
+    ctx.fillStyle = "rgba(10, 18, 14, .88)";
+    ctx.strokeStyle = color;
+    ctx.lineWidth = Math.max(1, ts * 0.025);
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, height * 0.45);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(text, cx, y + height / 2 + 0.5);
+    ctx.restore();
+  }
+
+  drawActionSprite(ctx, d, cx, cy, r, ts) {
+    const jt = d.job ? d.job.type : null;
+    const side = d.facing * r * 1.12;
+    const handX = cx + side, handY = cy + r * 0.05;
+    const scale = Math.max(1, ts * 0.045);
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(1.5, scale * 1.7);
+
+    if (jt === "dig" || jt === "stairsdown" || jt === "rampdown" || jt === "drain") {
+      // Pickaxe: a crossed head makes mining unmistakable at map scale.
+      ctx.strokeStyle = "#d4d9df";
+      ctx.beginPath(); ctx.moveTo(handX - side * 0.25, handY - r * 0.9); ctx.lineTo(handX + side * 0.2, handY + r * 0.65); ctx.stroke();
+      ctx.lineWidth = Math.max(2, scale * 2.5);
+      ctx.beginPath(); ctx.moveTo(handX - side * 0.42, handY - r * 0.72); ctx.lineTo(handX + side * 0.42, handY - r * 0.72); ctx.stroke();
+    } else if (jt === "chop") {
+      // Axe: wooden haft with a bright metal wedge.
+      ctx.strokeStyle = "#8d6039";
+      ctx.beginPath(); ctx.moveTo(handX - side * 0.15, handY + r * 0.55); ctx.lineTo(handX + side * 0.18, handY - r * 0.78); ctx.stroke();
+      ctx.fillStyle = "#c9d1d9";
+      ctx.beginPath(); ctx.moveTo(handX + side * 0.05, handY - r * 0.85); ctx.lineTo(handX + side * 0.48, handY - r * 0.62); ctx.lineTo(handX + side * 0.12, handY - r * 0.35); ctx.closePath(); ctx.fill();
+    } else if (jt === "build" || jt === "craft") {
+      // Hammer and workpiece: a solid head over a small amber block.
+      ctx.strokeStyle = "#8d6039";
+      ctx.beginPath(); ctx.moveTo(handX, handY + r * 0.45); ctx.lineTo(handX, handY - r * 0.58); ctx.stroke();
+      ctx.fillStyle = "#c7d0d7";
+      ctx.fillRect(handX - r * 0.28, handY - r * 0.72, r * 0.56, r * 0.2);
+      ctx.fillStyle = "#d6a85d";
+      ctx.fillRect(handX - r * 0.22, handY + r * 0.32, r * 0.44, r * 0.25);
+    } else if (jt === "haul") {
+      // A visible carried crate, separate from the tiny item-color marker.
+      ctx.fillStyle = "#b27a42";
+      ctx.fillRect(handX - r * 0.32, handY - r * 0.12, r * 0.64, r * 0.58);
+      ctx.strokeStyle = "#f0c477";
+      ctx.lineWidth = Math.max(1, scale);
+      ctx.strokeRect(handX - r * 0.32, handY - r * 0.12, r * 0.64, r * 0.58);
+      ctx.beginPath(); ctx.moveTo(handX - r * 0.25, handY + r * 0.17); ctx.lineTo(handX + r * 0.25, handY + r * 0.17); ctx.stroke();
+    } else if (jt === "gather" || jt === "harvest" || jt === "plant" || jt === "forest") {
+      // Leafy sprig / seedling held low to the ground.
+      ctx.strokeStyle = "#6f9f61";
+      ctx.beginPath(); ctx.moveTo(handX, handY + r * 0.42); ctx.lineTo(handX, handY - r * 0.42); ctx.stroke();
+      ctx.fillStyle = "#a8d47e";
+      ctx.beginPath(); ctx.ellipse(handX - r * 0.2, handY - r * 0.24, r * 0.22, r * 0.1, -0.5, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(handX + r * 0.2, handY - r * 0.02, r * 0.22, r * 0.1, 0.5, 0, 7); ctx.fill();
+    } else if (jt === "doctor") {
+      // Medical cross held forward.
+      ctx.strokeStyle = "#f1a29a";
+      ctx.lineWidth = Math.max(2, scale * 2.2);
+      ctx.beginPath(); ctx.moveTo(handX, handY - r * 0.42); ctx.lineTo(handX, handY + r * 0.42); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(handX - r * 0.42, handY); ctx.lineTo(handX + r * 0.42, handY); ctx.stroke();
+    } else if (jt === "train" || d.state === "fight" || jt === "equip") {
+      // Blade silhouette for training, combat, and equipment work.
+      ctx.strokeStyle = d.state === "fight" ? "#ff987f" : "#dce6ef";
+      ctx.beginPath(); ctx.moveTo(handX - side * 0.18, handY + r * 0.48); ctx.lineTo(handX + side * 0.2, handY - r * 0.78); ctx.stroke();
+      ctx.lineWidth = Math.max(2, scale * 2.2);
+      ctx.beginPath(); ctx.moveTo(handX - side * 0.35, handY + r * 0.1); ctx.lineTo(handX + side * 0.1, handY + r * 0.1); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Per-job work animations, grouped into a few archetypes so every tool-job

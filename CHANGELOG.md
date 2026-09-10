@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.14.0 (build 39)
+Systems and quality-of-life enhancement round.
+
+- **Progressive workbenches**: Crafting, Weapons, Clothing, and Electronics
+  Benches unlock through research and require increasingly complex material
+  bills. Wooden, stone, metal, and laser weapon progression is included.
+- **Elven artifacts**: mining can uncover unique relics with lore and stat
+  bonuses that remain in a pawn's inventory and persist through saves.
+- **Pawn identity**: new and migrating pawns receive persistent traits that
+  affect work, research, combat, mood, and nature activities.
+- **Work priorities and production bills**: labor priorities now influence
+  assignment, and workshops can produce a finite target or repeat forever.
+- **Blueprints and undo**: copy/paste structure layouts and reverse the last
+  map action with the toolbar button or Cmd/Ctrl+Z.
+- **Activity readability**: pawns show clear action labels and map sprites for
+  mining, chopping, building, hauling, farming, medicine, and combat.
+- **UI refresh**: modern forest-themed panels, responsive mobile layout, and
+  persistent colony-bar visibility control.
+
 ## v1.13.0 (build 38)
 Manual military control — the most-requested backlog item.
 

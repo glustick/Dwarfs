@@ -39,6 +39,8 @@
       </span>
       <button id="sound-btn" class="spd" title="Sound on — click to mute">🔊</button>
       <button id="autopause-btn" class="spd" title="Auto-pause on crises (raid, death, starvation, dehydration)">🔔</button>
+      <button id="undo-btn" class="spd" title="Undo last map action (Cmd/Ctrl+Z)" aria-label="Undo last map action" disabled>↶</button>
+      <button id="colonistbar-toggle" class="spd" title="Hide colony bar" aria-label="Hide colony bar">👥</button>
       <button id="help-btn" class="spd" title="Tutorial / Help">❓</button>
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
@@ -68,6 +70,8 @@
       <button class="cat" data-cat="designate" title="Designate orders"><span class="ico">⛏️</span><span class="lbl">Orders</span></button>
       <button class="cat" data-cat="build" title="Build structures"><span class="ico">🏗️</span><span class="lbl">Build</span><span class="cat-badge" id="build-mat-badge">🪨</span></button>
       <button class="cat" data-cat="zone" title="Designate zones"><span class="ico">📐</span><span class="lbl">Zones</span></button>
+      <button class="tool" data-tool="copy" title="Copy blueprint (drag a rectangle)"><span class="ico">⧉</span><span class="lbl">Copy</span></button>
+      <button class="tool" data-tool="paste" title="Paste blueprint (drag or click an anchor)"><span class="ico">⤋</span><span class="lbl">Paste</span></button>
       <button class="tool" data-tool="erase" title="Cancel / deconstruct (X)"><span class="ico">🚫</span><span class="lbl">Cancel</span></button>
     </div>
 
@@ -87,13 +91,14 @@
       </div>
       <div class="fly-group" data-group="build">
         <div class="fly-title">🏗️ Build Structures</div>
-        <div class="fly-sub">Material — applies to wall/floor/door/furniture below</div>
-        <div class="fly-tools">
-          <button class="tool mat-btn" data-material="wood" title="Wood"><span class="ico">🪵</span><span class="lbl">Wood</span></button>
-          <button class="tool mat-btn active" data-material="stone" title="Stone"><span class="ico">🪨</span><span class="lbl">Stone</span></button>
-          <button class="tool mat-btn" data-material="marble" title="Marble — a rare vein found while mining; small mood bonus in a bedroom"><span class="ico">⬜</span><span class="lbl">Marble</span></button>
-          <button class="tool mat-btn" data-material="metal" title="Metal — iron bars; small mood bonus in a bedroom"><span class="ico">⚙️</span><span class="lbl">Metal</span></button>
+        <div class="fly-sub">1 · Choose material</div>
+        <div class="material-picker">
+          <button class="material-btn" data-material="wood" title="Choose Wood"><span class="ico">🪵</span><span class="lbl">Wood</span></button>
+          <button class="material-btn active" data-material="stone" title="Choose Stone"><span class="ico">🪨</span><span class="lbl">Stone</span></button>
+          <button class="material-btn" data-material="marble" title="Choose Marble"><span class="ico">⬜</span><span class="lbl">Marble</span></button>
+          <button class="material-btn" data-material="metal" title="Choose Metal"><span class="ico">⚙️</span><span class="lbl">Metal</span></button>
         </div>
+        <div class="fly-sub">2 · Choose structure</div>
         <div class="fly-sub">Construction</div>
         <div class="fly-tools">
           <button class="tool" data-tool="build" title="Wall (B)"><span class="ico">🧱</span><span class="lbl">Wall</span></button>
@@ -110,6 +115,10 @@
         <div class="fly-tools">
           <button class="tool" data-tool="smelter" title="Smelter — ore → bars (1)"><span class="ico">🔥</span><span class="lbl">Smelter</span></button>
           <button class="tool" data-tool="forge" title="Forge — bars → arms (2)"><span class="ico">⚒️</span><span class="lbl">Forge</span></button>
+          <button class="tool" data-tool="crafting" title="Crafting Bench — components and cloth"><span class="ico">🛠️</span><span class="lbl">Crafting</span></button>
+          <button class="tool" data-tool="weapons" title="Weapons Bench — wooden, stone, metal, and laser weapons"><span class="ico">🗡️</span><span class="lbl">Weapons</span></button>
+          <button class="tool" data-tool="clothing" title="Clothing Bench — cloaks and reinforced armor"><span class="ico">🧵</span><span class="lbl">Clothing</span></button>
+          <button class="tool" data-tool="electronics" title="Electronics Bench — circuits and laser systems"><span class="ico">⚡</span><span class="lbl">Electronics</span></button>
           <button class="tool" data-tool="well" title="Well — draws water (3)"><span class="ico">💧</span><span class="lbl">Well</span></button>
           <button class="tool" data-tool="brewery" title="Brewery — water + food → ale (4)"><span class="ico">🍺</span><span class="lbl">Brewery</span></button>
         </div>

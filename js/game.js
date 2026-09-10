@@ -86,6 +86,7 @@ class Game {
     this.running = true;
     this.panelTab = "colony";  // colony | schedule | log | records
     this.events = [];          // full chronicle of everything that happens
+    this.discoveredArtifacts = [];
     this.logFilter = "all";    // active category filter in the Log panel
     this._eventSeq = 1;
 
@@ -168,6 +169,8 @@ class Game {
     if (!window.__input) window.__input = new Input(this, canvas);
     this.renderer = window.__renderer; this.renderer.game = this;
     this.input = window.__input; this.input.game = this;
+    this.input.undoStack = [];
+    this.input.updateUndoButton();
 
     if (saveData) this.log(`Loaded save “${saveData.name || "game"}”.`, "good", "system");
     else this.log("Your seven elves have arrived. Raise the empire!", "good", "colony");
@@ -214,6 +217,7 @@ class Game {
       raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
       caveInTimer: this.caveInTimer, floodTimer: this.floodTimer,
       research: this.research, tech: this.tech,
+      discoveredArtifacts: this.discoveredArtifacts,
       events: this.events.slice(-SAVED_EVENTS),
       nextItemId: this._nextItemId,
       cam: { x: this.cam.x, y: this.cam.y, zoom: this.cam.zoom },
@@ -252,6 +256,7 @@ class Game {
           t.aquifer ? 1 : 0,
           t.flooded ? 1 : 0,
           Math.round(t.trapCooldown) || 0,
+          t.workshopTarget || 0, t.workshopProduced || 0,
         ];
       }
     }
@@ -268,12 +273,15 @@ class Game {
       vampiric: d.vampiric ? 1 : 0, vampireTimer: d.vampireTimer || 0, vampireExposed: d.vampireExposed ? 1 : 0,
       checkupCooldown: d.checkupCooldown || 0, beingInspected: d.beingInspected ? 1 : 0,
       weapon: d.weapon, armor: d.armor,
+      inventory: d.inventory || [],
+      traits: d.traits || [],
       state: d.state, thought: d.thought, workTimer: d.workTimer,
       idleWander: d.idleWander, bob: d.bob, starve: d.starve || 0, parch: d.parch || 0,
       carrying: d.carrying ? d.carrying.id : 0,
       relationships: d.relationships, partnerId: d.partnerId || null,
       dbId: d.dbId, skills: d.skills,
       labors: [...d.labors], schedule: d.schedule, activity: d.activity,
+      laborPriority: d.laborPriority,
       bed: d.bed,
       path: d.path, pathIdx: d.pathIdx,
       job: d.job ? {
@@ -281,6 +289,7 @@ class Game {
         item: d.job.item ? d.job.item.id : 0,
         dest: d.job.dest, dining: d.job.dining, buildKind: d.job.buildKind || null,
         slot: d.job.slot || null,
+        extraMaterials: (d.job.extraMaterials || []).map(item => item.id),
       } : null,
     };
   }
@@ -317,6 +326,8 @@ class Game {
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
+      d.inventory = Array.isArray(o.inventory) ? o.inventory : [];
+      d.traits = Array.isArray(o.traits) ? o.traits : rollTraits(Math.random);
       d.manualOrder = o.manualOrder || null;
       d.wounded = !!o.wounded; d.beingTreated = !!o.beingTreated;
       d.infected = !!o.infected; d.infectionTimer = o.infectionTimer || 0;
@@ -328,6 +339,7 @@ class Game {
       d.carrying = o.carrying ? byId.get(o.carrying) : null;
       if (o.dbId) d.dbId = o.dbId;
       if (o.labors) d.labors = new Set(o.labors);
+      d.laborPriority = Object.assign(Object.fromEntries(LABORS.map(l => [l.id, 3])), o.laborPriority || {});
       if (o.schedule) d.schedule = o.schedule;
       d.activity = o.activity || "work";
       d.bed = o.bed || null;
@@ -338,6 +350,7 @@ class Game {
         j.item = o.job.item ? byId.get(o.job.item) : null;
         j.dest = o.job.dest; j.dining = o.job.dining; j.buildKind = o.job.buildKind;
         j.slot = o.job.slot || null;
+        j.extraMaterials = (o.job.extraMaterials || []).map(id => byId.get(id)).filter(Boolean);
         d.job = j;
       }
       return d;
@@ -359,6 +372,7 @@ class Game {
     this._eventSeq = this.events.reduce((m, e) => Math.max(m, e.seq || 0), 0) + 1;
     this.research = data.research || 0;
     this.tech = data.tech || {};
+    this.discoveredArtifacts = Array.isArray(data.discoveredArtifacts) ? data.discoveredArtifacts : [];
 
     this.cam = { x: data.cam.x, y: data.cam.y, zoom: data.cam.zoom };
     this.viewZ = data.viewZ || 0;
@@ -391,6 +405,7 @@ class Game {
       const y = this.world.spawnY + randint(rng, -4, 4);
       if (w.isWalkable(x, y)) {
         const d = new Dwarf(dwarfName(rng), x, y, DWARF_COLORS[placed % DWARF_COLORS.length], rollStartingSkills(rng));
+        d.traits = rollTraits(rng);
         this.dwarves.push(d);
         this.flushDwarfToDB(d);
         if (colonyDB) colonyDB.logEvent(`${d.name} (${professionOf(d)}) founded the colony`, 1);
@@ -1064,6 +1079,19 @@ class Game {
   // ---- research ----
   hasTech(id) { return !!this.tech[id]; }
 
+  discoverArtifact(dwarf) {
+    const undiscovered = ARTIFACTS.filter(artifact => !this.discoveredArtifacts.includes(artifact.id));
+    if (!undiscovered.length || this.world.rng() >= 0.025) return null;
+    const artifact = undiscovered[Math.floor(this.world.rng() * undiscovered.length)];
+    this.discoveredArtifacts.push(artifact.id);
+    dwarf.inventory = dwarf.inventory || [];
+    dwarf.inventory.push({ id: artifact.id });
+    this.log(`${dwarf.name} discovered ${artifact.icon} ${artifact.name}!`, "good", "skill");
+    if (colonyDB) colonyDB.logEvent(`${dwarf.name} discovered ${artifact.name}`, Math.floor(this.time / DAY_LENGTH) + 1);
+    this.updatePanel();
+    return artifact;
+  }
+
   // ---- the outbreak: escalation keyed to research progress, not day ----
   // Highest tier researched, plus a small bonus per tech beyond that — so
   // a colony that pushes deep into the tree faces a worse outbreak even
@@ -1081,7 +1109,7 @@ class Game {
 
   researchRate() {
     let r = 0;
-    for (const d of this.dwarves) r += 0.12 * (1 + d.skillLevel("intelligence") * 0.08);
+    for (const d of this.dwarves) r += 0.12 * (1 + d.skillLevel("intelligence") * 0.08) * (1 + d.traitBonus("research"));
     r += this.studyTiles.length * 0.3;               // dedicated study zones
     if (this.hasTech("scholarship")) r *= 1.3;
     if (this.hasTech("bookkeeping")) r *= 1.3;
@@ -1109,13 +1137,16 @@ class Game {
       document.querySelectorAll(`.tool[data-tool="${tool}"]`).forEach(b => {
         b.style.display = unlocked ? "" : "none";
       });
+      document.querySelectorAll(`[data-material-group="${tool}"]`).forEach(group => {
+        group.style.display = unlocked ? "" : "none";
+      });
     }
   }
 
   // ---- happiness (derived gauge: health + mood + needs) ----
   computeHappiness(d) {
     const hpPct = (d.hp / d.maxhp) * 100;
-    return clamp(0.35 * d.mood + 0.2 * hpPct + 0.15 * (100 - d.hunger) + 0.15 * (100 - d.thirst) + 0.15 * d.energy, 0, 100);
+    return clamp(0.35 * (d.mood + d.artifactBonus("mood") + d.traitBonus("mood")) + 0.2 * hpPct + 0.15 * (100 - d.hunger) + 0.15 * (100 - d.thirst) + 0.15 * d.energy, 0, 100);
   }
   avgHappiness() {
     if (!this.dwarves.length) return 0;
@@ -1769,6 +1800,7 @@ class Game {
         const y = this.world.spawnY + randint(this.world.rng, -6, 6);
         if (this.world.isWalkable(x, y)) {
           const d = new Dwarf(dwarfName(this.world.rng), x, y, DWARF_COLORS[this.dwarves.length % DWARF_COLORS.length], rollStartingSkills(this.world.rng));
+          d.traits = rollTraits(this.world.rng);
           this.dwarves.push(d); arrived++;
           this.flushDwarfToDB(d);
           if (colonyDB) colonyDB.logEvent(`${d.name} (${professionOf(d)}) migrated to the colony`, Math.floor(this.time / DAY_LENGTH) + 1);
@@ -2067,10 +2099,18 @@ class Game {
       c.querySelectorAll(".recipe-btn").forEach(btn => {
         btn.onclick = () => {
           tile.workshopRecipe = +btn.dataset.recipe;
+          tile.workshopProduced = 0;
           this.jobs.reindex();
           this.updatePanel();
         };
       });
+      const billTarget = c.querySelector("#bill-target");
+      if (billTarget) billTarget.onchange = () => {
+        tile.workshopTarget = Math.max(0, Math.floor(+billTarget.value || 0));
+        if (!tile.workshopTarget) tile.workshopProduced = 0;
+        this.jobs.reindex();
+        this.updatePanel();
+      };
       const doorBtn = c.querySelector("#insp-door-lock");
       if (doorBtn && tile.built === B.DOOR) {
         doorBtn.onclick = () => {
@@ -2122,14 +2162,26 @@ class Game {
           <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
       }
       sk += `</div>`;
-      const gear = [d.weapon ? "🗡 " + d.weapon : null, d.armor ? "🛡 " + d.armor : null].filter(Boolean).join(" · ");
+      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
+      const gear = [d.weapon ? "🗡 " + (gearNames[d.weapon] || d.weapon) : null, d.armor ? "🛡 " + (gearNames[d.armor] || d.armor) : null].filter(Boolean).join(" · ");
+      const inventory = (d.inventory || []).map(item => ARTIFACT_BY_ID[item.id]).filter(Boolean);
+      const inventoryHTML = inventory.length ? inventory.map(artifact => {
+        const boosts = Object.entries(artifact.bonuses).map(([stat, value]) => `+${value} ${stat}`).join(" · ");
+        return `<div class="artifact" title="${this.escapeHtml(artifact.lore)}"><span>${artifact.icon}</span><b>${artifact.name}</b><small>${boosts}</small><div class="mini">${this.escapeHtml(artifact.lore)}</div></div>`;
+      }).join("") : `<div class="mini" style="opacity:.6">No Elven artifacts carried.</div>`;
+      const traitsHTML = (d.traits || []).map(id => {
+        const trait = TRAITS[id];
+        return trait ? `<span class="trait" title="${this.escapeHtml(trait.desc)}">${trait.icon} ${trait.name}</span>` : "";
+      }).join("");
       return `
         <b>${d.name}</b> <span class="tag">${professionOf(d)}</span>${d.military ? ' <span class="tag" style="background:#6b2f2f">⚔ soldier</span>' : ""}${d.wounded ? ' <span class="tag" style="background:#6b2f2f">🩹 wounded</span>' : ""}${d.infected ? ' <span class="tag" style="background:#2f6b3a">🧟 infected</span>' : ""}<br/>
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
         ${d.infected ? `<div class="mini" style="color:#8fd08f">🧟 Fighting the infection — ${Math.max(0, Math.round(d.infectionTimer))}s until it takes hold</div>` : ""}
         ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
+        <div class="mini2">Traits</div><div class="trait-list">${traitsHTML || `<span class="mini">No traits recorded.</span>`}</div>
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
+        <div class="mini2">Inventory · ${inventory.length}</div>${inventoryHTML}
         <div class="thought">“${d.thought || "..."}”</div>
         <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
         ${d.military && d.manualOrder ? `<div class="mini">🎯 Holding a manual position order</div><button class="mini-btn" id="insp-order-release">Release to automatic AI</button>` : ""}
@@ -2180,6 +2232,7 @@ class Game {
         const list = RECIPES[tile.workshop] || [];
         parts.push(`Workshop: <span class="tag">${WORKSHOP_INFO[tile.workshop].icon} ${WORKSHOP_INFO[tile.workshop].name}</span>`);
         parts.push(`<div class="mini">Making: <b>${(list[tile.workshopRecipe] || {}).name || "—"}</b></div>`);
+        parts.push(`<label class="bill-control">Bill target <input id="bill-target" type="number" min="0" step="1" value="${tile.workshopTarget || 0}" title="0 means repeat forever" /> <span class="mini">${tile.workshopTarget ? `${tile.workshopProduced || 0}/${tile.workshopTarget}` : "forever"}</span></label>`);
         parts.push(`<div class="recipe-row">` + list.map((r, i) =>
           `<button class="recipe-btn${i === (tile.workshopRecipe || 0) ? " on" : ""}" data-recipe="${i}">${r.name}</button>`).join("") + `</div>`);
       }
@@ -2221,7 +2274,19 @@ class Game {
           <label>🌙<select class="sd-night">${opts(d.schedule.night)}</select></label>
         </div>
         <div class="sd-labors">
-          ${LABORS.map(l => `<span class="chip${d.labors.has(l.id) ? " on" : ""}" data-labor="${l.id}" title="${l.name}">${l.icon}</span>`).join("")}
+          ${LABORS.map(l => {
+            const priority = d.laborPriority?.[l.id] ?? (d.labors.has(l.id) ? 3 : 0);
+            return `<span class="chip p${priority}${priority ? " on" : ""}" data-labor="${l.id}" title="${l.name} priority ${priority || "off"}">${l.icon}<b>${priority || "–"}</b></span>`;
+          }).join("")}
+        </div>
+        <div class="mini2">Skills</div>
+        <div class="skill-grid sched-skills">
+          ${SKILL_IDS.map(id => {
+            const lv = d.skills[id].level;
+            const strong = lv > 0 ? "" : ' style="opacity:.4"';
+            return `<div class="skill"${strong} title="${skillTitle(lv)} (${lv}/${MAX_LEVEL})">
+              <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
+          }).join("")}
         </div>
       </div>`;
     });
@@ -2233,8 +2298,11 @@ class Game {
       row.querySelectorAll(".chip").forEach(chip => {
         chip.onclick = () => {
           const id = chip.dataset.labor;
-          if (d.labors.has(id)) d.labors.delete(id); else d.labors.add(id);
-          chip.classList.toggle("on");
+          const next = ((d.laborPriority?.[id] ?? (d.labors.has(id) ? 3 : 0)) + 1) % 4;
+          d.laborPriority = d.laborPriority || {};
+          d.laborPriority[id] = next;
+          if (next) d.labors.add(id); else d.labors.delete(id);
+          this.renderSchedule(c);
         };
       });
     });

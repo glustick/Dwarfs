@@ -21,6 +21,24 @@ const RECIPES = {
     { name: "Shield", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "shield" }, time: 3.0 },
     { name: "Mail", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "mail" }, time: 3.4 },
   ],
+  crafting: [
+    { name: "Wooden components", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.COMPONENT }, time: 2.0 },
+    { name: "Woven cloth", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.CLOTH }, time: 2.4 },
+    { name: "Circuit", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.CIRCUIT }, time: 3.8, tech: "electronics" },
+  ],
+  weapons: [
+    { name: "Wooden club", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "club" }, time: 2.2 },
+    { name: "Stone spear", in: [{ kind: ITEM.STONE }], out: { kind: ITEM.WEAPON, sub: "stone_spear" }, time: 2.8 },
+    { name: "Iron sword", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "sword" }, time: 3.2 },
+    { name: "Laser blade", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.WEAPON, sub: "laser_blade" }, time: 5.0, tech: "electronics" },
+  ],
+  clothing: [
+    { name: "Cloth cloak", in: [{ kind: ITEM.CLOTH }], out: { kind: ITEM.ARMOR, sub: "cloak" }, time: 2.4 },
+    { name: "Reinforced mail", in: [{ kind: ITEM.CLOTH }, { kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.ARMOR, sub: "reinforced_mail" }, time: 4.0 },
+  ],
+  electronics: [
+    { name: "Circuit board", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.CIRCUIT }, time: 3.8 },
+  ],
   // Wells need no inputs — an empty `in` list just always succeeds.
   well: [
     { name: "Draw water", in: [], out: { kind: ITEM.WATER }, time: 1.8 },
@@ -35,6 +53,10 @@ const WORKSHOP_INFO = {
   forge: { name: "Forge", icon: "⚒️" },
   well: { name: "Well", icon: "💧" },
   brewery: { name: "Brewery", icon: "🍺" },
+  crafting: { name: "Crafting Bench", icon: "🛠️" },
+  weapons: { name: "Weapons Bench", icon: "🗡️" },
+  clothing: { name: "Clothing Bench", icon: "🧵" },
+  electronics: { name: "Electronics Bench", icon: "⚡" },
 };
 
 // What a caravan will pay for each sellable item (sub-keyed). Gold bars and
@@ -122,7 +144,8 @@ class JobManager {
   currentRecipe(t) {
     const list = RECIPES[t.workshop];
     if (!list || !list.length) return null;
-    return list[(t.workshopRecipe || 0) % list.length];
+    const rec = list[(t.workshopRecipe || 0) % list.length];
+    return rec && rec.tech && !this.game.hasTech(rec.tech) ? null : rec;
   }
 
   // A stored (stockpiled) item matching a recipe input spec.
@@ -137,6 +160,7 @@ class JobManager {
   }
 
   recipeAvailable(t) {
+    if (t.workshopTarget > 0 && t.workshopProduced >= t.workshopTarget) return false;
     const rec = this.currentRecipe(t);
     if (!rec) return false;
     // Temporarily flag matched items so duplicate input specs need distinct items.
@@ -287,6 +311,18 @@ class JobManager {
     return materialItem(t.buildMaterial || BUILD_MATERIAL[t.buildKind || "wall"]).sub;
   }
 
+  buildCost(t) {
+    const material = materialItem(t.buildMaterial || BUILD_MATERIAL[t.buildKind || "wall"]);
+    const costs = [{ kind: material.kind, sub: material.sub }];
+    const extra = {
+      crafting: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }],
+      weapons: [{ kind: ITEM.STONE }, { kind: ITEM.WOOD }, { kind: ITEM.BAR, sub: "iron" }],
+      clothing: [{ kind: ITEM.WOOD }, { kind: ITEM.CLOTH }, { kind: ITEM.CLOTH }],
+      electronics: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }, { kind: ITEM.CIRCUIT }],
+    }[t.buildKind];
+    return costs.concat(extra || []);
+  }
+
   workDuration(dwarf, type) {
     const base = WORK_TIME[type] || 1.2;
     const skill = JOB_SKILL[type];
@@ -338,23 +374,32 @@ class JobManager {
       ["forest", this.candidates.forest], ["stairsdown", this.candidates.stairsdown],
       ["rampdown", this.candidates.rampdown], ["drain", this.candidates.drain],
     ];
-    let best = null, bestD = Infinity;
+    let best = null, bestD = Infinity, bestPriority = -1;
     for (const [type, list] of pools) {
-      if (!dwarf.labors.has(JOB_LABOR[type])) continue;
+      const labor = JOB_LABOR[type];
+      const priority = dwarf.laborPriority?.[labor] ?? (dwarf.labors.has(labor) ? 3 : 0);
+      if (!dwarf.labors.has(labor) || priority <= 0) continue;
       for (const [x, y, z] of list) {
         const t = g.world.getLevel(z)[y][x];
         if (t.reserved) continue;
         if (type === "build") {
           if (!t.buildJob) continue;
-          if (!this.findAnyItem(this.buildMaterialKind(t), dx, dy, dz, this.buildMaterialSub(t))) continue;
+          const claimed = [];
+          const hasCost = this.buildCost(t).every(cost => {
+            const item = this.findAnyItem(cost.kind, dx, dy, dz, cost.sub);
+            if (!item) return false;
+            item.hauled = true; claimed.push(item); return true;
+          });
+          for (const item of claimed) item.hauled = false;
+          if (!hasCost) continue;
         } else if (type === "craft") {
           if (!t.workshop || !this.recipeAvailable(t)) continue;
         } else if (type === "plant" || type === "harvest") {
           // candidate lists from reindex() are already precise — no extra check
         } else if (t.designation !== type) continue;
         const d = dist3(x, y, z, dx, dy, dz);
-        if (d >= bestD) continue;
-        best = { type, x, y, z }; bestD = d;
+        if (priority < bestPriority || (priority === bestPriority && d >= bestD)) continue;
+        best = { type, x, y, z }; bestD = d; bestPriority = priority;
       }
     }
     if (!best) return false;
@@ -366,11 +411,26 @@ class JobManager {
     const job = new Job(best.type, best.x, best.y, best.z);
     if (best.type === "build") {
       job.buildKind = t.buildKind || "wall";
-      const matKind = this.buildMaterialKind(t);
-      const mat = this.findAnyItem(matKind, dx, dy, dz, this.buildMaterialSub(t));
-      mat.hauled = true; job.item = mat; job.phase = "toMat";
+      const materials = [];
+      for (const cost of this.buildCost(t)) {
+        const item = this.findAnyItem(cost.kind, dx, dy, dz, cost.sub);
+        if (!item) {
+          for (const claimed of materials) claimed.hauled = false;
+          t.reserved = false;
+          return false;
+        }
+        item.hauled = true; materials.push(item);
+      }
+      const mat = materials.shift();
+      job.extraMaterials = materials;
+      job.item = mat; job.phase = "toMat";
       const p2 = pathAdjacent(g.world, dx, dy, dz, mat.x, mat.y, mat.z) || pathTo(g.world, dx, dy, dz, mat.x, mat.y, mat.z);
-      if (!p2) { t.reserved = false; mat.hauled = false; return false; }
+      if (!p2) {
+        t.reserved = false;
+        mat.hauled = false;
+        for (const item of job.extraMaterials) item.hauled = false;
+        return false;
+      }
       const matLabel = (MATERIALS[t.buildMaterial] || MATERIALS.stone).name;
       dwarf.setPath(p2); dwarf.thought = `Fetching ${matLabel.toLowerCase()} to build`;
     } else {
@@ -869,6 +929,7 @@ class JobManager {
         t.kind = K.FLOOR; t.ore = null; t.feature = F.NONE;
         this.spawnItem(ITEM.STONE, job.x, job.y, null, job.z);
         if (ore) this.spawnOreOrMarble(ore, job.x, job.y, job.z);
+        g.discoverArtifact(dwarf);
         g.stats.mined++;
         g.log(`${dwarf.name} mined out stone${ore ? " and struck " + ore + "!" : "."}`, ore ? "good" : "", "labor");
         g.awardXp(dwarf, "mining", 12); g.awardXp(dwarf, "fitness", 2);
@@ -943,6 +1004,7 @@ class JobManager {
     } else if (job.type === "build" && t) {
       t.reserved = false; t.buildJob = false;
       if (dwarf.carrying) { this.consumeItem(dwarf.carrying); dwarf.carrying = null; }
+      for (const item of job.extraMaterials || []) this.consumeItem(item);
       const kind = job.buildKind || "wall";
       const matName = (MATERIALS[t.buildMaterial] || MATERIALS.stone).name.toLowerCase();
       g.stats.built++;
@@ -951,7 +1013,7 @@ class JobManager {
       else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} double bed.`, "good", "build"); }
       else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} table.`, "good", "build"); }
       else if (kind === "painting") { t.furniture = FURN.PAINTING; g.rebuildZones(); g.log(`${dwarf.name} hung a painting in a ${matName} frame.`, "good", "build"); }
-      else if (kind === "smelter" || kind === "forge" || kind === "well" || kind === "brewery") {
+      else if (["smelter", "forge", "well", "brewery", "crafting", "weapons", "clothing", "electronics"].includes(kind)) {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");
       }
@@ -991,6 +1053,7 @@ class JobManager {
       const rec = this.currentRecipe(t);
       if (rec && this.consumeInputs(rec)) {
         this.spawnItem(rec.out.kind, job.x, job.y, rec.out.sub, job.z);
+        t.workshopProduced = (t.workshopProduced || 0) + 1;
         g.stats.crafted++;
         g.awardXp(dwarf, "smithing", 12);
         dwarf.mood = clamp(dwarf.mood + 2, 0, 100);
@@ -1107,7 +1170,7 @@ class JobManager {
       dwarf.thought = "Sparring in the barracks";
     } else if (job.type === "socialize") {
       g.awardXp(dwarf, "charisma", 8);
-      dwarf.mood = clamp(dwarf.mood + 3, 0, 100);
+      dwarf.mood = clamp(dwarf.mood + (dwarf.traits.includes("kindred") ? 5 : 3), 0, 100);
       dwarf.thought = "Traded tales with friends";
     }
 
@@ -1195,6 +1258,7 @@ class JobManager {
       const t = (job.type === "doctor" || job.type === "tame" || job.type === "checkup" || isBedJob) ? null : this.game.world.get(job.x, job.y, job.z);
       if (t && !completed) t.reserved = false;
       if (!completed && job.item) job.item.hauled = false;
+      if (!completed) for (const item of job.extraMaterials || []) item.hauled = false;
       if (!completed && job.type === "doctor" && job.patient) job.patient.beingTreated = false;
       if (!completed && job.type === "checkup" && job.suspect) job.suspect.beingInspected = false;
       if (!completed && job.type === "tame" && job.animal) job.animal.reserved = false;

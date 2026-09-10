@@ -13,12 +13,27 @@ const ITEM = {
   ALE: "ale",       // brewed from water + food; quenches thirst better
   WINE: "wine",     // brewed from food + food; less thirst-quenching, more mood, more elven
   MARBLE: "marble", // a rare vein found while mining; used directly as a building material, no smelting
+  COMPONENT: "component",
+  CLOTH: "cloth",
+  CIRCUIT: "circuit",
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
   water: "Water", ale: "Ale", wine: "Wine", marble: "Marble",
+  component: "Crafting component", cloth: "Cloth", circuit: "Circuit",
 };
+
+// Unique Elven relics discovered in deep stone. They remain with the pawn who
+// finds them and their bonuses are read live by skill/combat calculations.
+const ARTIFACTS = [
+  { id: "leaf_crown", name: "Crown of First Leaves", icon: "🍃", lore: "Woven by the first greenwarden, it remembers every living root beneath the empire.", bonuses: { intelligence: 2, mood: 4 } },
+  { id: "moon_shard", name: "Moon-Silver Shard", icon: "🌙", lore: "A splinter of the fallen moon, cold to the touch and bright in the dark.", bonuses: { mining: 2, toughness: 1 } },
+  { id: "star_lens", name: "Starweaver Lens", icon: "🔭", lore: "The old astronomers used it to read paths through storms and unopened skies.", bonuses: { intelligence: 3, fitness: 1 } },
+  { id: "thorn_heart", name: "Heart of the Thorn King", icon: "🌿", lore: "A black seed that beats once whenever danger crosses the forest border.", bonuses: { fighting: 2, toughness: 2 } },
+  { id: "dawn_stone", name: "Dawnstone", icon: "🔆", lore: "Its first light was carried from the eastern gate at the founding of the empire.", bonuses: { mood: 8, fitness: 2 } },
+];
+const ARTIFACT_BY_ID = Object.fromEntries(ARTIFACTS.map(artifact => [artifact.id, artifact]));
 
 // Build materials for walls/floors/doors/furniture: which item (kind[+sub])
 // each one consumes, its Build-menu icon/name, and — matching the existing
@@ -52,7 +67,7 @@ const STOCKPILE_CATEGORY_OF = {
   ore: "ore", bar: "ore",
   food: "food",
   water: "drink", ale: "drink", wine: "drink",
-  weapon: "arms", armor: "arms",
+  weapon: "arms", armor: "arms", component: "building", cloth: "building", circuit: "ore",
 };
 
 class Item {
@@ -80,6 +95,20 @@ const LABORS = [
   { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
   { id: "taming",      job: "tame",   name: "Taming",      icon: "🐾" },
 ];
+const TRAITS = {
+  diligent: { name: "Diligent", icon: "⚒️", desc: "Works 12% faster.", workSpeed: 0.12 },
+  lorekeeper: { name: "Lorekeeper", icon: "📚", desc: "Generates 20% more research.", research: 0.2 },
+  warbound: { name: "Warbound", icon: "⚔️", desc: "Deals 15% more combat damage.", attack: 0.15 },
+  stalwart: { name: "Stalwart", icon: "🛡️", desc: "Takes 12% less damage.", defense: 0.12 },
+  kindred: { name: "Kindred", icon: "💬", desc: "Social moments improve mood more strongly.", mood: 4 },
+  greenwarden: { name: "Greenwarden", icon: "🌲", desc: "Forest and farming work 15% faster.", nature: 0.15 },
+};
+function rollTraits(rng) {
+  const ids = Object.keys(TRAITS);
+  const traits = [];
+  while (traits.length < 2 && ids.length) traits.push(ids.splice(Math.floor(rng() * ids.length), 1)[0]);
+  return traits;
+}
 const JOB_LABOR = { dig: "mining", chop: "woodcutting", gather: "farming", build: "building", craft: "crafting", haul: "hauling", plant: "farming", harvest: "farming", doctor: "medicine", forest: "foresting", stairsdown: "mining", rampdown: "mining", drain: "mining", tame: "taming" };
 
 // Schedule activities per shift.
@@ -135,6 +164,8 @@ class Dwarf {
 
     // ---- labor & schedule ----
     this.labors = new Set(LABORS.map(l => l.id)); // all enabled by default
+    this.laborPriority = Object.fromEntries(LABORS.map(l => [l.id, 3])); // 0 off, 1 low, 2 normal, 3 high
+    this.traits = [];
     this.schedule = { day: "work", night: "sleep" };
     this.activity = "work";  // resolved from schedule + shift
     this.bed = null;         // {x,y} of an assigned bed while sleeping
@@ -150,6 +181,7 @@ class Dwarf {
     this.military = false;   // enlisted soldier?
     this.weapon = null;      // equipped weapon sub (sword/axe)
     this.armor = null;       // equipped armor sub (shield/mail)
+    this.inventory = [];     // persistent carried relics and other personal items
     this.attackCd = 0;       // swing cooldown
     this.combatRepath = 0;   // throttle for chasing/fleeing pathing
     this.fleeing = false;
@@ -171,18 +203,31 @@ class Dwarf {
     this.beingInspected = false; // a doctor is currently examining them (claim flag, mirrors beingTreated)
   }
 
-  skillLevel(id) { return this.skills[id] ? this.skills[id].level : 0; }
+  artifactBonus(stat) {
+    return (this.inventory || []).reduce((total, item) => total + ((ARTIFACT_BY_ID[item.id]?.bonuses || {})[stat] || 0), 0);
+  }
+  traitBonus(stat) {
+    return (this.traits || []).reduce((total, id) => total + (TRAITS[id]?.[stat] || 0), 0);
+  }
+  skillLevel(id) { return (this.skills[id] ? this.skills[id].level : 0) + this.artifactBonus(id); }
   // Higher skill => faster work (multiplier applied to divide work time).
-  workSpeedMult(skillId) { return 1 + this.skillLevel(skillId) * 0.05; }
+  workSpeedMult(skillId) {
+    const nature = ["farming", "foresting"].includes(skillId) ? this.traitBonus("nature") : 0;
+    return (1 + this.skillLevel(skillId) * 0.05 + nature) * (1 + this.traitBonus("workSpeed"));
+  }
   moveSpeedMult() { return 1 + this.skillLevel("fitness") * 0.03; }
 
   // Damage this dwarf deals per swing (weapon + fighting skill).
-  attackDamage() { return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? 1.9 : 1); }
+  attackDamage() {
+    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8 };
+    return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? (weaponMult[this.weapon] || 1.9) : 1) * (1 + this.traitBonus("attack"));
+  }
   // Incoming damage after armor, skill-based dodge, and Toughness (raw resilience).
   damageTaken(raw) {
     const dodge = 1 - Math.min(0.5, this.skillLevel("fighting") * 0.02);
     const tough = 1 - Math.min(0.4, this.skillLevel("toughness") * 0.02);
-    return raw * (this.armor ? 0.5 : 1) * dodge * tough;
+    const armorMult = { cloak: 0.8, shield: 0.5, mail: 0.5, reinforced_mail: 0.35 };
+    return raw * (this.armor ? (armorMult[this.armor] || 0.5) : 1) * dodge * tough * (1 - this.traitBonus("defense"));
   }
 
   get tileX() { return Math.round(this.x); }

@@ -43,12 +43,12 @@ const FURN_INFO = {
 const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade", QUARANTINE: "quarantine" };
 
 // Workshops that can be built on a tile.
-const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery" };
+const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery", CRAFTING: "crafting", WEAPONS: "weapons", CLOTHING: "clothing", ELECTRONICS: "electronics" };
 
 // What a queued construction will produce.
 const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting", CONDUIT: "conduit", GENERATOR: "generator", ICEBOX: "icebox" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", door: "wood", well: "stone", brewery: "stone", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood", palisade: "wood", watchtower: "stone", trap: "wood" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", well: "stone", brewery: "stone", crafting: "wood", weapons: "stone", clothing: "wood", electronics: "metal", door: "wood", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood", palisade: "wood", watchtower: "stone", trap: "wood" };
 
 class Tile {
   constructor(kind) {
@@ -70,6 +70,8 @@ class Tile {
     this.bedOccupants = [];   // dbIds currently sleeping here (beds only; >1 only for a double bed)
     this.workshop = WORKSHOP.NONE; // 'smelter' | 'forge'
     this.workshopRecipe = 0;  // selected recipe index for this workshop
+    this.workshopTarget = 0;  // 0 = repeat forever, otherwise stop after this many outputs
+    this.workshopProduced = 0;
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
     this.doorLocked = false;  // built === DOOR: barred against raiders
@@ -181,6 +183,7 @@ class World {
         t.item = a[10] ? (itemsById.get(a[10]) || null) : null;
         t.zone = a[11] || null; t.furniture = a[12] || null;
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
+        t.workshopTarget = a[23] || 0; t.workshopProduced = a[24] || 0;
         t.doorLocked = !!a[15];
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
         t.stockpileFilter = a[17] || null;

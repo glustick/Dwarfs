@@ -7,6 +7,7 @@ class App {
     this.overlay = document.getElementById("overlay");
     this.inGame = false;     // a game is active (vs. sitting on the main menu)
     this.panel = "main";     // main | pause | save | load
+    this.updateInfo = null;
     window.appMenuOpen = true;
 
     document.getElementById("menu-btn").addEventListener("click", () => {
@@ -101,6 +102,7 @@ class App {
             <span class="mi">📂</span><span>Load Game ${saves.length ? `<span style="color:#9c8a64">(${saves.length})</span>` : ""}</span>
           </button>
         </div>
+        <div id="update-status" class="menu-update" aria-live="polite"></div>
         <div class="menu-version">v${RELEASE_VERSION} · build ${BUILD_NUMBER}</div>
       </div>`, "main");
 
@@ -110,6 +112,50 @@ class App {
     // save from a file lives, e.g. carrying a save over to a freshly hosted
     // copy of the game (a new origin means fresh, empty localStorage).
     document.getElementById("mm-load").onclick = () => this.openLoadDialog();
+    this.checkForUpdates();
+  }
+
+  checkForUpdates() {
+    const status = document.getElementById("update-status");
+    if (!status || this.updateInfo) {
+      if (status && this.updateInfo) this.renderUpdateStatus(status);
+      return;
+    }
+    status.textContent = "Checking for updates...";
+    fetch("https://api.github.com/repos/glustick/Dwarfs/releases/latest", {
+      headers: { Accept: "application/vnd.github+json" },
+    }).then(response => {
+      if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
+      return response.json();
+    }).then(release => {
+      const remote = String(release.tag_name || "").replace(/^v/, "");
+      const currentParts = RELEASE_VERSION.split(".").map(Number);
+      const remoteParts = remote.split(".").map(Number);
+      let comparison = 0;
+      if (remoteParts.length === 3 && remoteParts.every(Number.isFinite)) {
+        for (let i = 0; i < 3 && comparison === 0; i++) {
+          if (remoteParts[i] !== (currentParts[i] || 0)) comparison = remoteParts[i] > (currentParts[i] || 0) ? 1 : -1;
+        }
+      }
+      const newer = comparison > 0;
+      this.updateInfo = { available: newer, latest: remote, url: release.html_url || "" };
+      const currentStatus = document.getElementById("update-status");
+      if (currentStatus) this.renderUpdateStatus(currentStatus);
+    }).catch(() => {
+      this.updateInfo = { unavailable: true };
+      const currentStatus = document.getElementById("update-status");
+      if (currentStatus) this.renderUpdateStatus(currentStatus);
+    });
+  }
+
+  renderUpdateStatus(status) {
+    status.innerHTML = "";
+    if (this.updateInfo.unavailable) return;
+    if (!this.updateInfo.available) {
+      status.textContent = "You are up to date";
+      return;
+    }
+    status.innerHTML = `Update available: <a href="${this.updateInfo.url}" target="_blank" rel="noopener">v${this.updateInfo.latest}</a>`;
   }
 
   // ---- PAUSE / IN-GAME MENU ----

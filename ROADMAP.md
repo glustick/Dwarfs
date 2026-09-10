@@ -164,18 +164,16 @@ colonists, and resets after a cooldown).
       more, and elves prefer it when available.
 - [x] ~~Elf sprites with pointed ears~~ — pointed ears added, the
       dwarvish beard removed.
-- [ ] **True per-item material choice** — today material is a separate
-      mode picker (Wood/Stone/Marble/Metal in the Build fly-out) applied to
-      whatever build tool is clicked next. Replace with combined choices
-      (e.g. distinct "Wooden Door"/"Metal Door"/"Marble Door" entries) so
-      material is picked as part of choosing the item, not a prior,
-      separate step — a UX rework of the picker added in the build-
-      materials round, not new mechanics.
-- [ ] **Skills visible from the Schedule tab** — show each elf's skill
+- [x] ~~True per-item material choice~~ — the Build fly-out now makes material
+      selection an explicit first step, followed by choosing the wall, floor,
+      furniture, door, or palisade to place. The selected material is visibly
+      highlighted and applied to the next designation; existing tile material,
+      job, save, and refund mechanics are unchanged.
+- [x] ~~Skills visible from the Schedule tab~~ — each elf's skill
       grid inline in the Schedule/labor panel (or a merged panel) so
       assigning labors and reviewing skills don't need flipping between
       the Colony and Schedule tabs.
-- [ ] **Check for updates on launch** — on the main menu, compare the
+- [x] ~~Check for updates on launch~~ — on the main menu, compare the
       running `RELEASE_VERSION`/`BUILD_NUMBER` (`js/version.js`) against
       the latest release on `glustick/Dwarfs` via the GitHub API, and show
       an "update available" banner/link if the local copy is behind. Note
@@ -186,10 +184,32 @@ colonists, and resets after a cooldown).
       new version (`git pull`, re-download the release zip, or refresh a
       hosted deployment), not an automatic in-place patch.
 
+- [x] ~~Undo map actions~~ — the last designation, build, zone, or erase
+      action can be reversed with the ↶ button or Cmd/Ctrl+Z.
+
+- [x] ~~Progressive workbenches and weapons~~ — Crafting Basics unlocks a
+      Crafting Bench, Weaponsmithing unlocks a Weapons Bench with wooden,
+      stone, and metal arms, Tailoring unlocks a Clothing Bench, and Electronics
+      unlocks a dedicated Electronics Bench with circuits and laser blades.
+      Higher-tier benches require larger multi-material construction bills.
+
+- [x] ~~Blueprint copy/paste~~ — drag a rectangle with Copy, then place the
+      copied structure and zone layout with Paste; pasted structures become
+      fresh construction jobs and still consume their normal materials.
+
+- [x] ~~Work priorities and production bills~~ — Schedule labor chips cycle
+      through off/low/normal/high priority, and workshop inspectors support
+      finite output targets or repeat-forever production.
+
+- [x] ~~Pawn traits~~ — each new or migrating pawn receives two persistent
+      traits such as Diligent, Lorekeeper, Warbound, Stalwart, Kindred, or
+      Greenwarden; traits affect existing work, research, combat, mood, and
+      nature systems and are shown in the inspector.
+
 ---
 
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-  shipped.** What's left is the player-requested backlog above, plus
-  smaller quality-of-life ideas (undo-designation, blueprint copy/paste)
-  as they come up.
+      shipped.** The player-requested backlog and current quality-of-life
+      enhancement round are complete; future work can focus on deeper systems
+      such as ranged tactics, factions, room quality, and storyteller events.
