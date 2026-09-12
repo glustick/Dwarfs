@@ -29,13 +29,26 @@ const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs", RAMP: "ramp" };
 
 // Furniture placed on a tile.
-const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox", WATCHTOWER: "watchtower", TRAP: "trap" };
+const FURN = { NONE: null, BED: "bed", TABLE: "table", DOUBLE_BED: "doublebed", PAINTING: "painting", GENERATOR: "generator", ICEBOX: "icebox", WATCHTOWER: "watchtower", TRAP: "trap", TORCH: "torch", LANTERN: "lantern", LAMP: "lamp" };
 // Display info for furniture that isn't self-explanatory in the inspector.
 const FURN_INFO = {
   generator: { name: "Essence Well", icon: "🔮" },
   icebox: { name: "Frost Chamber", icon: "❄️" },
   watchtower: { name: "Watchtower", icon: "🗼" },
   trap: { name: "Trap", icon: "⚠️" },
+  torch: { name: "Torch", icon: "🔥" },
+  lantern: { name: "Elven Lantern", icon: "🏮" },
+  lamp: { name: "Aether Lamp", icon: "💠" },
+};
+
+// Light sources: radius in tiles (spread respects walls/doors via the same
+// line-of-sight rule ranged combat uses). The Aether Lamp only shines while
+// its conduit network carries power from an Essence Well.
+const LIGHTS = {
+  torch:     { radius: 4.5, color: "255,180,80" },
+  lantern:   { radius: 6.5, color: "255,200,110" },
+  lamp:      { radius: 8,   color: "120,220,255", needsPower: true },
+  generator: { radius: 5,   color: "180,140,255" },
 };
 
 // Zones a tile can belong to (in addition to stockpile).
@@ -48,7 +61,7 @@ const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well",
 // What a queued construction will produce.
 const BUILD = { WALL: "wall", FLOOR: "floor", BED: "bed", TABLE: "table", SMELTER: "smelter", FORGE: "forge", DOOR: "door", WELL: "well", BREWERY: "brewery", DOUBLE_BED: "doublebed", PAINTING: "painting", CONDUIT: "conduit", GENERATOR: "generator", ICEBOX: "icebox" };
 // Material each construction consumes.
-const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", well: "stone", brewery: "stone", crafting: "wood", weapons: "stone", clothing: "wood", electronics: "metal", door: "wood", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood", palisade: "wood", watchtower: "stone", trap: "wood" };
+const BUILD_MATERIAL = { wall: "stone", floor: "stone", bed: "wood", table: "wood", smelter: "stone", forge: "stone", well: "stone", brewery: "stone", crafting: "wood", weapons: "stone", clothing: "wood", electronics: "metal", door: "wood", doublebed: "wood", painting: "wood", conduit: "stone", generator: "stone", icebox: "wood", palisade: "wood", watchtower: "stone", trap: "wood", torch: "wood", lantern: "wood", lamp: "metal" };
 
 class Tile {
   constructor(kind) {

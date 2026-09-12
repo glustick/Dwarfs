@@ -111,6 +111,12 @@
           <button class="tool" data-tool="doublebed" title="Double bed — partners can share it"><span class="ico">💞</span><span class="lbl">Double Bed</span></button>
           <button class="tool" data-tool="table" title="Table — needs Fine Furniture" style="display:none"><span class="ico">🪑</span><span class="lbl">Table</span></button>
           <button class="tool" data-tool="painting" title="Painting — lifts mood for elves in the same zone"><span class="ico">🖼️</span><span class="lbl">Painting</span></button>
+          <div class="fly-sub">Lighting</div>
+          <div class="fly-tools">
+            <button class="tool" data-tool="torch" title="Torch — pushes back the dark for 4.5 tiles; enclosed rooms and mines are pitch black without light"><span class="ico">🔥</span><span class="lbl">Torch</span></button>
+            <button class="tool" data-tool="lantern" title="Elven Lantern — brighter and wider than a torch · needs Fine Furniture" style="display:none"><span class="ico">🏮</span><span class="lbl">Lantern</span></button>
+            <button class="tool" data-tool="lamp" title="Aether Lamp — the widest light, while an Essence Well powers its conduit network · needs Essence Craft" style="display:none"><span class="ico">💠</span><span class="lbl">Aether Lamp</span></button>
+          </div>
         </div>
         <div class="fly-sub">Workshops</div>
         <div class="fly-tools">
@@ -154,6 +160,9 @@
 
     <!-- Toast messages -->
     <div id="toast"></div>
+
+    <!-- Pending-build hover tooltip (near the cursor) -->
+    <div id="hover-tip"></div>
 
     <!-- Tutorial walkthrough -->
     <div id="tutorial-card" class="hidden"></div>

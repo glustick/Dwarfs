@@ -6,6 +6,7 @@ const TOOL_CAT = {
   build: "build", floor: "build", bed: "build", smelter: "build", forge: "build", door: "build", well: "build", brewery: "build", crafting: "build", weapons: "build", clothing: "build", electronics: "build",
   copy: "utility", paste: "utility",
   doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
+  torch: "build", lantern: "build", lamp: "build",
   palisade: "build", watchtower: "build", trap: "build",
   stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
 };
@@ -148,6 +149,53 @@ class Input {
     return { x: Math.floor(w.x), y: Math.floor(w.y) };
   }
 
+  // Hover a queued construction to see what it is and its full material bill,
+  // with live stockpile counts — including which material is holding the
+  // build up (builds only get claimed once every input exists).
+  updateHoverTip(ev, t) {
+    const tip = document.getElementById("hover-tip");
+    if (!tip) return;
+    const g = this.game;
+    const z = g.viewZ || 0;
+    const tile = g.world.inBounds(t.x, t.y, z) ? g.world.get(t.x, t.y, z) : null;
+    if (!tile || !tile.buildJob) { tip.style.display = "none"; return; }
+    const kind = tile.buildKind || "wall";
+    const kindNames = {
+      wall: "Wall", floor: "Floor", door: "Door", bed: "Bed", doublebed: "Double bed",
+      table: "Table", painting: "Painting", smelter: "Smelter", forge: "Forge",
+      crafting: "Crafting Bench", weapons: "Weapons Bench", clothing: "Clothing Bench",
+      electronics: "Electronics Bench", well: "Well", brewery: "Brewery",
+      conduit: "Arcane Conduit", generator: "Essence Well", icebox: "Frost Chamber",
+      palisade: "Palisade", watchtower: "Watchtower", trap: "Trap",
+      torch: "Torch", lantern: "Elven Lantern", lamp: "Aether Lamp",
+    };
+    const mat = tile.buildMaterial && MATERIALS[tile.buildMaterial];
+    const matPrefix = mat && ["wall", "floor", "door", "bed", "doublebed", "table", "painting"].includes(kind) ? mat.name + " " : "";
+    const costs = {};
+    for (const c of g.jobs.buildCost(tile)) {
+      const key = c.kind + (c.sub ? ":" + c.sub : "");
+      costs[key] = costs[key] || { kind: c.kind, sub: c.sub, need: 0 };
+      costs[key].need++;
+    }
+    let complete = true;
+    const rows = Object.values(costs).map(c => {
+      const have = g.countItems(c.kind, c.sub);
+      const label = ITEM_LABEL[c.kind] + (c.sub ? ` (${c.sub})` : "");
+      const ok = have >= c.need;
+      if (!ok) complete = false;
+      return `<div class="ht-row${ok ? "" : " miss"}">${ok ? "✔" : "✘"} ${label} ×${c.need}<span>${have} in stock</span></div>`;
+    });
+    tip.innerHTML = `<div class="ht-title">${matPrefix}${kindNames[kind] || kind}</div>${rows.join("")}
+      <div class="ht-note">${complete ? "A builder will collect these" : "Stalled — missing materials"}</div>`;
+    tip.style.display = "block";
+    const pad = 14;
+    let lx = ev.clientX + pad, ly = ev.clientY + pad;
+    if (lx + tip.offsetWidth > window.innerWidth - 8) lx = ev.clientX - tip.offsetWidth - pad;
+    if (ly + tip.offsetHeight > window.innerHeight - 8) ly = ev.clientY - tip.offsetHeight - pad;
+    tip.style.left = lx + "px";
+    tip.style.top = ly + "px";
+  }
+
   // If the click lands on the minimap, pan the camera there and report true
   // so the caller skips normal tile designation/selection for this click.
   clickMinimap(ev) {
@@ -285,6 +333,7 @@ class Input {
       }
       const t = this.tileAt(e);
       this.game.hoverTile = t;
+      this.updateHoverTip(e, t);
       if (this.dragStart) this.dragCur = t;
     });
 
@@ -299,6 +348,10 @@ class Input {
     };
     c.addEventListener("pointerup", endDrag);
     c.addEventListener("pointercancel", endDrag);
+    c.addEventListener("pointerleave", () => {
+      const tip = document.getElementById("hover-tip");
+      if (tip) tip.style.display = "none";
+    });
 
     // Zoom
     c.addEventListener("wheel", (e) => {
@@ -493,6 +546,11 @@ class Input {
           case "painting":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; t.buildMaterial = this.material; count++; }
             break;
+          case "torch":
+          case "lantern":
+          case "lamp":
+            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; t.buildMaterial = BUILD_MATERIAL[this.tool]; count++; }
+            break;
           case "smelter":
           case "forge":
           case "well":
@@ -593,6 +651,7 @@ class Input {
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", quarantine: "Quarantine zoned", erase: "Cleared",
         conduit: "Arcane conduits queued", generator: "Essence Well queued", icebox: "Frost Chamber queued",
         palisade: "Palisades queued", watchtower: "Watchtowers queued", trap: "Traps queued",
+        torch: "Torches queued", lantern: "Lanterns queued", lamp: "Aether lamps queued",
       }[this.tool];
       g.log(`${verb}: ${count} tile${count > 1 ? "s" : ""}.`, "", "order");
     }

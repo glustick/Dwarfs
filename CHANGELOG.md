@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.18.0 (build 45)
+Roofs, darkness & lighting round.
+
+- **Pending-build hover info**: hovering a queued construction now shows a
+  tooltip with what it is (e.g. "Marble Wall") and its complete material
+  bill with live stockpile counts — missing inputs are flagged with ✘ and
+  a "Stalled — missing materials" note, since builds are only claimed once
+  every input exists.
+- **Roofs & darkness**: the moment a room's walls and door fully connect,
+  a roof is implied and the interior goes dark — light can't get through.
+  Underground levels are dark by nature. Working in the gloom is 20%
+  slower and slowly sours mood; sleeping is unaffected.
+- **Lighting ladder**: the 🔥 Torch (1 wood, no tech) pushes back the dark
+  for 4.5 tiles; the 🏮 Elven Lantern (Fine Furniture) reaches 6.5; the 💠
+  Aether Lamp (Essence Craft) spans 8 tiles but only shines while an
+  Essence Well powers its conduit network. Light spreads with the same
+  line-of-sight rules as ranged combat — it does not pass walls, rock, or
+  doors. The Essence Well itself gives off a soft glow.
+
 ## v1.17.1 (build 44)
 
 - **Colony panel hide/show**: a 📋 button in the top bar (next to the colony

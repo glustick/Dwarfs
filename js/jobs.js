@@ -771,7 +771,10 @@ class JobManager {
         break;
       }
       case "work": {
-        dwarf.workTimer -= dt;
+        // fumbling in the dark: roofed/unlit work sites drain 20% slower —
+        // see computeLightAndRoof; torches and lamps restore full speed
+        const dark = g.isDark(dwarf.tileX, dwarf.tileY, dwarf.z);
+        dwarf.workTimer -= dt * (dark ? 0.8 : 1);
         if (dwarf.workTimer <= 0) this.finishWork(dwarf);
         break;
       }
@@ -1036,6 +1039,9 @@ class JobManager {
       else if (kind === "doublebed") { t.furniture = FURN.DOUBLE_BED; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} double bed.`, "good", "build"); }
       else if (kind === "table") { t.furniture = FURN.TABLE; g.rebuildZones(); g.log(`${dwarf.name} built a ${matName} table.`, "good", "build"); }
       else if (kind === "painting") { t.furniture = FURN.PAINTING; g.rebuildZones(); g.log(`${dwarf.name} hung a painting in a ${matName} frame.`, "good", "build"); }
+      else if (kind === "torch") { t.furniture = FURN.TORCH; g.rebuildZones(); g.log(`${dwarf.name} mounted a torch.`, "good", "build"); }
+      else if (kind === "lantern") { t.furniture = FURN.LANTERN; g.rebuildZones(); g.log(`${dwarf.name} raised an elven lantern.`, "good", "build"); }
+      else if (kind === "lamp") { t.furniture = FURN.LAMP; g.rebuildZones(); g.log(`${dwarf.name} installed an aether lamp.`, "good", "build"); }
       else if (["smelter", "forge", "well", "brewery", "crafting", "weapons", "clothing", "electronics"].includes(kind)) {
         t.workshop = kind; t.workshopRecipe = 0;
         g.log(`${dwarf.name} built a ${WORKSHOP_INFO[kind].name}.`, "good", "build");

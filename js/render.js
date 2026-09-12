@@ -167,6 +167,35 @@ class Renderer {
     // 6b) weather overlay (surface-only)
     this.drawWeather(ctx);
 
+    // 6c) roofs & light: enclosed (or underground) tiles sit in gloom unless
+    // a torch/lantern/lamp reaches them; sources punch a warm glow through
+    if (g.roofed && g.roofed.size) {
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (!g.roofed.has(`${x},${y},${viewZ}`)) continue;
+          const bright = g.lit.get(`${x},${y},${viewZ}`) || 0;
+          const a = (1 - bright) * 0.62;
+          if (a < 0.03) continue;
+          ctx.fillStyle = `rgba(8,6,18,${a.toFixed(3)})`;
+          ctx.fillRect(x * ts + ox, y * ts + oy, ts + 1, ts + 1);
+        }
+      }
+      const now = performance.now() / 1000;
+      for (const src of g.lightSources || []) {
+        if (src.z !== viewZ || !src.powered) continue;
+        if (src.x < x0 - 2 || src.x > x1 + 2 || src.y < y0 - 2 || src.y > y1 + 2) continue;
+        const info = LIGHTS[src.furn];
+        const flick = src.furn === "torch" ? 1 + Math.sin(now * 9 + src.x * 7 + src.y * 3) * 0.12 : 1;
+        const r = ts * 1.4 * flick;
+        const cx = (src.x + 0.5) * ts + ox, cy = (src.y + 0.5) * ts + oy;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        grad.addColorStop(0, `rgba(${info.color},0.45)`);
+        grad.addColorStop(1, `rgba(${info.color},0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+      }
+    }
+
     // 7) minimap overlay
     this.drawMinimap(ctx, x0, y0, x1, y1);
   }
@@ -593,6 +622,9 @@ class Renderer {
     else if (t.furniture === FURN.ICEBOX) this.drawIcebox(ctx, sx, sy, ts, t.powered);
     else if (t.furniture === FURN.WATCHTOWER) this.drawWatchtower(ctx, sx, sy, ts);
     else if (t.furniture === FURN.TRAP) this.drawTrap(ctx, sx, sy, ts, t.trapCooldown);
+    else if (t.furniture === FURN.TORCH) this.drawTorch(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.LANTERN) this.drawLantern(ctx, sx, sy, ts);
+    else if (t.furniture === FURN.LAMP) this.drawLamp(ctx, sx, sy, ts, t.powered);
   }
 
   // -- Essence Craft: power network furniture & wiring -----------------------
@@ -641,6 +673,48 @@ class Renderer {
     ctx.fillText("❄️", sx + ts * 0.5, sy + ts * 0.24);
     ctx.globalAlpha = 1;
     ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
+  }
+
+  // -- lighting ----------------------------------------------------------------
+  drawTorch(ctx, sx, sy, ts) {
+    const cx = sx + ts / 2, cy = sy + ts * 0.62;
+    ctx.fillStyle = "#6b4a26";
+    ctx.fillRect(cx - ts * 0.03, cy - ts * 0.06, ts * 0.06, ts * 0.24);
+    const now = performance.now() / 1000;
+    const f = Math.sin(now * 9 + sx * 0.13) * 0.5 + Math.sin(now * 13 + sy * 0.07) * 0.5;
+    const fw = ts * (0.07 + f * 0.012), fh = ts * (0.16 + f * 0.02);
+    ctx.fillStyle = "#ff9a3c";
+    ctx.beginPath(); ctx.ellipse(cx, cy - ts * 0.12, fw, fh, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "#ffd98a";
+    ctx.beginPath(); ctx.ellipse(cx, cy - ts * 0.09, fw * 0.5, fh * 0.5, 0, 0, 7); ctx.fill();
+  }
+
+  drawLantern(ctx, sx, sy, ts) {
+    const cx = sx + ts / 2, cy = sy + ts * 0.58;
+    ctx.strokeStyle = "#6b4a26"; ctx.lineWidth = Math.max(1, ts * 0.05);
+    ctx.beginPath(); ctx.moveTo(cx, cy + ts * 0.16); ctx.lineTo(cx, cy - ts * 0.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - ts * 0.2); ctx.lineTo(cx + ts * 0.15, cy - ts * 0.12); ctx.stroke();
+    ctx.fillStyle = "#4a3a22";
+    ctx.fillRect(cx + ts * 0.08, cy - ts * 0.12, ts * 0.14, ts * 0.18);
+    ctx.fillStyle = "#ffca6a";
+    ctx.fillRect(cx + ts * 0.105, cy - ts * 0.085, ts * 0.09, ts * 0.11);
+  }
+
+  drawLamp(ctx, sx, sy, ts, powered) {
+    const cx = sx + ts / 2, cy = sy + ts * 0.62;
+    ctx.fillStyle = "#5a636e";
+    ctx.fillRect(cx - ts * 0.1, cy + ts * 0.04, ts * 0.2, ts * 0.09);
+    ctx.fillStyle = powered ? "#7fd8ff" : "#44606e";
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - ts * 0.18);
+    ctx.lineTo(cx + ts * 0.09, cy - ts * 0.02);
+    ctx.lineTo(cx, cy + ts * 0.06);
+    ctx.lineTo(cx - ts * 0.09, cy - ts * 0.02);
+    ctx.closePath(); ctx.fill();
+    if (powered) {
+      ctx.fillStyle = "rgba(127,216,255,0.3)";
+      ctx.beginPath(); ctx.arc(cx, cy - ts * 0.05, ts * 0.17, 0, 7); ctx.fill();
+    }
   }
 
   // -- defensive structures --------------------------------------------------

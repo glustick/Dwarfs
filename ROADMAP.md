@@ -235,6 +235,12 @@ actual room instead of colony-wide counters).
       and sounds, and soldiers auto-upgrade to a strictly better spare
       weapon (returning the old one as an item) instead of needing
       micro-management.
+- [x] ~~Roofs, darkness & lighting~~ — walls+door enclosing a room imply a
+      roof and the interior goes dark (underground too); gloom slows work
+      20% and sours mood. Torch → Elven Lantern → powered Aether Lamp
+      light ladder with combat-style line of sight, plus a hover tooltip
+      showing any pending build's full material bill and what's stalling
+      it.
 - [ ] Factions — multiple neighbor groups with per-faction reputation,
       trade terms, and their own raid motivations beyond the zombie threat.
 - [ ] Storyteller events — a pacing/event-pool system that curates
@@ -246,5 +252,6 @@ actual room instead of colony-wide counters).
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
       shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
-      (v1.16.0), and the modern/futuristic weapon ladder (v1.17.0) shipped;
-      factions and storyteller events are the open directions.
+      (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), and roofs/
+      darkness/lighting (v1.18.0) shipped; factions and storyteller events
+      are the open directions.

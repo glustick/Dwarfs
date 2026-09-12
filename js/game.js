@@ -133,6 +133,9 @@ class Game {
     this.rooms = [];          // graded Bedroom/Dining rooms (see computeRooms)
     this.roomAt = new Map();  // "x,y,z" of each room tile -> its room object
     this.roomTimer = 5;       // walls/floors finishing also change quality — rescore periodically
+    this.roofed = new Set();  // "x,y,z" tiles under a roof (enclosed, or underground)
+    this.lit = new Map();     // "x,y,z" -> brightness 0..1 from light sources
+    this.lightSources = [];   // [{x,y,z,furn,powered}] for rendering glows
     this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.migrationTimer = DAY_LENGTH * 1.5;
@@ -540,9 +543,14 @@ class Game {
     }
 
     // room quality: zones trigger an immediate rescore via rebuildZones, but
-    // a wall or floor finishing construction also changes the score.
+    // a wall or floor finishing construction also changes the score. Roofs
+    // and light shift on the same events for the same reason.
     this.roomTimer -= dt;
-    if (this.roomTimer <= 0) { this.roomTimer = 5; this.computeRooms(); }
+    if (this.roomTimer <= 0) {
+      this.roomTimer = 5;
+      this.computeRooms();
+      this.computeLightAndRoof();
+    }
 
     // weather: rolls a new condition periodically, weighted by the season
     this.weatherTimer -= dt;
@@ -742,7 +750,7 @@ class Game {
   // Frost Chamber, which decayFood() reads to slow spoilage nearby.
   updateEssenceNetwork() {
     const w = this.world;
-    const isNode = (t) => t.conduit || t.furniture === FURN.GENERATOR || t.furniture === FURN.ICEBOX;
+    const isNode = (t) => t.conduit || t.furniture === FURN.GENERATOR || t.furniture === FURN.ICEBOX || t.furniture === FURN.LAMP;
     this.chilledTiles = new Set();
     for (let z = 0; z >= w.minZ; z--) {
       const tiles = w.getLevel(z);
@@ -932,6 +940,13 @@ class Game {
         this.log(`${d.name} has been cured of the vampiric curse!`, "good", "colony");
         this.milestoneFlags.vampireCured = true;
       }
+    }
+
+    // a roofed, unlit workspace is gloomy — torches and lanterns keep both
+    // the work and the spirits moving (work-speed effect lives in jobs.js)
+    if (d.state === "work" && this.isDark(d.tileX, d.tileY, d.z)) {
+      d.mood = clamp(d.mood - dt * 0.08, 0, 100);
+      d.thought = "Working in the gloom";
     }
 
     // overall happiness gauge (health + mood + satisfied needs)
@@ -1851,6 +1866,106 @@ class Game {
         }
     }
     this.computeRooms();
+    this.computeLightAndRoof();
+  }
+
+  // ---- roofs, darkness & lighting ----
+  // A surface tile is "roofed" the moment it can no longer reach the map edge
+  // without crossing a wall, door, or solid rock — connect a room's walls and
+  // a roof is implied, and it goes dark inside. Underground levels are roofed
+  // by the rock itself. Light spreads from torches/lanterns/lamps (LIGHTS)
+  // with the same line-of-sight rule ranged combat uses, so a lit room needs
+  // a source inside it, not just outside a window.
+  computeLightAndRoof() {
+    const w = this.world;
+    this.updateEssenceNetwork(); // lamp powered flags must be fresh
+    this.roofed = new Set();
+    this.lit = new Map();
+    const sealing = (t) => t.built === B.WALL || t.built === B.DOOR || t.kind === K.STONE;
+
+    // Surface: flood-fill open sky in from the map edge; whatever it can't
+    // reach (and isn't itself a wall/door/rock) sits under a roof.
+    const level = w.getLevel(0);
+    const reached = new Uint8Array(w.w * w.h);
+    const stack = [];
+    const seed = (x, y) => {
+      if (x < 0 || y < 0 || x >= w.w || y >= w.h) return;
+      const k = y * w.w + x;
+      if (reached[k] || sealing(level[y][x])) return;
+      reached[k] = 1;
+      stack.push([x, y]);
+    };
+    for (let x = 0; x < w.w; x++) { seed(x, 0); seed(x, w.h - 1); }
+    for (let y = 0; y < w.h; y++) { seed(0, y); seed(w.w - 1, y); }
+    while (stack.length) {
+      const [cx, cy] = stack.pop();
+      for (const [dx, dy] of NEIGHBORS4) seed(cx + dx, cy + dy);
+    }
+    const prevRoofed0 = this._roofedCount0 || 0;
+    let roofedCount0 = 0;
+    for (let y = 0; y < w.h; y++) {
+      for (let x = 0; x < w.w; x++) {
+        if (!reached[y * w.w + x] && !sealing(level[y][x])) {
+          this.roofed.add(`${x},${y},0`);
+          roofedCount0++;
+        }
+      }
+    }
+    // Everything underground is under the mountain.
+    for (let z = -1; z >= w.minZ; z--) {
+      const tiles = w.getLevel(z);
+      if (!tiles) continue;
+      for (let y = 0; y < w.h; y++)
+        for (let x = 0; x < w.w; x++)
+          if (!sealing(tiles[y][x])) this.roofed.add(`${x},${y},${z}`);
+    }
+    // Announce newly enclosed surface rooms (throttled).
+    const now = this.time;
+    if (roofedCount0 > prevRoofed0 && roofedCount0 > 0 && now - (this._lastRoofLog || -999) > 10) {
+      this.log("A roof settles over the enclosed room — it is dark inside without light.", "", "build");
+      this._lastRoofLog = now;
+    }
+    this._roofedCount0 = roofedCount0;
+
+    // Spread light from every source with LOS; brightness 1 at the source,
+    // fading to ~0.15 at the radius edge.
+    this.lightSources = [];
+    for (let z = 0; z >= w.minZ; z--) {
+      const tiles = w.getLevel(z);
+      if (!tiles) continue;
+      for (let y = 0; y < w.h; y++) {
+        for (let x = 0; x < w.w; x++) {
+          const t = tiles[y][x];
+          const info = t.furniture && LIGHTS[t.furniture];
+          if (!info) continue;
+          const powered = !info.needsPower || t.powered;
+          this.lightSources.push({ x, y, z, furn: t.furniture, powered });
+          if (!powered) continue;
+          const R = Math.ceil(info.radius);
+          for (let dy = -R; dy <= R; dy++) {
+            for (let dx = -R; dx <= R; dx++) {
+              const tx = x + dx, ty = y + dy;
+              if (tx < 0 || ty < 0 || tx >= w.w || ty >= w.h) continue;
+              const d = Math.hypot(dx, dy);
+              if (d > info.radius) continue;
+              if (dx || dy) {
+                if (!this.hasLOS(x, y, z, tx, ty)) continue;
+              }
+              const key = `${tx},${ty},${z}`;
+              const b = 1 - 0.85 * (d / info.radius);
+              if (b > (this.lit.get(key) || 0)) this.lit.set(key, b);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // True when the tile sits in darkness — roofed over (or underground) and
+  // too far from any light source. Surface tiles in the open are daylit.
+  isDark(x, y, z = 0) {
+    const key = `${x},${y},${z}`;
+    return this.roofed.has(key) && (this.lit.get(key) || 0) < 0.25;
   }
 
   // ---- room quality ----
@@ -1990,9 +2105,9 @@ class Game {
     if (arrived) this.log(`${arrived} migrant${arrived > 1 ? "s have" : " has"} arrived seeking work.`, "good", "colony");
   }
 
-  countItems(kind) {
+  countItems(kind, sub = null) {
     let n = 0;
-    for (const it of this.items) if (it.kind === kind) n++;
+    for (const it of this.items) if (it.kind === kind && (sub === null || it.sub === sub)) n++;
     return n;
   }
 
@@ -2422,12 +2537,19 @@ class Game {
       if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
-      if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX || tile.furniture === FURN.WATCHTOWER || tile.furniture === FURN.TRAP) {
+      if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX || tile.furniture === FURN.WATCHTOWER || tile.furniture === FURN.TRAP || tile.furniture === FURN.TORCH || tile.furniture === FURN.LANTERN || tile.furniture === FURN.LAMP) {
         const info = FURN_INFO[tile.furniture];
         parts.push(`Furniture: <span class="tag">${info.icon} ${info.name}</span>`);
         if (tile.furniture === FURN.ICEBOX) {
           parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
           if (tile.powered) parts.push(`<div class="mini">Slows spoilage for food within ${ESSENCE_CHILL_RADIUS} tiles.</div>`);
+        } else if (tile.furniture === FURN.LAMP) {
+          parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
+          parts.push(`<div class="mini">Brightens ${LIGHTS.lamp.radius} tiles while an Essence Well powers its conduit network.</div>`);
+        } else if (tile.furniture === FURN.TORCH) {
+          parts.push(`<div class="mini">Pushes back the dark for ${LIGHTS.torch.radius} tiles.</div>`);
+        } else if (tile.furniture === FURN.LANTERN) {
+          parts.push(`<div class="mini">A steadier, wider light — ${LIGHTS.lantern.radius} tiles.</div>`);
         } else if (tile.furniture === FURN.WATCHTOWER) {
           parts.push(`<div class="mini">A soldier fighting from here deals ${Math.round((WATCHTOWER_ATK_MULT - 1) * 100)}% more damage, takes ${Math.round((1 - WATCHTOWER_DEF_MULT) * 100)}% less, and shoots 2 tiles farther.</div>`);
         } else if (tile.furniture === FURN.TRAP) {
