@@ -366,8 +366,9 @@ class Input {
   // The Inspect tool's pointer-up handler: a plain click either selects a
   // single dwarf/animal/tile (as before) or, if a squad of soldiers is
   // already selected and the click lands on empty ground, issues them a
-  // manual move order instead. A real drag box-selects every soldier inside
-  // it (manual military control only — civilians stay fully automatic).
+  // manual move order instead. A real drag box-selects every elf inside
+  // it — soldiers and civilians alike — so labors can be assigned to the
+  // whole group at once from the inspector.
   handleSelectDrag(a, b, ev) {
     const g = this.game;
     const isClick = a.x === b.x && a.y === b.y;
@@ -376,10 +377,10 @@ class Input {
       const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x) + 1;
       const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y) + 1;
       const z = g.viewZ || 0;
-      const squad = g.dwarves.filter(d => d.military && (d.z || 0) === z
+      const group = g.dwarves.filter(d => (d.z || 0) === z
         && d.x >= minX - 1 && d.x < maxX && d.y >= minY - 1 && d.y < maxY);
-      g.selectedSquad = squad;
-      g.selectedDwarf = squad.length === 1 ? squad[0] : null;
+      g.selectedSquad = group;
+      g.selectedDwarf = group.length === 1 ? group[0] : null;
       g.selectedAnimal = null; g.selectedTile = null;
       g.updatePanel();
       return;
@@ -392,7 +393,10 @@ class Input {
         const dd = Math.hypot(d.x + 0.5 - (a.x + 0.5), d.y + 0.5 - (a.y + 0.5));
         if (dd < bd) { bd = dd; clickedDwarf = d; }
       }
-      if (!clickedDwarf && g.world.isWalkable(a.x, a.y, g.viewZ || 0)) {
+      // Move orders stay manual-military-only: a mixed or civilian group
+      // never receives them, so civilians keep running on automatic AI.
+      const allMilitary = g.selectedSquad.every(d => d.military);
+      if (allMilitary && !clickedDwarf && g.world.isWalkable(a.x, a.y, g.viewZ || 0)) {
         this.issueMoveOrder(g.selectedSquad, a.x, a.y, g.viewZ || 0);
         return;
       }

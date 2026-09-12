@@ -4,6 +4,14 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.14.1 (build 40)
+
+- **Group selection**: dragging a box with the Inspect tool now selects every
+  elf inside it — civilians too, not just soldiers. The inspector shows the
+  group with labor priority chips that apply to all selected elves at once,
+  so whole work crews can be retasked with one click. Ground-click move
+  orders remain soldiers-only.
+
 ## v1.14.0 (build 39)
 Systems and quality-of-life enhancement round.
 

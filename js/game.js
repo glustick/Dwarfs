@@ -2094,6 +2094,25 @@ class Game {
         this.updatePanel();
       };
     }
+    // Group labor chips: cycle the priority for every elf in the selection.
+    if (this.selectedSquad && this.selectedSquad.length > 1) {
+      c.querySelectorAll(".sd-labors .chip").forEach(chip => {
+        chip.onclick = () => {
+          const id = chip.dataset.labor;
+          const labor = LABORS.find(l => l.id === id);
+          const lowest = Math.min(...this.selectedSquad.map(d => d.laborPriority?.[id] ?? (d.labors.has(id) ? 3 : 0)));
+          const next = (lowest + 1) % 4;
+          for (const d of this.selectedSquad) {
+            d.laborPriority = d.laborPriority || {};
+            d.laborPriority[id] = next;
+            if (next) d.labors.add(id); else d.labors.delete(id);
+            if (d.job) this.jobs.cancel(d); // re-evaluate role next tick
+          }
+          this.log(`${labor ? labor.name : id} priority set to ${next || "off"} for ${this.selectedSquad.length} elves.`, "", "order");
+          this.updatePanel();
+        };
+      });
+    }
     if (this.selectedTile) {
       const tile = this.world.get(this.selectedTile.x, this.selectedTile.y, this.selectedTile.z || 0);
       c.querySelectorAll(".recipe-btn").forEach(btn => {
@@ -2145,12 +2164,22 @@ class Game {
 
   inspectorHTML() {
     if (this.selectedSquad && this.selectedSquad.length > 1) {
-      const names = this.selectedSquad.map(d => d.name).join(", ");
-      return `<b>Squad selected</b> <span class="tag">⚔ ${this.selectedSquad.length} soldiers</span><br/>
+      const group = this.selectedSquad;
+      const names = group.map(d => d.name).join(", ");
+      const soldiers = group.filter(d => d.military).length;
+      const allMilitary = soldiers === group.length;
+      const chips = LABORS.map(l => {
+        const lowest = Math.min(...group.map(d => d.laborPriority?.[l.id] ?? (d.labors.has(l.id) ? 3 : 0)));
+        return `<span class="chip p${lowest}${lowest ? " on" : ""}" data-labor="${l.id}" title="${l.name} priority ${lowest || "off"} — click to set for all ${group.length} elves">${l.icon}<b>${lowest || "–"}</b></span>`;
+      }).join("");
+      return `<b>Group selected</b> <span class="tag">👥 ${group.length} elves</span>${soldiers ? ` <span class="tag" style="background:#6b2f2f">⚔ ${soldiers} soldier${soldiers > 1 ? "s" : ""}</span>` : ""}<br/>
         <div class="mini">${this.escapeHtml(names)}</div>
-        <div class="mini" style="opacity:.75">Click anywhere on the ground to send them there — they'll hold that
+        ${allMilitary ? `<div class="mini" style="opacity:.75">Click anywhere on the ground to send them there — they'll hold that
         position and fight anything that comes adjacent, instead of chasing the nearest raider on their own.</div>
-        <button class="mini-btn" id="insp-squad-release">Release to automatic AI</button>`;
+        <button class="mini-btn" id="insp-squad-release">Release to automatic AI</button>` : ""}
+        <div class="mini2">Labors · applies to all ${group.length} selected elves</div>
+        <div class="sd-labors">${chips}</div>
+        <div class="mini" style="opacity:.6">Click a labor to cycle its priority (off → 1 → 2 → 3) for the whole group.</div>`;
     }
     if (this.selectedDwarf) {
       const d = this.selectedDwarf;
