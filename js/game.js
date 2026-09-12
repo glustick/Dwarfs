@@ -140,6 +140,7 @@ class Game {
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
     this.combatFx = [];               // transient hit sparks {x,y,t,bad}
+    this.projectileFx = [];           // transient arrow/bile streaks {x1,y1,x2,y2,z,t,bad}
 
     // ---- Z-levels phase 2: cave-ins & flooding (underground only) ----
     // Fixed initial value like raidTimer above — world.rng() isn't available
@@ -274,7 +275,7 @@ class Game {
       infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
       vampiric: d.vampiric ? 1 : 0, vampireTimer: d.vampireTimer || 0, vampireExposed: d.vampireExposed ? 1 : 0,
       checkupCooldown: d.checkupCooldown || 0, beingInspected: d.beingInspected ? 1 : 0,
-      weapon: d.weapon, armor: d.armor,
+      weapon: d.weapon, armor: d.armor, quiver: d.quiver,
       inventory: d.inventory || [],
       traits: d.traits || [],
       state: d.state, thought: d.thought, workTimer: d.workTimer,
@@ -327,7 +328,7 @@ class Game {
       d.hunger = o.hunger; d.thirst = o.thirst != null ? o.thirst : 0; d.mood = o.mood; d.facing = o.facing; d.facingV = o.facingV || 1;
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
-      d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null;
+      d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null; d.quiver = o.quiver || 0;
       d.inventory = Array.isArray(o.inventory) ? o.inventory : [];
       d.traits = Array.isArray(o.traits) ? o.traits : rollTraits(Math.random);
       d.manualOrder = o.manualOrder || null;
@@ -620,6 +621,10 @@ class Game {
     for (let i = this.combatFx.length - 1; i >= 0; i--) {
       this.combatFx[i].t -= dt;
       if (this.combatFx[i].t <= 0) this.combatFx.splice(i, 1);
+    }
+    for (let i = this.projectileFx.length - 1; i >= 0; i--) {
+      this.projectileFx[i].t -= dt;
+      if (this.projectileFx[i].t <= 0) this.projectileFx.splice(i, 1);
     }
 
     // raids
@@ -1248,6 +1253,47 @@ class Game {
   soldierCount() { let n = 0; for (const d of this.dwarves) if (d.military) n++; return n; }
   addFx(x, y, bad) { this.combatFx.push({ x, y, t: 0.3, bad: !!bad }); }
 
+  addProjectileFx(x1, y1, x2, y2, z, bad) {
+    this.projectileFx.push({ x1, y1, x2, y2, z: z || 0, t: 0.18, bad: !!bad });
+  }
+
+  // Line of sight between two tiles on the same floor: walls, solid rock, and
+  // closed-off door tiles block; trees and furniture don't. Endpoints are
+  // never blockers (the shooter/target tile itself doesn't count).
+  hasLOS(x1, y1, z, x2, y2) {
+    const w = this.world;
+    let dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
+    const sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
+    let err = dx - dy, x = x1, y = y1;
+    while (x !== x2 || y !== y2) {
+      const e2 = err * 2;
+      if (e2 > -dy) { err -= dy; x += sx; }
+      if (e2 < dx) { err += dx; y += sy; }
+      if (x === x2 && y === y2) break;
+      const t = w.get(x, y, z);
+      if (!t || t.built === B.WALL || t.built === B.DOOR || t.kind === K.STONE) return false;
+    }
+    return true;
+  }
+
+  // Top up an archer's quiver from stored/loose arrow bundles. One bundle = 5
+  // arrows, quiver holds 20. Returns how many arrows were added.
+  refillQuiver(d) {
+    if (d.weapon !== "bow" || d.quiver >= 20) return 0;
+    const bundles = this.items
+      .filter(it => it.kind === ITEM.ARROW)
+      .sort((a, b) => dist3(a.x, a.y, a.z || 0, d.tileX, d.tileY, d.z || 0) - dist3(b.x, b.y, b.z || 0, d.tileX, d.tileY, d.z || 0));
+    let added = 0;
+    for (const bundle of bundles) {
+      if (d.quiver >= 20) break;
+      this.jobs.consumeItem(bundle);
+      d.quiver = Math.min(20, d.quiver + 5);
+      added += 5;
+    }
+    if (added) this.log(`${d.name} gathers ${added} arrows for their quiver.`, "", "combat");
+    return added;
+  }
+
   // z-aware for the same reason as nearestDwarf — without this, a dwarf on
   // one floor could be matched to an enemy on another once raids can reach
   // underground (see handleCombat's call site, no longer surface-only).
@@ -1293,6 +1339,26 @@ class Game {
           if (d.attackCd <= 0) { d.attackCd = 0.8; this.dwarfHitEnemy(d, foe); }
           d.thought = "In battle!";
           return true;
+        }
+        // An archer with arrows stands off and shoots instead of charging —
+        // 6 tiles of reach, +2 when firing from a Watchtower. Without line of
+        // sight (or arrows) they simply fall through to normal chase behavior.
+        if (d.weapon === "bow" && d.quiver > 0) {
+          const dist = Math.max(Math.abs(d.tileX - foe.tileX), Math.abs(d.tileY - foe.tileY));
+          const range = 6 + (this.isOnWatchtower(d) ? 2 : 0);
+          if (dist <= range && this.hasLOS(d.tileX, d.tileY, dz, foe.tileX, foe.tileY)) {
+            d.state = "fight"; d.path = null; d.facing = foe.x > d.x ? 1 : -1;
+            d.attackCd -= dt;
+            if (d.attackCd <= 0) {
+              d.attackCd = 1.4;
+              d.quiver--;
+              this.addProjectileFx(d.x, d.y, foe.x, foe.y, dz, false);
+              this.dwarfHitEnemy(d, foe, true);
+              if (window.sound) window.sound.play("bow", 90);
+            }
+            d.thought = d.quiver ? "Loosing arrows!" : "Quiver empty!";
+            return true;
+          }
         }
       }
 
@@ -1359,12 +1425,13 @@ class Game {
     return !!(t && t.furniture === FURN.WATCHTOWER);
   }
 
-  dwarfHitEnemy(d, foe) {
+  dwarfHitEnemy(d, foe, ranged = false) {
     let dmg = d.attackDamage();
+    if (!ranged && d.weapon === "bow") dmg *= 0.6; // swinging a bow like a club
     if (this.isOnWatchtower(d)) dmg *= WATCHTOWER_ATK_MULT;
     foe.hp -= dmg;
     this.addFx(foe.x, foe.y, false);
-    if (window.sound) window.sound.play("combat", 100);
+    if (window.sound && !ranged) window.sound.play("combat", 100);
     this.awardXp(d, "fighting", 5); this.awardXp(d, "fitness", 1);
     if (foe.hp <= 0) this.killEnemy(foe, d);
   }
@@ -1450,13 +1517,28 @@ class Game {
         e.facing = tgt.x > e.x ? 1 : -1; e.path = null;
         if (e.attackCd <= 0) { e.attackCd = 1.0; this.enemyHitDwarf(e, tgt); }
       } else {
-        e.repath -= dt;
-        if (!e.path || e.repath <= 0) {
-          e.repath = 0.5;
-          const p = pathAdjacent(this.world, e.tileX, e.tileY, ez, tgt.tileX, tgt.tileY, tgt.z, true);
-          if (p) e.setPath(p);
+        // Ranged foes (the Bile Spitter) halt within their reach and lob at
+        // the nearest elf — melee-focussed defence has to come to them.
+        const et = ENEMY_TYPES[e.kind];
+        const ranged = et.ranged
+          && Math.max(Math.abs(e.tileX - tgt.tileX), Math.abs(e.tileY - tgt.tileY)) <= et.range
+          && this.hasLOS(e.tileX, e.tileY, ez, tgt.tileX, tgt.tileY);
+        if (ranged) {
+          e.facing = tgt.x > e.x ? 1 : -1; e.path = null;
+          if (e.attackCd <= 0) {
+            e.attackCd = 2.2;
+            this.addProjectileFx(e.x, e.y, tgt.x, tgt.y, ez, true);
+            this.enemyHitDwarf(e, tgt);
+          }
+        } else {
+          e.repath -= dt;
+          if (!e.path || e.repath <= 0) {
+            e.repath = 0.5;
+            const p = pathAdjacent(this.world, e.tileX, e.tileY, ez, tgt.tileX, tgt.tileY, tgt.z, true);
+            if (p) e.setPath(p);
+          }
+          e.move(dt);
         }
-        e.move(dt);
       }
     }
     const before = this.enemies.length;
@@ -1464,8 +1546,12 @@ class Game {
     if (before && !this.enemies.length) {
       this.log("The colony has repelled the attack!", "good", "combat");
       // Manual move orders only make sense mid-fight — once it's over, hand
-      // soldiers back to their normal equip/idle/labor routine.
-      for (const d of this.dwarves) d.manualOrder = null;
+      // soldiers back to their normal equip/idle/labor routine. Archers also
+      // restock their quivers from stored arrow bundles.
+      for (const d of this.dwarves) {
+        d.manualOrder = null;
+        if (d.military && d.weapon === "bow" && d.quiver < 20) this.refillQuiver(d);
+      }
     }
   }
 
@@ -1504,8 +1590,8 @@ class Game {
   }
 
   // Rolls one zombie's kind, weighted by how deep the colony has gone into
-  // the tech tree — shamblers early, runners and eventually brutes as the
-  // outbreak worsens.
+  // the tech tree — shamblers early, then runners, spitters, and eventually
+  // brutes as the outbreak worsens.
   rollZombieKind(score) {
     const r = this.world.rng();
     // Vampires are rare and only show up once deep in the tech tree — a
@@ -1514,8 +1600,10 @@ class Game {
     if (r < vampireChance) return "vampire";
     const bruteChance = clamp((score - 2) * 0.25, 0, 0.5);
     const runnerChance = clamp((score - 0.5) * 0.3, 0, 0.45);
+    const spitterChance = clamp((score - 1.5) * 0.2, 0, 0.25);
     if (r < bruteChance) return "brute";
     if (r < bruteChance + runnerChance) return "runner";
+    if (r < bruteChance + runnerChance + spitterChance) return "spitter";
     return "shambler";
   }
 
@@ -2278,8 +2366,9 @@ class Game {
           <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
       }
       sk += `</div>`;
-      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
+      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", bow: "Bow", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
       const gear = [d.weapon ? "🗡 " + (gearNames[d.weapon] || d.weapon) : null, d.armor ? "🛡 " + (gearNames[d.armor] || d.armor) : null].filter(Boolean).join(" · ");
+      const quiverTxt = d.weapon === "bow" ? ` <span class="tag">🏹 ${d.quiver} arrows</span>` : "";
       const inventory = (d.inventory || []).map(item => ARTIFACT_BY_ID[item.id]).filter(Boolean);
       const inventoryHTML = inventory.length ? inventory.map(artifact => {
         const boosts = Object.entries(artifact.bonuses).map(([stat, value]) => `+${value} ${stat}`).join(" · ");
@@ -2294,7 +2383,8 @@ class Game {
         Task: ${this.taskLabel(d)} <span class="tag">${d.activity}</span><br/>
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
         ${d.infected ? `<div class="mini" style="color:#8fd08f">🧟 Fighting the infection — ${Math.max(0, Math.round(d.infectionTimer))}s until it takes hold</div>` : ""}
-        ${gear ? `<div class="mini">Equipped: ${gear}</div>` : ""}
+        ${gear ? `<div class="mini">Equipped: ${gear}${quiverTxt}</div>` : ""}
+        ${d.weapon === "bow" && d.quiver === 0 ? `<div class="mini" style="color:#e08a6a">Quiver empty — craft arrow bundles (Weapons Bench) so they can shoot.</div>` : ""}
         <div class="mini2">Traits</div><div class="trait-list">${traitsHTML || `<span class="mini">No traits recorded.</span>`}</div>
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="mini2">Inventory · ${inventory.length}</div>${inventoryHTML}
@@ -2334,7 +2424,7 @@ class Game {
           parts.push(`Power: <span class="tag" style="color:${tile.powered ? "#8fd0ff" : "#e08a6a"}">${tile.powered ? "⚡ powered" : "unpowered"}</span>`);
           if (tile.powered) parts.push(`<div class="mini">Slows spoilage for food within ${ESSENCE_CHILL_RADIUS} tiles.</div>`);
         } else if (tile.furniture === FURN.WATCHTOWER) {
-          parts.push(`<div class="mini">A soldier fighting from here deals ${Math.round((WATCHTOWER_ATK_MULT - 1) * 100)}% more damage and takes ${Math.round((1 - WATCHTOWER_DEF_MULT) * 100)}% less.</div>`);
+          parts.push(`<div class="mini">A soldier fighting from here deals ${Math.round((WATCHTOWER_ATK_MULT - 1) * 100)}% more damage, takes ${Math.round((1 - WATCHTOWER_DEF_MULT) * 100)}% less, and shoots 2 tiles farther.</div>`);
         } else if (tile.furniture === FURN.TRAP) {
           const ready = !tile.trapCooldown || tile.trapCooldown <= 0;
           parts.push(`Status: <span class="tag" style="color:${ready ? "#8fd08f" : "#e08a6a"}">${ready ? "armed" : `resetting (${Math.ceil(tile.trapCooldown)}s)`}</span>`);

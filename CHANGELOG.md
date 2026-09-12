@@ -4,6 +4,21 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.16.0 (build 42)
+Ranged tactics round.
+
+- **Archery**: new Archery tech (after Weaponsmithing) unlocks the Bow and
+  arrow bundles at the Weapons Bench. A bow-armed soldier stands off and
+  shoots the nearest foe from up to 6 tiles — 8 from a Watchtower, which
+  becomes a true firing position — with a line-of-sight check (walls, solid
+  rock, and doors block). Shots consume arrows from a 20-arrow quiver that
+  auto-refills from stored bundles on equipping and after each repelled
+  raid; melee with a bow is deliberately clumsy. Projectile streaks and a
+  bow-release sound accompany each shot.
+- **Bile Spitter**: a new ranged zombie that halts within 5 tiles and lobs
+  bile at the nearest elf, joining shamblers/runners/brutes in the mid-game
+  raid mix — melee-only defence now has to come to it.
+
 ## v1.15.0 (build 41)
 Room quality round.
 

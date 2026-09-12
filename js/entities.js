@@ -16,12 +16,14 @@ const ITEM = {
   COMPONENT: "component",
   CLOTH: "cloth",
   CIRCUIT: "circuit",
+  ARROW: "arrow",   // a bundle of 5 arrows — archer ammunition (see quiver)
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
   water: "Water", ale: "Ale", wine: "Wine", marble: "Marble",
   component: "Crafting component", cloth: "Cloth", circuit: "Circuit",
+  arrow: "Arrow bundle (5)",
 };
 
 // Unique Elven relics discovered in deep stone. They remain with the pawn who
@@ -67,7 +69,7 @@ const STOCKPILE_CATEGORY_OF = {
   ore: "ore", bar: "ore",
   food: "food",
   water: "drink", ale: "drink", wine: "drink",
-  weapon: "arms", armor: "arms", component: "building", cloth: "building", circuit: "ore",
+  weapon: "arms", armor: "arms", arrow: "arms", component: "building", cloth: "building", circuit: "ore",
 };
 
 class Item {
@@ -179,8 +181,9 @@ class Dwarf {
     this.maxhp = 100 + this.skillLevel("toughness") * 2;
     this.hp = this.maxhp;    // 0 = dead
     this.military = false;   // enlisted soldier?
-    this.weapon = null;      // equipped weapon sub (sword/axe)
+    this.weapon = null;      // equipped weapon sub (sword/axe/bow)
     this.armor = null;       // equipped armor sub (shield/mail)
+    this.quiver = 0;         // arrows held by a bowman (bundles refill adds 5)
     this.inventory = [];     // persistent carried relics and other personal items
     this.attackCd = 0;       // swing cooldown
     this.combatRepath = 0;   // throttle for chasing/fleeing pathing
@@ -219,7 +222,7 @@ class Dwarf {
 
   // Damage this dwarf deals per swing (weapon + fighting skill).
   attackDamage() {
-    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8 };
+    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8, bow: 1.15 };
     return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? (weaponMult[this.weapon] || 1.9) : 1) * (1 + this.traitBonus("attack"));
   }
   // Incoming damage after armor, skill-based dodge, and Toughness (raw resilience).
@@ -280,6 +283,7 @@ const ENEMY_TYPES = {
   runner:       { name: "Runner",       hp: 30,  atk: 8,  speed: 4.2, color: "#6e5a44", infectious: true, biteChance: 0.20 },
   brute:        { name: "Brute",        hp: 110, atk: 22, speed: 2.1, color: "#4a4038", infectious: true, biteChance: 0.30 },
   turned:       { name: "Turned Elf",   hp: 55,  atk: 9,  speed: 2.6, color: "#4a5f3a", infectious: true, biteChance: 0.20 },
+  spitter:      { name: "Bile Spitter", hp: 26,  atk: 7,  speed: 2.2, color: "#7d8a3a", infectious: true, biteChance: 0.10, ranged: true, range: 5 },
   vampire:      { name: "Vampire",      hp: 70,  atk: 14, speed: 3.3, color: "#7a2038", curses: true, curseChance: 0.5 },
   vampire_lord: { name: "Vampire Lord", hp: 130, atk: 24, speed: 2.7, color: "#4a0f24", curses: true, curseChance: 0.35 },
 };

@@ -129,7 +129,23 @@ class Renderer {
       this.drawCaravan(ctx, car, ox, oy, ts);
     }
 
-    // 4d) combat sparks
+    // 4d) projectile streaks (arrows out, bile back) then combat sparks
+    for (const fx of g.projectileFx) {
+      if ((fx.z || 0) !== viewZ) continue;
+      const x1 = (fx.x1 + 0.5) * ts + ox, y1 = (fx.y1 + 0.5) * ts + oy;
+      const x2 = (fx.x2 + 0.5) * ts + ox, y2 = (fx.y2 + 0.5) * ts + oy;
+      const a = clamp(fx.t / 0.18, 0, 1);
+      const mid = 1 - a; // streak head travels from shooter to target
+      const hx = x1 + (x2 - x1) * mid, hy = y1 + (y2 - y1) * mid - ts * 0.25;
+      ctx.strokeStyle = fx.bad
+        ? `rgba(154,190,58,${a * 0.9})`
+        : `rgba(240,220,150,${a * 0.9})`;
+      ctx.lineWidth = Math.max(1.5, ts * 0.09);
+      ctx.beginPath();
+      ctx.moveTo(hx - (x2 - x1) * 0.16, hy - (y2 - y1) * 0.16 + ts * 0.25);
+      ctx.lineTo(hx, hy);
+      ctx.stroke();
+    }
     for (const fx of g.combatFx) {
       const fcx = (fx.x + 0.5) * ts + ox, fcy = (fx.y + 0.3) * ts + oy;
       const a = clamp(fx.t / 0.3, 0, 1);
@@ -849,11 +865,28 @@ class Renderer {
       ctx.fillRect(cx - ts * 0.16, cy - ts * 0.02, ts * 0.32, ts * 0.12);
       ctx.fillStyle = "rgba(255,255,255,0.4)";
       ctx.fillRect(cx - ts * 0.16, cy - ts * 0.02, ts * 0.32, ts * 0.03);
+    } else if (it.kind === ITEM.WEAPON && it.sub === "bow") {
+      // an arc of pale wood with a string
+      ctx.strokeStyle = "#a87c46"; ctx.lineWidth = Math.max(1.5, ts * 0.07);
+      ctx.beginPath(); ctx.arc(cx - ts * 0.1, cy, ts * 0.2, -Math.PI * 0.42, Math.PI * 0.42); ctx.stroke();
+      ctx.strokeStyle = "#e8e0cc"; ctx.lineWidth = Math.max(1, ts * 0.025);
+      const bx = cx - ts * 0.1 + Math.cos(-Math.PI * 0.42) * ts * 0.2, by = cy + Math.sin(-Math.PI * 0.42) * ts * 0.2;
+      const bx2 = cx - ts * 0.1 + Math.cos(Math.PI * 0.42) * ts * 0.2, by2 = cy + Math.sin(Math.PI * 0.42) * ts * 0.2;
+      ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx2, by2); ctx.stroke();
     } else if (it.kind === ITEM.WEAPON) {
       ctx.strokeStyle = "#d8dde4"; ctx.lineWidth = Math.max(1.5, ts * 0.08);
       ctx.beginPath(); ctx.moveTo(cx - ts * 0.12, cy + ts * 0.12); ctx.lineTo(cx + ts * 0.12, cy - ts * 0.16); ctx.stroke();
       ctx.strokeStyle = "#7a5a2c";
       ctx.beginPath(); ctx.moveTo(cx - ts * 0.16, cy + ts * 0.06); ctx.lineTo(cx - ts * 0.06, cy + ts * 0.16); ctx.stroke();
+    } else if (it.kind === ITEM.ARROW) {
+      // a small fanned bundle of three fletched shafts
+      for (let i = -1; i <= 1; i++) {
+        const ax = cx + i * ts * 0.07, ay = cy + Math.abs(i) * ts * 0.03;
+        ctx.strokeStyle = "#a87c46"; ctx.lineWidth = Math.max(1, ts * 0.03);
+        ctx.beginPath(); ctx.moveTo(ax - ts * 0.09, ay + ts * 0.08); ctx.lineTo(ax + ts * 0.09, ay - ts * 0.1); ctx.stroke();
+        ctx.strokeStyle = "#d8d0b8"; ctx.lineWidth = Math.max(1, ts * 0.025);
+        ctx.beginPath(); ctx.moveTo(ax - ts * 0.09, ay + ts * 0.08); ctx.lineTo(ax - ts * 0.13, ay + ts * 0.04); ctx.stroke();
+      }
     } else if (it.kind === ITEM.ARMOR) {
       ctx.fillStyle = "#8a94a0";
       ctx.beginPath();
@@ -1274,9 +1307,16 @@ class Renderer {
         ctx.beginPath(); ctx.arc(cx - r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
         ctx.beginPath(); ctx.arc(cx + r * 0.18 + ex, cy - r * 0.55, r * 0.09, 0, 7); ctx.fill();
       }
-      // crude weapon
-      ctx.strokeStyle = "#b0b6bc"; ctx.lineWidth = Math.max(1, r * 0.16);
-      ctx.beginPath(); ctx.moveTo(cx + e.facing * r * 0.8, cy + r * 0.5); ctx.lineTo(cx + e.facing * r * 0.8, cy - r * 0.6); ctx.stroke();
+      // crude weapon — except the Spitter, whose bulging bile sac replaces it
+      if (e.kind === "spitter") {
+        ctx.fillStyle = "#9ab43a";
+        ctx.beginPath(); ctx.arc(cx + e.facing * r * 0.7, cy - r * 0.15, r * 0.34, 0, 7); ctx.fill();
+        ctx.fillStyle = "#6a7f24";
+        ctx.beginPath(); ctx.arc(cx + e.facing * r * 0.7, cy - r * 0.15, r * 0.18, 0, 7); ctx.fill();
+      } else {
+        ctx.strokeStyle = "#b0b6bc"; ctx.lineWidth = Math.max(1, r * 0.16);
+        ctx.beginPath(); ctx.moveTo(cx + e.facing * r * 0.8, cy + r * 0.5); ctx.lineTo(cx + e.facing * r * 0.8, cy - r * 0.6); ctx.stroke();
+      }
     }
     ctx.restore();
 

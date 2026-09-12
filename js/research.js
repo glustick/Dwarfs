@@ -54,6 +54,10 @@ const TECHS = [
     desc: "Unlocks a Clothing Bench for cloth and reinforced armor.", unlock: "clothing",
   },
   {
+    id: "archery", name: "Archery", icon: "🏹", tier: 2, cost: 140, requires: ["weaponsmithing"],
+    desc: "Unlocks bows and arrow bundles at the Weapons Bench. Archers shoot foes from 6 tiles (8 from a Watchtower) but consume arrows from their quiver — melee with a bow is clumsy.",
+  },
+  {
     id: "electronics", name: "Electronics", icon: "⚡", tier: 3, cost: 260, requires: ["weaponsmithing", "essence"],
     desc: "Unlocks an Electronics Bench and adds circuits and laser blades to the Weapons Bench.", unlock: "electronics",
   },

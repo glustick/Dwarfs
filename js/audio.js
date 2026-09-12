@@ -274,6 +274,10 @@ class SoundManager {
         this._noise(0.09, { type: "highpass", freq: 1800, q: 0.7, gain: 0.22 });
         this._tone(300, 0.06, { type: "sawtooth", gain: 0.08, glideTo: 160 });
         break;
+      case "bow": // string pluck + airy release
+        this._tone(880, 0.05, { type: "triangle", gain: 0.1, glideTo: 440 });
+        this._noise(0.12, { type: "bandpass", freq: 2600, q: 1.4, gain: 0.12 });
+        break;
       case "enemyDown": // descending defeat
         this._tone(330, 0.3, { type: "sawtooth", gain: 0.14, glideTo: 110 });
         break;

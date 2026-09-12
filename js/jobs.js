@@ -31,6 +31,8 @@ const RECIPES = {
     { name: "Stone spear", in: [{ kind: ITEM.STONE }], out: { kind: ITEM.WEAPON, sub: "stone_spear" }, time: 2.8 },
     { name: "Iron sword", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "sword" }, time: 3.2 },
     { name: "Laser blade", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.WEAPON, sub: "laser_blade" }, time: 5.0, tech: "electronics" },
+    { name: "Bow", in: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "bow" }, time: 3.0, tech: "archery" },
+    { name: "Arrow bundle (5)", in: [{ kind: ITEM.WOOD }, { kind: ITEM.STONE }], out: { kind: ITEM.ARROW }, time: 2.0, tech: "archery" },
   ],
   clothing: [
     { name: "Cloth cloak", in: [{ kind: ITEM.CLOTH }], out: { kind: ITEM.ARMOR, sub: "cloak" }, time: 2.4 },
@@ -1070,6 +1072,10 @@ class JobManager {
         const slot = job.slot || (job.item.kind === ITEM.ARMOR ? "armor" : "weapon");
         dwarf[slot] = job.item.sub || slot;
         this.consumeItem(job.item);
+        if (slot === "weapon" && dwarf.weapon === "bow") {
+          dwarf.quiver = 0;
+          g.refillQuiver(dwarf); // grab arrow bundles right away if any are stocked
+        }
         g.awardXp(dwarf, "fighting", 3);
         g.log(`${dwarf.name} equips a ${job.item.sub || slot}.`, "", "combat");
       }

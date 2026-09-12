@@ -222,9 +222,13 @@ actual room instead of colony-wide counters).
       and size. Sleeping in a bedroom and eating in a dining hall scale
       their mood bonuses off the room's actual score instead of colony-wide
       counters; selecting a room tile shows its grade and its weakest point.
-- [ ] Ranged tactics — bows or arcane shots for soldiers (and some
-      raiders), with ammo/essence as a real resource; watchtowers could
-      become true firing positions instead of a passive bonus.
+- [x] ~~Ranged tactics~~ — Archery (tech, after Weaponsmithing) unlocks the
+      Bow and arrow bundles at the Weapons Bench. Bow-armed soldiers shoot
+      from 6 tiles (8 from a Watchtower — a true firing position) with a
+      line-of-sight check, consuming arrows from a 20-shot quiver that
+      refills from stored bundles; melee with a bow is clumsy. The Bile
+      Spitter is a new ranged zombie that lobs bile from 5 tiles, forcing
+      melee defence to come to it.
 - [ ] Factions — multiple neighbor groups with per-faction reputation,
       trade terms, and their own raid motivations beyond the zombie threat.
 - [ ] Storyteller events — a pacing/event-pool system that curates
@@ -235,6 +239,6 @@ actual room instead of colony-wide counters).
 
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-      shipped.** Tier 6 is underway: room quality shipped (v1.15.0);
-      ranged tactics, factions, and storyteller events are the open
-      directions.
+      shipped.** Tier 6 is underway: room quality (v1.15.0) and ranged
+      tactics (v1.16.0) shipped; factions and storyteller events are the
+      open directions.
