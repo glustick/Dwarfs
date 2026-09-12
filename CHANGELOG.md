@@ -4,6 +4,13 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.17.1 (build 44)
+
+- **Colony panel hide/show**: a 📋 button in the top bar (next to the colony
+  bar toggle) collapses or restores the right-side Colony/Schedule/Research/
+  Log/Records/Stats panel for a clear view of the map. The state is
+  remembered across sessions, exactly like the colony bar toggle.
+
 ## v1.17.0 (build 43)
 Weapon progression round.
 

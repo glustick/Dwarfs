@@ -652,6 +652,7 @@ html, body {
 
 #colonistbar { bottom: 82px; gap: 6px; max-width: min(620px, 70vw); }
 #colonistbar.collapsed { display: none; }
+#panel.collapsed { display: none; }
 #colonistbar::-webkit-scrollbar { height: 4px; }
 #colonistbar::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 .cbar-chip {

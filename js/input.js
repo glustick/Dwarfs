@@ -222,6 +222,28 @@ class Input {
       });
     }
 
+    // Right info panel (the "colony window") hide/show — mirrors the colony
+    // bar toggle above and is likewise remembered across sessions.
+    const panelEl = document.getElementById("panel");
+    const panelToggle = document.getElementById("panel-toggle");
+    if (panelEl && panelToggle) {
+      let panelHidden = false;
+      try { panelHidden = localStorage.getItem("ee_panel_hidden") === "1"; } catch (e) {}
+      const updatePanelToggle = () => {
+        panelEl.classList.toggle("collapsed", panelHidden);
+        panelToggle.textContent = panelHidden ? "🗒️" : "📋";
+        panelToggle.title = panelHidden ? "Show colony panel" : "Hide colony panel";
+        panelToggle.setAttribute("aria-label", panelToggle.title);
+        panelToggle.setAttribute("aria-pressed", String(panelHidden));
+      };
+      updatePanelToggle();
+      panelToggle.addEventListener("click", () => {
+        panelHidden = !panelHidden;
+        try { localStorage.setItem("ee_panel_hidden", panelHidden ? "1" : "0"); } catch (e) {}
+        updatePanelToggle();
+      });
+    }
+
     // Z-level (floor) navigation
     const zUpBtn = document.getElementById("zlevel-up");
     if (zUpBtn) zUpBtn.addEventListener("click", () => this.game.setViewZ(this.game.viewZ + 1));
