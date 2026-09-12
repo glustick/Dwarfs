@@ -77,6 +77,16 @@ const TECHS = [
     desc: "Unlocks Arcane Conduits, the Essence Well, and the Frost Chamber — wire up power to keep stockpiled food from spoiling.",
     unlock: "conduit",
   },
+
+  // ---- Tier 3/4 — modern & futuristic arms ----
+  {
+    id: "ballistics", name: "Ballistics", icon: "🔫", tier: 3, cost: 240, requires: ["archery", "metallurgy"],
+    desc: "Unlocks the iron Rifle and bullet boxes at the Weapons Bench. Rifles shoot farther and faster than bows (8 tiles, quicker reload) — soldiers auto-upgrade when a better weapon is spare.",
+  },
+  {
+    id: "photonics", name: "Photonics", icon: "💫", tier: 4, cost: 320, requires: ["ballistics", "electronics"],
+    desc: "Unlocks the Laser Rifle at the Weapons Bench and energy cells at the Electronics Bench — 10 tiles of reach, the fastest rate of fire in the empire.",
+  },
 ];
 
 const TECH_BY_ID = {};

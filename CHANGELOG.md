@@ -4,6 +4,24 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.17.0 (build 43)
+Weapon progression round.
+
+- **Modern & futuristic arms**: two new techs extend the weapon ladder.
+  Ballistics (Tier 3, Archery + Metallurgy) unlocks the iron Rifle and
+  bullet boxes (10 rounds per box) at the Weapons Bench — 8 tiles of reach
+  and a faster rate of fire than the bow. Photonics (the first Tier 4 tech,
+  Ballistics + Electronics) unlocks the Laser Rifle (Weapons Bench) and
+  energy cells (Electronics Bench) — 10 tiles, the fastest firing rate in
+  the empire. Watchtowers still add +2 range to any ranged weapon.
+- **Automatic weapon upgrades**: soldiers now swap to a strictly better
+  spare weapon (club → spear → sword/bow → rifle → laser blade/laser
+  rifle) when one is available, handing their old weapon back as a loose
+  item instead of destroying it — craft the upgrade and the militia re-arms
+  itself. Each weapon keeps its own ammo (arrows/bullets/cells), and the
+  quiver refills from matching stock. New sounds and projectile colours
+  per weapon; rifles and laser rifles are also caravan-sellable.
+
 ## v1.16.0 (build 42)
 Ranged tactics round.
 

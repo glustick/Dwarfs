@@ -137,9 +137,11 @@ class Renderer {
       const a = clamp(fx.t / 0.18, 0, 1);
       const mid = 1 - a; // streak head travels from shooter to target
       const hx = x1 + (x2 - x1) * mid, hy = y1 + (y2 - y1) * mid - ts * 0.25;
-      ctx.strokeStyle = fx.bad
-        ? `rgba(154,190,58,${a * 0.9})`
-        : `rgba(240,220,150,${a * 0.9})`;
+      ctx.strokeStyle = fx.color
+        ? (fx.color + Math.round(a * 220).toString(16).padStart(2, "0"))
+        : fx.bad
+          ? `rgba(154,190,58,${a * 0.9})`
+          : `rgba(240,220,150,${a * 0.9})`;
       ctx.lineWidth = Math.max(1.5, ts * 0.09);
       ctx.beginPath();
       ctx.moveTo(hx - (x2 - x1) * 0.16, hy - (y2 - y1) * 0.16 + ts * 0.25);
@@ -887,6 +889,32 @@ class Renderer {
         ctx.strokeStyle = "#d8d0b8"; ctx.lineWidth = Math.max(1, ts * 0.025);
         ctx.beginPath(); ctx.moveTo(ax - ts * 0.09, ay + ts * 0.08); ctx.lineTo(ax - ts * 0.13, ay + ts * 0.04); ctx.stroke();
       }
+    } else if (it.kind === ITEM.BULLET) {
+      // an open box with brass rounds peeking out
+      ctx.fillStyle = "#6b5a3c"; ctx.fillRect(cx - ts * 0.16, cy - ts * 0.02, ts * 0.32, ts * 0.14);
+      ctx.fillStyle = "#5a4b30"; ctx.fillRect(cx - ts * 0.16, cy + ts * 0.08, ts * 0.32, ts * 0.04);
+      for (let i = -1; i <= 1; i++) {
+        ctx.fillStyle = "#c9a44a";
+        ctx.fillRect(cx + i * ts * 0.09 - ts * 0.025, cy - ts * 0.08, ts * 0.05, ts * 0.08);
+      }
+    } else if (it.kind === ITEM.CELL) {
+      // a slim cyan power cell with a glow tip
+      ctx.fillStyle = "#2c3e4a"; ctx.fillRect(cx - ts * 0.07, cy - ts * 0.12, ts * 0.14, ts * 0.24);
+      ctx.fillStyle = "#7fd8ff"; ctx.fillRect(cx - ts * 0.04, cy - ts * 0.08, ts * 0.08, ts * 0.12);
+      ctx.beginPath(); ctx.arc(cx, cy - ts * 0.14, ts * 0.045, 0, 7); ctx.fill();
+    } else if (it.kind === ITEM.WEAPON && it.sub === "rifle") {
+      // long barrel, wooden stock
+      ctx.fillStyle = "#7a5a34"; ctx.fillRect(cx - ts * 0.2, cy, ts * 0.14, ts * 0.08);
+      ctx.fillStyle = "#4a4a4a"; ctx.fillRect(cx - ts * 0.08, cy - ts * 0.02, ts * 0.28, ts * 0.05);
+      ctx.fillStyle = "#3a3a3a"; ctx.fillRect(cx - ts * 0.02, cy + ts * 0.03, ts * 0.05, ts * 0.09);
+    } else if (it.kind === ITEM.WEAPON && it.sub === "laser_rifle") {
+      // sleek body with a glowing emitter
+      ctx.fillStyle = "#d8dde4"; ctx.fillRect(cx - ts * 0.18, cy - ts * 0.02, ts * 0.32, ts * 0.07);
+      ctx.fillStyle = "#2c3e4a"; ctx.fillRect(cx - ts * 0.02, cy + ts * 0.04, ts * 0.05, ts * 0.09);
+      ctx.fillStyle = "#7fd8ff";
+      ctx.beginPath(); ctx.arc(cx + ts * 0.17, cy + ts * 0.015, ts * 0.045, 0, 7); ctx.fill();
+      ctx.fillStyle = "rgba(127,216,255,0.35)";
+      ctx.beginPath(); ctx.arc(cx + ts * 0.17, cy + ts * 0.015, ts * 0.09, 0, 7); ctx.fill();
     } else if (it.kind === ITEM.ARMOR) {
       ctx.fillStyle = "#8a94a0";
       ctx.beginPath();

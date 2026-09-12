@@ -278,6 +278,14 @@ class SoundManager {
         this._tone(880, 0.05, { type: "triangle", gain: 0.1, glideTo: 440 });
         this._noise(0.12, { type: "bandpass", freq: 2600, q: 1.4, gain: 0.12 });
         break;
+      case "gun": // sharp crack + mechanical clack
+        this._noise(0.08, { type: "highpass", freq: 900, q: 0.5, gain: 0.3 });
+        this._tone(180, 0.07, { type: "square", gain: 0.1, glideTo: 60 });
+        break;
+      case "laser": // descending sci-fi zap
+        this._tone(1600, 0.16, { type: "sawtooth", gain: 0.09, glideTo: 320 });
+        this._tone(2400, 0.1, { type: "sine", gain: 0.05, glideTo: 800 });
+        break;
       case "enemyDown": // descending defeat
         this._tone(330, 0.3, { type: "sawtooth", gain: 0.14, glideTo: 110 });
         break;

@@ -17,13 +17,15 @@ const ITEM = {
   CLOTH: "cloth",
   CIRCUIT: "circuit",
   ARROW: "arrow",   // a bundle of 5 arrows — archer ammunition (see quiver)
+  BULLET: "bullet", // a box of 10 rounds — rifle ammunition
+  CELL: "cell",     // a pack of 5 energy cells — laser rifle ammunition
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
   bar: "Metal bar", weapon: "Weapon", armor: "Armor",
   water: "Water", ale: "Ale", wine: "Wine", marble: "Marble",
   component: "Crafting component", cloth: "Cloth", circuit: "Circuit",
-  arrow: "Arrow bundle (5)",
+  arrow: "Arrow bundle (5)", bullet: "Bullet box (10)", cell: "Energy cell (5)",
 };
 
 // Unique Elven relics discovered in deep stone. They remain with the pawn who
@@ -55,6 +57,17 @@ function materialItem(id) {
   return { kind: ITEM.STONE, sub: null };
 }
 
+// The ranged-weapon ladder and its ammunition. `per` is how many shots one
+// ammo item holds when the quiver is refilled from stockpiles; `range` in
+// tiles (Watchtower adds 2); `cd` seconds between shots. Soldiers auto-upgrade
+// to a strictly higher-rank weapon when one is spare (see assignEquip).
+const WEAPON_RANK = { club: 0, stone_spear: 1, sword: 2, axe: 2, bow: 3, rifle: 4, laser_blade: 5, laser_rifle: 6 };
+const RANGED_WEAPONS = {
+  bow:         { ammo: ITEM.ARROW,  per: 5,  range: 6,  cd: 1.4, label: "arrows",  sound: "bow",   color: "#f0dc96" },
+  rifle:       { ammo: ITEM.BULLET, per: 10, range: 8,  cd: 1.1, label: "bullets", sound: "gun",   color: "#e8e8e0" },
+  laser_rifle: { ammo: ITEM.CELL,   per: 5,  range: 10, cd: 0.9, label: "charges", sound: "laser", color: "#7fd8ff" },
+};
+
 // Stockpile filters group item kinds so a pile can be restricted to just one
 // kind of goods (e.g. "Arms only") for cleaner logistics.
 const STOCKPILE_CATEGORIES = [
@@ -69,7 +82,7 @@ const STOCKPILE_CATEGORY_OF = {
   ore: "ore", bar: "ore",
   food: "food",
   water: "drink", ale: "drink", wine: "drink",
-  weapon: "arms", armor: "arms", arrow: "arms", component: "building", cloth: "building", circuit: "ore",
+  weapon: "arms", armor: "arms", arrow: "arms", bullet: "arms", cell: "arms", component: "building", cloth: "building", circuit: "ore",
 };
 
 class Item {
@@ -222,7 +235,7 @@ class Dwarf {
 
   // Damage this dwarf deals per swing (weapon + fighting skill).
   attackDamage() {
-    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8, bow: 1.15 };
+    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8, bow: 1.15, rifle: 1.7, laser_rifle: 2.2 };
     return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? (weaponMult[this.weapon] || 1.9) : 1) * (1 + this.traitBonus("attack"));
   }
   // Incoming damage after armor, skill-based dodge, and Toughness (raw resilience).

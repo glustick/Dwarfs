@@ -1253,8 +1253,8 @@ class Game {
   soldierCount() { let n = 0; for (const d of this.dwarves) if (d.military) n++; return n; }
   addFx(x, y, bad) { this.combatFx.push({ x, y, t: 0.3, bad: !!bad }); }
 
-  addProjectileFx(x1, y1, x2, y2, z, bad) {
-    this.projectileFx.push({ x1, y1, x2, y2, z: z || 0, t: 0.18, bad: !!bad });
+  addProjectileFx(x1, y1, x2, y2, z, bad, color) {
+    this.projectileFx.push({ x1, y1, x2, y2, z: z || 0, t: 0.18, bad: !!bad, color: color || null });
   }
 
   // Line of sight between two tiles on the same floor: walls, solid rock, and
@@ -1276,21 +1276,23 @@ class Game {
     return true;
   }
 
-  // Top up an archer's quiver from stored/loose arrow bundles. One bundle = 5
-  // arrows, quiver holds 20. Returns how many arrows were added.
+  // Top up a gunner's/archer's quiver from stored/loose ammo packs. Each pack
+  // holds RANGED_WEAPONS[weapon].per shots; the quiver holds 20 of anything.
+  // Returns how many shots were added.
   refillQuiver(d) {
-    if (d.weapon !== "bow" || d.quiver >= 20) return 0;
-    const bundles = this.items
-      .filter(it => it.kind === ITEM.ARROW)
+    const rw = RANGED_WEAPONS[d.weapon];
+    if (!rw || d.quiver >= 20) return 0;
+    const packs = this.items
+      .filter(it => it.kind === rw.ammo)
       .sort((a, b) => dist3(a.x, a.y, a.z || 0, d.tileX, d.tileY, d.z || 0) - dist3(b.x, b.y, b.z || 0, d.tileX, d.tileY, d.z || 0));
     let added = 0;
-    for (const bundle of bundles) {
+    for (const pack of packs) {
       if (d.quiver >= 20) break;
-      this.jobs.consumeItem(bundle);
-      d.quiver = Math.min(20, d.quiver + 5);
-      added += 5;
+      this.jobs.consumeItem(pack);
+      d.quiver = Math.min(20, d.quiver + rw.per);
+      added += rw.per;
     }
-    if (added) this.log(`${d.name} gathers ${added} arrows for their quiver.`, "", "combat");
+    if (added) this.log(`${d.name} loads ${added} ${rw.label} (${d.quiver}/20).`, "", "combat");
     return added;
   }
 
@@ -1340,23 +1342,25 @@ class Game {
           d.thought = "In battle!";
           return true;
         }
-        // An archer with arrows stands off and shoots instead of charging —
-        // 6 tiles of reach, +2 when firing from a Watchtower. Without line of
-        // sight (or arrows) they simply fall through to normal chase behavior.
-        if (d.weapon === "bow" && d.quiver > 0) {
+        // A soldier with a ranged weapon (bow/rifle/laser rifle) and ammo
+        // stands off and shoots instead of charging — per-weapon reach, +2
+        // when firing from a Watchtower. Without line of sight (or ammo) they
+        // simply fall through to normal chase behavior.
+        const rw = RANGED_WEAPONS[d.weapon];
+        if (rw && d.quiver > 0) {
           const dist = Math.max(Math.abs(d.tileX - foe.tileX), Math.abs(d.tileY - foe.tileY));
-          const range = 6 + (this.isOnWatchtower(d) ? 2 : 0);
+          const range = rw.range + (this.isOnWatchtower(d) ? 2 : 0);
           if (dist <= range && this.hasLOS(d.tileX, d.tileY, dz, foe.tileX, foe.tileY)) {
             d.state = "fight"; d.path = null; d.facing = foe.x > d.x ? 1 : -1;
             d.attackCd -= dt;
             if (d.attackCd <= 0) {
-              d.attackCd = 1.4;
+              d.attackCd = rw.cd;
               d.quiver--;
-              this.addProjectileFx(d.x, d.y, foe.x, foe.y, dz, false);
+              this.addProjectileFx(d.x, d.y, foe.x, foe.y, dz, false, rw.color);
               this.dwarfHitEnemy(d, foe, true);
-              if (window.sound) window.sound.play("bow", 90);
+              if (window.sound) window.sound.play(rw.sound, 90);
             }
-            d.thought = d.quiver ? "Loosing arrows!" : "Quiver empty!";
+            d.thought = d.quiver ? "Firing at will!" : "Out of ammo!";
             return true;
           }
         }
@@ -1427,7 +1431,7 @@ class Game {
 
   dwarfHitEnemy(d, foe, ranged = false) {
     let dmg = d.attackDamage();
-    if (!ranged && d.weapon === "bow") dmg *= 0.6; // swinging a bow like a club
+    if (!ranged && RANGED_WEAPONS[d.weapon]) dmg *= 0.6; // swinging a ranged weapon like a club
     if (this.isOnWatchtower(d)) dmg *= WATCHTOWER_ATK_MULT;
     foe.hp -= dmg;
     this.addFx(foe.x, foe.y, false);
@@ -1546,11 +1550,11 @@ class Game {
     if (before && !this.enemies.length) {
       this.log("The colony has repelled the attack!", "good", "combat");
       // Manual move orders only make sense mid-fight — once it's over, hand
-      // soldiers back to their normal equip/idle/labor routine. Archers also
-      // restock their quivers from stored arrow bundles.
+      // soldiers back to their normal equip/idle/labor routine. Gunners and
+      // archers also restock their quivers from stored ammo packs.
       for (const d of this.dwarves) {
         d.manualOrder = null;
-        if (d.military && d.weapon === "bow" && d.quiver < 20) this.refillQuiver(d);
+        if (d.military && RANGED_WEAPONS[d.weapon] && d.quiver < 20) this.refillQuiver(d);
       }
     }
   }
@@ -2366,9 +2370,10 @@ class Game {
           <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
       }
       sk += `</div>`;
-      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", bow: "Bow", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
+      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", bow: "Bow", rifle: "Iron rifle", laser_rifle: "Laser rifle", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
       const gear = [d.weapon ? "🗡 " + (gearNames[d.weapon] || d.weapon) : null, d.armor ? "🛡 " + (gearNames[d.armor] || d.armor) : null].filter(Boolean).join(" · ");
-      const quiverTxt = d.weapon === "bow" ? ` <span class="tag">🏹 ${d.quiver} arrows</span>` : "";
+      const rwInfo = RANGED_WEAPONS[d.weapon];
+      const quiverTxt = rwInfo ? ` <span class="tag">🏹 ${d.quiver}/20 ${rwInfo.label}</span>` : "";
       const inventory = (d.inventory || []).map(item => ARTIFACT_BY_ID[item.id]).filter(Boolean);
       const inventoryHTML = inventory.length ? inventory.map(artifact => {
         const boosts = Object.entries(artifact.bonuses).map(([stat, value]) => `+${value} ${stat}`).join(" · ");
@@ -2384,7 +2389,7 @@ class Game {
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
         ${d.infected ? `<div class="mini" style="color:#8fd08f">🧟 Fighting the infection — ${Math.max(0, Math.round(d.infectionTimer))}s until it takes hold</div>` : ""}
         ${gear ? `<div class="mini">Equipped: ${gear}${quiverTxt}</div>` : ""}
-        ${d.weapon === "bow" && d.quiver === 0 ? `<div class="mini" style="color:#e08a6a">Quiver empty — craft arrow bundles (Weapons Bench) so they can shoot.</div>` : ""}
+        ${rwInfo && d.quiver === 0 ? `<div class="mini" style="color:#e08a6a">Out of ammo — craft more ${rwInfo.label} (${d.weapon === "laser_rifle" ? "Electronics" : "Weapons"} Bench) so they can shoot.</div>` : ""}
         <div class="mini2">Traits</div><div class="trait-list">${traitsHTML || `<span class="mini">No traits recorded.</span>`}</div>
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="mini2">Inventory · ${inventory.length}</div>${inventoryHTML}

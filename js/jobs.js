@@ -33,6 +33,9 @@ const RECIPES = {
     { name: "Laser blade", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.WEAPON, sub: "laser_blade" }, time: 5.0, tech: "electronics" },
     { name: "Bow", in: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "bow" }, time: 3.0, tech: "archery" },
     { name: "Arrow bundle (5)", in: [{ kind: ITEM.WOOD }, { kind: ITEM.STONE }], out: { kind: ITEM.ARROW }, time: 2.0, tech: "archery" },
+    { name: "Iron rifle", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "rifle" }, time: 4.0, tech: "ballistics" },
+    { name: "Bullet box (10)", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.BULLET }, time: 1.6, tech: "ballistics" },
+    { name: "Laser rifle", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.WEAPON, sub: "laser_rifle" }, time: 5.5, tech: "photonics" },
   ],
   clothing: [
     { name: "Cloth cloak", in: [{ kind: ITEM.CLOTH }], out: { kind: ITEM.ARMOR, sub: "cloak" }, time: 2.4 },
@@ -40,6 +43,7 @@ const RECIPES = {
   ],
   electronics: [
     { name: "Circuit board", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.CIRCUIT }, time: 3.8 },
+    { name: "Energy cell (5)", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.CELL }, time: 3.0, tech: "photonics" },
   ],
   // Wells need no inputs — an empty `in` list just always succeeds.
   well: [
@@ -65,7 +69,7 @@ const WORKSHOP_INFO = {
 // forged arms are the only surplus goods worth exporting.
 const TRADE_SELL_PRICE = {
   bar: { gold: 14 },
-  weapon: { sword: 10, axe: 10 },
+  weapon: { sword: 10, axe: 10, rifle: 18, laser_rifle: 28 },
   armor: { shield: 10, mail: 10 },
 };
 function tradeSellPrice(it) {
@@ -450,10 +454,24 @@ class JobManager {
   }
 
   // Enlisted dwarves fetch a weapon, then armor, from stockpiles/ground.
+  // An armed soldier also swaps to a strictly higher-tier spare weapon
+  // (club → spear → sword/bow → rifle → laser blade/rifle), so a better
+  // craft naturally re-arms the militia without micro-management.
   assignEquip(dwarf) {
     const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
     let slot = null, item = null;
     if (!dwarf.weapon) { item = this.findAnyItem(ITEM.WEAPON, dx, dy, dz); if (item) slot = "weapon"; }
+    else {
+      const rank = WEAPON_RANK[dwarf.weapon] ?? 0;
+      let best = null, bd = Infinity;
+      for (const it of g.items) {
+        if (it.kind !== ITEM.WEAPON || it.hauled || it.sub === dwarf.weapon) continue;
+        if ((WEAPON_RANK[it.sub] ?? 0) <= rank) continue;
+        const d = dist3(it.x, it.y, it.z || 0, dx, dy, dz || 0);
+        if (d < bd) { bd = d; best = it; }
+      }
+      if (best) { item = best; slot = "weapon"; }
+    }
     if (!item && !dwarf.armor) { item = this.findAnyItem(ITEM.ARMOR, dx, dy, dz); if (item) slot = "armor"; }
     if (!item) return false;
     const path = pathAdjacent(g.world, dx, dy, dz, item.x, item.y, item.z) || pathTo(g.world, dx, dy, dz, item.x, item.y, item.z);
@@ -1067,14 +1085,17 @@ class JobManager {
         dwarf.thought = "No materials to craft";
       }
     } else if (job.type === "equip") {
-      // Consume the equipment item and don it.
+      // Consume the equipment item and don it. Swapping weapons hands the
+      // old one back as a loose item instead of destroying it.
       if (job.item) {
         const slot = job.slot || (job.item.kind === ITEM.ARMOR ? "armor" : "weapon");
+        const old = slot === "weapon" ? dwarf.weapon : null;
         dwarf[slot] = job.item.sub || slot;
         this.consumeItem(job.item);
-        if (slot === "weapon" && dwarf.weapon === "bow") {
+        if (old && old !== dwarf.weapon) this.spawnItem(ITEM.WEAPON, dwarf.tileX, dwarf.tileY, old, dwarf.z);
+        if (slot === "weapon" && RANGED_WEAPONS[dwarf.weapon]) {
           dwarf.quiver = 0;
-          g.refillQuiver(dwarf); // grab arrow bundles right away if any are stocked
+          g.refillQuiver(dwarf); // grab ammo right away if any is stocked
         }
         g.awardXp(dwarf, "fighting", 3);
         g.log(`${dwarf.name} equips a ${job.item.sub || slot}.`, "", "combat");

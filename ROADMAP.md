@@ -229,6 +229,12 @@ actual room instead of colony-wide counters).
       refills from stored bundles; melee with a bow is clumsy. The Bile
       Spitter is a new ranged zombie that lobs bile from 5 tiles, forcing
       melee defence to come to it.
+- [x] ~~Modern & futuristic arms~~ — Ballistics (Tier 3) unlocks the iron
+      Rifle and bullet boxes; Photonics (first Tier 4 tech) unlocks the
+      Laser Rifle and energy cells. 8- and 10-tile reach, per-weapon ammo
+      and sounds, and soldiers auto-upgrade to a strictly better spare
+      weapon (returning the old one as an item) instead of needing
+      micro-management.
 - [ ] Factions — multiple neighbor groups with per-faction reputation,
       trade terms, and their own raid motivations beyond the zombie threat.
 - [ ] Storyteller events — a pacing/event-pool system that curates
@@ -239,6 +245,6 @@ actual room instead of colony-wide counters).
 
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-      shipped.** Tier 6 is underway: room quality (v1.15.0) and ranged
-      tactics (v1.16.0) shipped; factions and storyteller events are the
-      open directions.
+      shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
+      (v1.16.0), and the modern/futuristic weapon ladder (v1.17.0) shipped;
+      factions and storyteller events are the open directions.
