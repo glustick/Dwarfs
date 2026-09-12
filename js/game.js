@@ -130,7 +130,9 @@ class Game {
     this.growthTimer = 0;
     this.statTimer = 0;
     this.relTimer = 0;
-    this.decorCount = {};
+    this.rooms = [];          // graded Bedroom/Dining rooms (see computeRooms)
+    this.roomAt = new Map();  // "x,y,z" of each room tile -> its room object
+    this.roomTimer = 5;       // walls/floors finishing also change quality — rescore periodically
     this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.migrationTimer = DAY_LENGTH * 1.5;
@@ -535,6 +537,11 @@ class Game {
       this.popHistory.push({ day: today, pop: this.dwarves.length });
       if (this.popHistory.length > 200) this.popHistory.shift();
     }
+
+    // room quality: zones trigger an immediate rescore via rebuildZones, but
+    // a wall or floor finishing construction also changes the score.
+    this.roomTimer -= dt;
+    if (this.roomTimer <= 0) { this.roomTimer = 5; this.computeRooms(); }
 
     // weather: rolls a new condition periodically, weighted by the season
     this.weatherTimer -= dt;
@@ -1730,7 +1737,6 @@ class Game {
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = []; this.quarantineTiles = [];
     this.depotTiles = []; this.doorTiles = [];
     this.watchtowerTiles = []; this.trapTiles = [];
-    this.tableCount = 0; this.decorCount = {};
     const w = this.world;
     for (let z = 0; z >= w.minZ; z--) {
       const tiles = w.getLevel(z);
@@ -1739,18 +1745,10 @@ class Game {
         for (let x = 0; x < w.w; x++) {
           const t = tiles[y][x];
           if (t.furniture === FURN.BED || t.furniture === FURN.DOUBLE_BED) this.bedTiles.push([x, y, z]);
-          else if (t.furniture === FURN.TABLE) this.tableCount++;
           else if (t.furniture === FURN.WATCHTOWER) this.watchtowerTiles.push([x, y, z]);
           else if (t.furniture === FURN.TRAP) this.trapTiles.push([x, y, z]);
-          if (t.zone) {
-            // decor: paintings, plus a small bonus for nicer build materials
-            // (marble/metal) on any wall/floor/door/furniture in the zone —
-            // reuses the same bonus the bedroom sleep loop already reads.
-            let bonus = t.furniture === FURN.PAINTING ? 1 : 0;
-            const mat = t.buildMaterial && MATERIALS[t.buildMaterial];
-            if (mat && mat.moodBonus) bonus += mat.moodBonus;
-            if (bonus) this.decorCount[t.zone] = (this.decorCount[t.zone] || 0) + bonus;
-          }
+          // zone decor (paintings, marble/metal) is scored per-room by
+          // computeRooms/scoreRoom — no colony-wide counter anymore
           if (t.zone === ZONE.DINING) this.diningTiles.push([x, y, z]);
           else if (t.zone === ZONE.FARM) this.farmTiles.push([x, y, z]);
           else if (t.zone === ZONE.STUDY) this.studyTiles.push([x, y, z]);
@@ -1760,6 +1758,95 @@ class Game {
           if (t.built === B.DOOR) this.doorTiles.push([x, y, z]);
         }
     }
+    this.computeRooms();
+  }
+
+  // ---- room quality ----
+  // A "room" is a flood-filled patch of Bedroom or Dining zone on one floor.
+  // Quality (0–100) blends enclosure, flooring, build materials, decor, and
+  // size into a grade from Cramped up to Royal; sleeping in a bedroom and
+  // dining in a hall scale their mood bonus off it, so a marble-walled,
+  // painting-hung chamber finally beats a cot in a muddy dugout.
+  // Recomputed on every zone change (rebuildZones) and on a slow timer,
+  // since walls/floors finishing construction also move the score.
+  computeRooms() {
+    this.rooms = [];
+    this.roomAt = new Map();
+    const w = this.world;
+    for (const zone of [ZONE.BEDROOM, ZONE.DINING]) {
+      for (let z = 0; z >= w.minZ; z--) {
+        const level = w.getLevel(z);
+        if (!level) continue;
+        const seen = new Set();
+        for (let y = 0; y < w.h; y++) {
+          for (let x = 0; x < w.w; x++) {
+            if (seen.has(`${x},${y},${z}`) || level[y][x].zone !== zone) continue;
+            const tiles = [];
+            const stack = [[x, y]];
+            seen.add(`${x},${y},${z}`);
+            while (stack.length) {
+              const [cx, cy] = stack.pop();
+              tiles.push([cx, cy, z]);
+              for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+                if (nx < 0 || ny < 0 || nx >= w.w || ny >= w.h) continue;
+                if (seen.has(`${nx},${ny},${z}`) || level[ny][nx].zone !== zone) continue;
+                seen.add(`${nx},${ny},${z}`);
+                stack.push([nx, ny]);
+              }
+            }
+            const room = this.scoreRoom(tiles, zone);
+            this.rooms.push(room);
+            for (const [tx, ty, tz] of tiles) this.roomAt.set(`${tx},${ty},${tz}`, room);
+          }
+        }
+      }
+    }
+  }
+
+  scoreRoom(tiles, zone) {
+    const w = this.world;
+    const isBedroom = zone === ZONE.BEDROOM;
+    const inRoom = new Set(tiles.map(([x, y, z]) => `${x},${y},${z}`));
+    let perimeter = 0, sealed = 0, floors = 0, bestMat = 0, paintings = 0, tables = 0;
+    for (const [x, y, z] of tiles) {
+      const t = w.get(x, y, z);
+      if (t.built === B.FLOOR) floors += 1;
+      else if (t.kind === K.FLOOR && t.built !== B.FLOOR) floors += 0.5; // smooth mined rock
+      if (t.furniture === FURN.PAINTING) paintings++;
+      if (t.furniture === FURN.TABLE) tables++;
+      const mat = t.buildMaterial && MATERIALS[t.buildMaterial];
+      if (mat && mat.moodBonus) bestMat = Math.max(bestMat, mat.moodBonus);
+      for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+        if (inRoom.has(`${nx},${ny},${z}`)) continue;
+        perimeter++;
+        const n = w.get(nx, ny, z);
+        if (n && (n.built === B.DOOR || !w.isWalkable(nx, ny, z))) {
+          sealed++;
+          const nmat = n.buildMaterial && MATERIALS[n.buildMaterial];
+          if (nmat && nmat.moodBonus) bestMat = Math.max(bestMat, nmat.moodBonus);
+        }
+      }
+    }
+    const n = tiles.length;
+    const parts = {
+      // walls/doors/solid rock around the room — an open-air zone is not a room
+      enclosure: perimeter ? 30 * (sealed / perimeter) : 0,
+      // built floors, with mined-stone floors counting half
+      flooring: 20 * (floors / n),
+      // marble walls/floors (2) beat metal (1); wood/stone add nothing
+      material: 15 * (bestMat / 2),
+      // paintings anywhere, tables in dining halls
+      decor: Math.min(2, paintings) * 7 + (isBedroom ? 0 : Math.min(2, tables) * 3),
+      // bedrooms want cozy 4–12 tiles; dining halls want elbow room
+      space: isBedroom
+        ? (n < 4 ? n * 1.5 : n <= 12 ? 15 : Math.max(6, 15 - (n - 12) * 0.75))
+        : Math.min(15, n * 1.25),
+    };
+    const quality = clamp(Math.round(parts.enclosure + parts.flooring + parts.material + parts.decor + parts.space), 0, 100);
+    const grade = quality < 25 ? "Cramped" : quality < 45 ? "Modest" : quality < 65 ? "Fine" : quality < 85 ? "Grand" : "Royal";
+    const weakest = Object.entries(parts).sort((a, b) => a[1] - b[1])[0];
+    const hints = { enclosure: "seal the room with walls or doors", flooring: "lay more floors", material: "build with marble or metal", decor: isBedroom ? "hang more paintings" : "add tables and paintings", space: isBedroom ? "resize toward 4–12 tiles" : "give the hall more space" };
+    return { zone, name: isBedroom ? "bedroom" : "dining hall", tiles: n, quality, grade, parts, hint: hints[weakest[0]] };
   }
 
   // ---- doors ----
@@ -2270,6 +2357,13 @@ class Game {
         parts.push(`<button class="mini-btn" id="insp-door-lock">${tile.doorLocked ? "Unlock" : "Lock"} door</button>`);
       }
       if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
+      if (tile.zone === ZONE.BEDROOM || tile.zone === ZONE.DINING) {
+        const room = this.roomAt.get(`${t.x},${t.y},${t.z || 0}`);
+        if (room) {
+          parts.push(`Room: <b>${room.grade} ${room.name}</b> <span class="tag">${room.quality}/100 · ${room.tiles} tiles</span>`);
+          if (room.quality < 85) parts.push(`<div class="mini" style="opacity:.7">To raise the grade: ${room.hint}.</div>`);
+        }
+      }
       if (tile.designation) parts.push(`Designated: <span class="tag">${tile.designation}</span>`);
       if (tile.buildJob) parts.push(`Queued: <span class="tag">${tile.buildKind || "wall"}</span>`);
       if (tile.stockpile) {

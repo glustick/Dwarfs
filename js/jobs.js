@@ -762,8 +762,11 @@ class JobManager {
         if (inBed) {
           const bedTile = w.get(dwarf.bed.x, dwarf.bed.y, dwarf.bed.z || 0);
           if (bedTile.zone === ZONE.BEDROOM) {
-            dwarf.mood = clamp(dwarf.mood + dt * 0.6 * (g.hasTech("comfort") ? 2 : 1), 0, 100);
-            dwarf.mood = clamp(dwarf.mood + dt * 0.15 * Math.min(5, g.decorCount[ZONE.BEDROOM] || 0), 0, 100);
+            // mood gain scales with the room's quality grade instead of a
+            // colony-wide decor counter — a painting here, not anywhere, counts
+            const room = g.roomAt.get(`${dwarf.bed.x},${dwarf.bed.y},${dwarf.bed.z || 0}`);
+            const q = room ? room.quality : 0;
+            dwarf.mood = clamp(dwarf.mood + dt * (0.3 + (q / 100) * 1.5) * (g.hasTech("comfort") ? 1.6 : 1), 0, 100);
           }
           if (dwarf.partnerId && (bedTile.bedOccupants || []).includes(dwarf.partnerId))
             dwarf.mood = clamp(dwarf.mood + dt * 1.2, 0, 100); // sharing a bed with a partner
@@ -1076,7 +1079,10 @@ class JobManager {
       const here = w.get(dwarf.tileX, dwarf.tileY, dwarf.z);
       const inDining = here && here.zone === ZONE.DINING;
       dwarf.hunger = clamp(dwarf.hunger - (60 + dwarf.skillLevel("cooking") * 2), 0, 100);
-      const diningBonus = inDining ? (g.hasTech("furniture") && g.tableCount > 0 ? 14 : 9) : 5;
+      // a graded hall (tables, paintings, floors, enclosure) beats a bare zone —
+      // the old colony-wide tableCount check is folded into room quality
+      const eatRoom = inDining ? g.roomAt.get(`${dwarf.tileX},${dwarf.tileY},${dwarf.z || 0}`) : null;
+      const diningBonus = inDining ? Math.round(7 + ((eatRoom ? eatRoom.quality : 0) / 100) * 9) : 5;
       dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
       g.awardXp(dwarf, "cooking", 5);
       if (inDining) g.awardXp(dwarf, "charisma", 4);

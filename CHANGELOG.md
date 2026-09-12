@@ -4,6 +4,19 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.15.0 (build 41)
+Room quality round.
+
+- **Room quality**: Bedroom and Dining zone tiles now flood-fill into
+  discrete rooms, graded Cramped → Modest → Fine → Grand → Royal from
+  enclosure (walls/doors around the perimeter), flooring, build materials
+  (marble/metal), decor (paintings; tables in dining halls), and size.
+  Sleeping in a bedroom and eating in a dining hall scale their mood
+  bonuses off the actual room's score instead of colony-wide counters — a
+  painting in *your* chamber now matters, not one across the fortress.
+  Selecting a room tile shows its grade, quality score, and the weakest
+  point to improve.
+
 ## v1.14.1 (build 40)
 
 - **Group selection**: dragging a box with the Inspect tool now selects every

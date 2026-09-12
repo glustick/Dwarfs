@@ -52,11 +52,16 @@ rendering, and no actual power logic), **build materials** (a Wood/
 Stone/Marble/Metal picker in the Build fly-out applies to walls, floors,
 doors, and furniture; Marble is a new decorative vein found while mining,
 Metal reuses forged iron bars, and both give a small mood bonus over
-plain stone/wood — same pattern paintings already used), and **defensive
+plain stone/wood — same pattern paintings already used), **defensive
 structures** (a Palisade is a quick stake wall built in half the usual
 time; a Watchtower gives a soldier fighting from it a passive damage/
 defense bonus; a reusable Trap damages a raider that steps on it, never
-colonists, and resets after a cooldown).
+colonists, and resets after a cooldown), **group selection** (drag a box to
+select every elf inside — civilians too — with labor chips that retask the
+whole group at once), and **room quality** (bedroom/dining zones flood-fill
+into discrete rooms graded Cramped→Royal from enclosure, flooring,
+materials, decor, and size; sleep and dining mood bonuses scale off the
+actual room instead of colony-wide counters).
 
 ## Known loose ends to close
 - [x] ~~Gold bars are a dead-end~~ — sold to caravans.
@@ -208,8 +213,28 @@ colonists, and resets after a cooldown).
 
 ---
 
+## Tier 6 — deeper systems
+
+- [x] ~~Room quality~~ — Bedroom and Dining zone tiles flood-fill into
+      discrete rooms graded Cramped → Modest → Fine → Grand → Royal from
+      enclosure (walls/doors around the perimeter), flooring, build
+      materials (marble/metal), decor (paintings; tables in dining halls),
+      and size. Sleeping in a bedroom and eating in a dining hall scale
+      their mood bonuses off the room's actual score instead of colony-wide
+      counters; selecting a room tile shows its grade and its weakest point.
+- [ ] Ranged tactics — bows or arcane shots for soldiers (and some
+      raiders), with ammo/essence as a real resource; watchtowers could
+      become true firing positions instead of a passive bonus.
+- [ ] Factions — multiple neighbor groups with per-faction reputation,
+      trade terms, and their own raid motivations beyond the zombie threat.
+- [ ] Storyteller events — a pacing/event-pool system that curates
+      incidents (migrant waves, strange merchants, disasters, windfalls)
+      instead of purely timer-driven rolls.
+
+---
+
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-      shipped.** The player-requested backlog and current quality-of-life
-      enhancement round are complete; future work can focus on deeper systems
-      such as ranged tactics, factions, room quality, and storyteller events.
+      shipped.** Tier 6 is underway: room quality shipped (v1.15.0);
+      ranged tactics, factions, and storyteller events are the open
+      directions.
