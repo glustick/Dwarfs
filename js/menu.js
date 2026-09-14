@@ -175,6 +175,12 @@ class App {
           <button class="menu-btn" id="pm-new"><span class="mi">✨</span><span>New Game</span></button>
           <button class="menu-btn danger ghost" id="pm-main"><span class="mi">🚪</span><span>Quit to Main Menu</span></button>
         </div>
+        <div class="menu-section-title">🎨 Theme</div>
+        <div class="theme-row" id="theme-row">
+          <button class="theme-btn" data-theme="greenwood">Greenwood</button>
+          <button class="theme-btn" data-theme="aether">Aether</button>
+          <button class="theme-btn" data-theme="daylight">Daylight</button>
+        </div>
         <div class="menu-section-title">🎚 Audio</div>
         <div class="vol-row"><span>Music</span><input type="range" id="vol-music" min="0" max="100" value="${Math.round((window.sound ? window.sound.musicVol : 1) * 100)}"><span>SFX</span><input type="range" id="vol-sfx" min="0" max="100" value="${Math.round((window.sound ? window.sound.sfxVol : 1) * 100)}"></div>
         <div class="menu-version">v${RELEASE_VERSION} · build ${BUILD_NUMBER}</div>
@@ -193,6 +199,14 @@ class App {
     if (volMusic) volMusic.addEventListener("input", (e) => { if (window.sound) window.sound.setMusicVolume(+e.target.value / 100); });
     const volSfx = document.getElementById("vol-sfx");
     if (volSfx) volSfx.addEventListener("input", (e) => { if (window.sound) window.sound.setSfxVolume(+e.target.value / 100); });
+    const themeRow = document.getElementById("theme-row");
+    if (themeRow) {
+      const active = document.documentElement.getAttribute("data-theme") || "greenwood";
+      themeRow.querySelectorAll(".theme-btn").forEach((btn) => {
+        btn.classList.toggle("on", btn.dataset.theme === active);
+        btn.onclick = () => { if (window.setTheme) window.setTheme(btn.dataset.theme); };
+      });
+    }
   }
 
   // ---- SAVE DIALOG ----

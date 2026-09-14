@@ -724,6 +724,7 @@ class SoundManager {
     if (btn) {
       btn.textContent = this.enabled ? "🔊" : "🔇";
       btn.title = this.enabled ? "Sound on — click to mute" : "Sound off — click to unmute";
+      btn.setAttribute("aria-label", this.enabled ? "Mute sound" : "Unmute sound");
       btn.classList.toggle("off", !this.enabled);
     }
   }

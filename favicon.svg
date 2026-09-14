@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Elven Empire">
+  <rect width="64" height="64" rx="14" fill="#0e1a14"/>
+  <path d="M32 13c10 8 12 23 0 38-12-15-10-30 0-38z" fill="#e9c46a"/>
+  <path d="M32 16v33" stroke="#0e1a14" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M32 28l7-5M32 36l-7-5" stroke="#0e1a14" stroke-width="2" stroke-linecap="round" opacity=".75"/>
+</svg>

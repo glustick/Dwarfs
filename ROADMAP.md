@@ -262,6 +262,14 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Interface modernization~~ — the two stacked themes in `css/style.css`
+      (parchment layer + later override block) are replaced by one token-driven
+      system. Three themes ship — Greenwood (default), Aether and Daylight —
+      switchable from the pause menu and remembered. Accessibility: accessible
+      names on every icon-only control, `:focus-visible` rings, and
+      `prefers-reduced-motion` honoured. Plus a favicon, description and Open
+      Graph tags, and a committed headless test harness (`tools/smoke*.js`).
+
 - [x] ~~Adaptive audio, round 2~~ — the score takes its colour from the
       **season** (brighter/faster in summer, darker/slower and lower in winter,
       with a low drone under autumn/winter) and lifts into a brighter "festive"

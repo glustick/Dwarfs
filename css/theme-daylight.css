@@ -1,0 +1,87 @@
+/* ==========================================================================
+   Elven Empire — "Daylight" theme (override layer)
+   --------------------------------------------------------------------------
+   Loaded after css/style.css to re-skin the interface as a clean, airy tool:
+   off-white cards over the world, soft shadows tinted to the surface hue, one
+   terracotta accent, generous spacing.
+
+   Only tokens and a handful of structural rules are overridden — the layout
+   markup is untouched. Switch themes in-game from the pause menu.
+   ========================================================================== */
+
+:root {
+  --bg: #eef1f0;
+  --surface: rgba(255, 255, 255, .95);
+  --surface-raised: #ffffff;
+  --surface-solid: #ffffff;
+  --line: rgba(15, 23, 42, .1);
+  --line-2: rgba(15, 23, 42, .22);
+
+  --text: #17211f;
+  --muted: #5f6f6b;
+  --muted-2: #93a29e;
+
+  --accent: #c0492b;
+  --accent-ink: #ffffff;
+  --ok: #12805a;
+  --warn: #b26a12;
+  --bad: #c0392b;
+  --info: #1d6fa5;
+  --ok-bg: rgba(18, 128, 90, .08);
+  --ok-line: rgba(18, 128, 90, .26);
+  --bad-bg: rgba(192, 57, 43, .07);
+  --bad-line: rgba(192, 57, 43, .24);
+  --tag-bg: rgba(15, 23, 42, .05);
+  --control-bg: rgba(15, 23, 42, .04);
+  --control-hover: rgba(192, 73, 43, .1);
+  --row-bg: transparent;
+  --row-hover: rgba(15, 23, 42, .035);
+  --row-sel: rgba(192, 73, 43, .08);
+  --track: rgba(15, 23, 42, .1);
+  --scrim: rgba(20, 30, 28, .45);
+  --bar-bg: rgba(255, 255, 255, .94);
+  --dock-bg: rgba(255, 255, 255, .96);
+  --chip-bg: rgba(255, 255, 255, .95);
+
+  --shadow: 0 10px 28px rgba(23, 33, 31, .12);
+  --shadow-lg: 0 26px 70px rgba(23, 33, 31, .2);
+  --r-lg: 18px;
+  --r: 14px;
+  --r-sm: 10px;
+  --r-ctl: 10px;
+  --t: 200ms cubic-bezier(.16, 1, .3, 1);
+}
+
+#panel h2 { color: var(--muted); }
+
+/* rows read as hairline-separated list items rather than cards */
+.dwarf-row {
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 10px 2px;
+  margin-bottom: 0;
+  background: transparent;
+}
+.dwarf-row:last-of-type { border-bottom: 0; }
+.dwarf-row:hover, .dwarf-row.sel { border-radius: var(--r-sm); }
+.dwarf-row.sel { box-shadow: inset 0 0 0 1px var(--line-2); }
+
+/* primary actions carry the accent, not a glow */
+.tool.active, .cat.active {
+  box-shadow: 0 6px 16px rgba(192, 73, 43, .26);
+}
+.spd.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.menu-btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.theme-btn.on { background: rgba(192, 73, 43, .1); color: var(--accent); }
+.log-chip.on { background: rgba(192, 73, 43, .1); color: var(--accent); }
+.recipe-btn.on, .stockfilter-btn.on { background: rgba(192, 73, 43, .1); color: var(--accent); }
+.tech.ready:hover { background: rgba(192, 73, 43, .06); }
+.milestone.on { background: rgba(192, 73, 43, .06); border-color: rgba(192, 73, 43, .3); }
+.artifact { border-color: rgba(192, 73, 43, .28); background: rgba(192, 73, 43, .05); }
+.artifact b { color: var(--accent); }
+.artifact small { color: var(--ok); }
+.tag { color: var(--muted); }
+
+/* the world stays colourful behind light chrome, so lift the panels a touch */
+#topbar, #log, #archbar, #flyout, #panel { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+#toast .toast-msg { background: var(--surface-raised); color: var(--text); }

@@ -4,7 +4,38 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Elven Empire — Graphical</title>
+<meta name="description" content="Elven Empire is a browser colony sim: lead a band of elves in the greenwood — mine, farm, craft, trade, research, and hold the line against the outbreak." />
+<meta name="theme-color" content="#0a130f" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Elven Empire — Graphical" />
+<meta property="og:description" content="A browser colony sim: raise a woodland empire, dig, craft, trade, and survive the outbreak." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="css/style.css" />
+<!-- Optional theme override layer — see the Theme picker in the pause menu. -->
+<link rel="stylesheet" id="theme-variant" href="" />
+<script>
+  // Applied before first paint so the chosen theme never flashes.
+  (function () {
+    var VARIANTS = { greenwood: "", aether: "css/theme-aether.css", daylight: "css/theme-daylight.css" };
+    window.EE_THEMES = VARIANTS;
+    window.setTheme = function (id) {
+      if (!(id in VARIANTS)) id = "greenwood";
+      var link = document.getElementById("theme-variant");
+      if (link) link.setAttribute("href", VARIANTS[id]);
+      document.documentElement.setAttribute("data-theme", id);
+      window.__eeTheme = id;
+      try { localStorage.setItem("ee_theme", id); } catch (e) {}
+      var row = document.getElementById("theme-row");
+      if (row && row.querySelectorAll) row.querySelectorAll(".theme-btn").forEach(function (b) {
+        b.classList.toggle("on", b.getAttribute("data-theme") === id);
+      });
+      return id;
+    };
+    var saved = "greenwood";
+    try { saved = localStorage.getItem("ee_theme") || "greenwood"; } catch (e) {}
+    window.setTheme(saved);
+  })();
+</script>
 </head>
 <body>
   <div id="game">
@@ -22,27 +53,27 @@
       <span class="stat" id="stat-outbreak" title="The outbreak escalates with your research progress" style="display:none"></span>
       <span class="stat" id="stat-threat" title="Threat · Soldiers" style="display:none;color:#e08a6a"></span>
       <span id="door-ctl" style="display:none">
-        <button class="spd" id="lock-doors-btn" title="Lock all doors">🔒</button>
-        <button class="spd" id="unlock-doors-btn" title="Unlock all doors">🔓</button>
+        <button class="spd" id="lock-doors-btn" title="Lock all doors" aria-label="Lock all doors">🔒</button>
+        <button class="spd" id="unlock-doors-btn" title="Unlock all doors" aria-label="Unlock all doors">🔓</button>
       </span>
       <span id="zlevel-ctl" style="display:none" title="Current floor">
-        <button class="spd" id="zlevel-up" title="Floor up ([)">▲</button>
+        <button class="spd" id="zlevel-up" title="Floor up ([)" aria-label="Show the floor above">▲</button>
         <span class="stat"><b id="stat-zlevel">⛰️ Surface</b></span>
-        <button class="spd" id="zlevel-down" title="Floor down (])">▼</button>
+        <button class="spd" id="zlevel-down" title="Floor down (])" aria-label="Show the floor below">▼</button>
       </span>
       <span class="stat clock" title="Time"><span id="stat-clock">Day 1 · 06:00</span></span>
       <span id="speed-ctl" title="Game speed">
-        <button class="spd" data-spd="pause" title="Pause (Space)">⏸</button>
-        <button class="spd on" data-spd="1" title="Normal speed">▶</button>
-        <button class="spd" data-spd="2" title="Fast (2×)">⏩</button>
-        <button class="spd" data-spd="4" title="Fastest (4×)">⏭</button>
+        <button class="spd" data-spd="pause" title="Pause (Space)" aria-label="Pause">⏸</button>
+        <button class="spd on" data-spd="1" title="Normal speed" aria-label="Normal speed">▶</button>
+        <button class="spd" data-spd="2" title="Fast (2×)" aria-label="Fast speed, 2 times">⏩</button>
+        <button class="spd" data-spd="4" title="Fastest (4×)" aria-label="Fastest speed, 4 times">⏭</button>
       </span>
-      <button id="sound-btn" class="spd" title="Sound on — click to mute">🔊</button>
-      <button id="autopause-btn" class="spd" title="Auto-pause on crises (raid, death, starvation, dehydration)">🔔</button>
+      <button id="sound-btn" class="spd" title="Sound on — click to mute" aria-label="Mute sound">🔊</button>
+      <button id="autopause-btn" class="spd" title="Auto-pause on crises (raid, death, starvation, dehydration)" aria-label="Disable auto-pause on crises">🔔</button>
       <button id="undo-btn" class="spd" title="Undo last map action (Cmd/Ctrl+Z)" aria-label="Undo last map action" disabled>↶</button>
       <button id="colonistbar-toggle" class="spd" title="Hide colony bar" aria-label="Hide colony bar">👥</button>
       <button id="panel-toggle" class="spd" title="Hide colony panel" aria-label="Hide colony panel">📋</button>
-      <button id="help-btn" class="spd" title="Tutorial / Help">❓</button>
+      <button id="help-btn" class="spd" title="Tutorial / Help" aria-label="Open the tutorial">❓</button>
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
 

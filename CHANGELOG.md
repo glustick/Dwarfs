@@ -4,6 +4,32 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.22.0 (build 49)
+Interface round.
+
+- **One coherent interface system.** The stylesheet had accumulated two whole
+  themes stacked on top of each other (the original parchment layer plus a later
+  override block), which is what made the chrome feel dated and inconsistent:
+  nine different corner radii, all-caps 9px labels, and leftovers still using
+  the old palette. Both layers are now replaced by a single token-driven system
+  — one spacing rhythm, one radius scale, one accent, real elevation and
+  typographic hierarchy. No markup, id or JS binding changed.
+- **Three themes.** The pause menu gains a Theme picker: **Greenwood** (default,
+  organic dark glass), **Aether** (dense instrument panel with mono readouts),
+  and **Daylight** (clean, airy light theme). The choice is remembered, and it
+  is applied before first paint so it never flashes. Each theme is its own
+  stylesheet, so the base stays readable.
+- **Accessibility.** Every icon-only control now has a real accessible name
+  (top-bar buttons previously announced nothing useful), there are visible
+  `:focus-visible` rings for keyboard users, and `prefers-reduced-motion` is
+  honoured throughout so transitions and animations collapse.
+- **Site polish.** A generated SVG favicon, plus description, theme-color and
+  Open Graph tags, so the page no longer 404s its icon and shared links preview
+  properly wherever the game is hosted.
+- **A committed test harness.** `tools/smoke.js` and `tools/smoke-audio.js` drive
+  the real simulation and audio graph headlessly in Node, so a change can be
+  verified with one command instead of by hand.
+
 ## v1.21.0 (build 48)
 Audio round.
 

@@ -280,6 +280,37 @@ across games as a hall of records.
 - **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
   stop to make decisions or fast-forward the grind.
 
+## Interface & themes
+
+The chrome is one token-driven design system (see `css/style.css`). Three themes
+ship with it, switchable any time from **⏸ Menu → 🎨 Theme** and remembered
+between sessions:
+
+- **Greenwood** — the default. Deep forest glass, one amber accent.
+- **Aether** — a dense instrument panel: opaque slabs, hairline rules, mono readouts.
+- **Daylight** — a clean, airy light theme.
+
+Themes are plain stylesheets (`css/theme-aether.css`, `css/theme-daylight.css`)
+loaded as an override layer, so adding another is a matter of copying one and
+listing it in the `EE_THEMES` map in `index.html`.
+
+Keyboard users get visible focus rings everywhere, and anyone with
+`prefers-reduced-motion` set sees the interface with its transitions collapsed.
+
+## Testing
+
+No build step and no dependencies, but the simulation and the audio graph can
+each be exercised headlessly in Node:
+
+```bash
+node tools/smoke.js          # simulation: raids, trade, storyteller, save/load, draw()
+node tools/smoke-audio.js    # audio: music graph, ambience, every sound-effect mapping
+```
+
+`smoke.js` boots the real game against a stubbed DOM and drives it; `smoke-audio.js`
+stubs the Web Audio API and checks the score builds across every season, weather and
+mood state. Both exit non-zero on failure.
+
 ## Audio
 
 Everything is synthesized live (no audio files) — a generative ambient score

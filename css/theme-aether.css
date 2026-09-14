@@ -1,0 +1,138 @@
+/* ==========================================================================
+   Elven Empire — "Aether" theme (override layer)
+   --------------------------------------------------------------------------
+   Loaded after css/style.css to re-skin the whole interface as a dense
+   instrument panel: opaque slabs, hairline rules, mono readouts, a single
+   aether-blue accent, no blur and almost no rounding.
+
+   Only tokens and a handful of structural rules are overridden — the layout
+   markup is untouched. Switch themes in-game from the pause menu.
+   ========================================================================== */
+
+:root {
+  --font-display: ui-monospace, "SF Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+  --font-body: "Avenir Next", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "IBM Plex Mono", Menlo, Consolas, monospace;
+
+  --bg: #080b11;
+  --surface: #0e1420;
+  --surface-raised: #121a28;
+  --surface-solid: #0b111b;
+  --line: rgba(255, 255, 255, .09);
+  --line-2: rgba(120, 200, 255, .38);
+
+  --text: #dfe8f4;
+  --muted: #8494ab;
+  --muted-2: #5d6b80;
+
+  --accent: #5cc8ff;
+  --accent-ink: #04121c;
+  --ok: #63d69b;
+  --warn: #f2c14e;
+  --bad: #ff7a85;
+  --info: #5cc8ff;
+  --ok-bg: rgba(99, 214, 155, .08);
+  --ok-line: rgba(99, 214, 155, .3);
+  --bad-bg: rgba(255, 122, 133, .08);
+  --bad-line: rgba(255, 122, 133, .3);
+  --tag-bg: rgba(255, 255, 255, .04);
+  --control-bg: rgba(255, 255, 255, .035);
+  --control-hover: rgba(92, 200, 255, .12);
+  --row-bg: transparent;
+  --row-hover: rgba(92, 200, 255, .07);
+  --row-sel: rgba(92, 200, 255, .12);
+  --track: rgba(255, 255, 255, .1);
+  --scrim: rgba(4, 7, 11, .86);
+  --bar-bg: #0a0f18;
+  --dock-bg: #0d131e;
+  --chip-bg: #0d131e;
+
+  --r-lg: 10px;
+  --r: 8px;
+  --r-sm: 6px;
+  --r-ctl: 6px;
+  --r-pill: 6px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .45);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, .6);
+  --blur: 0px;
+  --t: 110ms ease-out;
+
+  --topbar-h: 52px;
+  --panel-w: 340px;
+}
+
+html, body { font-size: 13.5px; }
+
+/* top bar: a full-width slab with a hairline, not a floating bar */
+#topbar {
+  padding: 0 14px; gap: 10px;
+  border-bottom: 1px solid var(--line);
+  box-shadow: none;
+}
+#topbar .stat {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  letter-spacing: .02em;
+  gap: 4px;
+}
+#topbar .stat b { font-size: 12.5px; }
+#topbar .clock { letter-spacing: .04em; }
+
+/* panel: docked to the edge, full height, square, hairline separated */
+#panel {
+  top: var(--topbar-h); right: 0; bottom: 0;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  box-shadow: none;
+}
+#panel-tabs { padding: 8px 12px 0; gap: 0; }
+.ptab { font-size: 9.5px; letter-spacing: .12em; }
+#panel-content { padding: 14px; }
+.dwarf-row {
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  margin-bottom: 0;
+  background: transparent;
+}
+.dwarf-row.sel {
+  box-shadow: none;
+  border-left: 2px solid var(--accent);
+  padding-left: 8px;
+}
+.dwarf-row:hover { border-radius: 0; }
+.tech { border-radius: var(--r-sm); }
+.milestone { border-radius: var(--r-sm); }
+.faction-card { border-radius: var(--r-sm); }
+
+/* bottom log reads like a console */
+#log {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  border-radius: var(--r);
+  box-shadow: none;
+}
+
+/* bars + chips lose their rounding */
+.bar { border-radius: 1px; }
+.bar > i { border-radius: 1px; }
+.cbar-chip { border-radius: var(--r-sm); }
+.cbar-name { font-family: var(--font-mono); font-size: 9px; letter-spacing: .04em; }
+.fac-bar { border-radius: 1px; }
+
+/* architect dock: square, flush controls */
+#archbar { padding: 4px; gap: 2px; border-radius: var(--r); box-shadow: none; }
+.tool, .cat { border-radius: var(--r-sm); }
+.tool.active, .cat.active { box-shadow: none; }
+#flyout { border-radius: var(--r); }
+.material-btn { border-radius: var(--r-sm); }
+.chip { border-radius: 4px; }
+
+/* accent-led primary actions */
+.menu-btn.primary { background: var(--accent); border-color: var(--accent); }
+.theme-btn.on { background: rgba(92, 200, 255, .16); color: var(--accent); }
+.log-chip.on { background: rgba(92, 200, 255, .16); color: var(--accent); }
+.mini-btn:hover { border-color: var(--accent); }
+.spd.on { background: var(--accent); border-color: var(--accent); }
+.recipe-btn.on, .stockfilter-btn.on { background: rgba(92, 200, 255, .16); color: var(--accent); }
+.ptab.active { border-bottom-color: var(--accent); }

@@ -2417,6 +2417,7 @@ class Game {
     if (apBtn) {
       apBtn.classList.toggle("on", this.autoPause);
       apBtn.textContent = this.autoPause ? "🔔" : "🔕";
+      apBtn.setAttribute("aria-label", this.autoPause ? "Disable auto-pause on crises" : "Enable auto-pause on crises");
     }
     const zCtl = document.getElementById("zlevel-ctl");
     if (zCtl) {
