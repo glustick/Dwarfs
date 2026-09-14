@@ -4,6 +4,24 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.20.0 (build 47)
+Storyteller events round.
+
+- **The Storyteller**: a pacing engine replaces the old fixed migration timer.
+  It accrues *pressure* (faster as the colony grows, ages and gets wealthier)
+  and spends it on one **incident** at a time from a weighted pool, so events
+  unfold with a rhythm instead of a metronome. Its current pace and recent
+  tales show in the **Stats** tab, and incidents get a new **🎭 Events** filter
+  in the log.
+- **Incidents** span windfalls, events, disasters and threats: migrant waves
+  and wandering specialists, strange merchants and hidden caches, wild
+  bounties and a neighbour's gift, blights, vermin, dry spells — and, thanks to
+  the long-idle wolf/goblin/troll kinds, **hunting packs** and **goblin
+  war-bands** that have nothing to do with the outbreak.
+- Incident weights read live colony state (population, food, farms, standing,
+  tech, weather) and respect per-incident cooldowns and a never-twice-in-a-row
+  rule, so the story bends to your colony instead of repeating a fixed script.
+
 ## v1.19.0 (build 46)
 Factions round.
 

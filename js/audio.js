@@ -465,6 +465,13 @@ class SoundManager {
         if (m.includes("migrant") || m.includes("arrived")) this.play("migrant", 300);
         else if (cls === "bad") this.play("death", 300);
         break;
+      case "faction":
+        if (m.includes("raid") || m.includes("attack")) this.play("raid", 400);
+        else if (m.includes("caravan") || m.includes("gift")) this.play("migrant", 200);
+        break;
+      case "story":
+        if (cls === "bad") this.play("death", 250); else this.play("migrant", 150);
+        break;
     }
   }
 

@@ -112,6 +112,18 @@ completely safe from the outbreak — raids never follow you down.
   ore) your colony is shortest on. A high **Charisma** skill among your elves
   improves the exchange rate.
 
+## The Storyteller
+
+Events don't run off a fixed clock — a **Storyteller** paces them. It quietly
+builds *pressure* as your colony grows older, larger and richer, then spends it
+on one incident at a time drawn from a weighted pool that reacts to your
+colony's actual state: **migrant waves** and wandering specialists, **strange
+merchants** and **hidden caches**, **wild bounties** and a **neighbour's
+gift**, alongside **blights**, **vermin**, **dry spells**, **hunting packs**
+and **goblin war-bands** (which have nothing to do with the outbreak). Its
+current pace and recent happenings show in the **Stats** tab, and every
+incident lands in the log's new **🎭 Events** filter.
+
 ## Neighbours & factions
 
 Three factions ring the greenwood, and each remembers how you treat it — your

@@ -249,9 +249,14 @@ actual room instead of colony-wide counters).
       A neighbour pushed past its threshold raids on its own clock — Ironhold
       plunders your stockpiles, the others fight — and a friendly faction may
       send a gift. Milestones Diplomat and Blood Feud track the extremes.
-- [ ] Storyteller events — a pacing/event-pool system that curates
-      incidents (migrant waves, strange merchants, disasters, windfalls)
-      instead of purely timer-driven rolls.
+- [x] ~~Storyteller events~~ — a pacing engine accrues pressure (scaled by
+      population, age and wealth) and spends it on one weighted incident at a
+      time: migrant waves, wandering specialists, strange merchants, hidden
+      caches, wild bounties, a neighbour's gift, blights, vermin, dry spells,
+      hunting packs and goblin war-bands (the previously-unused wolf/goblin/
+      troll kinds). Weights read live colony state; cooldowns and a
+      never-twice-in-a-row rule keep it varied. Migration is now curated here
+      instead of a raw timer; pace and recent tales show in the Stats tab.
 
 ---
 
@@ -259,5 +264,5 @@ actual room instead of colony-wide counters).
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
       shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
       (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), roofs/darkness/
-      lighting (v1.18.0), and factions (v1.19.0) shipped; storyteller events
-      are the last open direction.
+      lighting (v1.18.0), factions (v1.19.0) and storyteller events (v1.20.0)
+      have all shipped — **Tier 6 is complete.**

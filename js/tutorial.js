@@ -17,6 +17,8 @@ const TUTORIAL_STEPS = [
     "The <b>Research</b> tab spends points (earned from Intelligence and Study zones) on techs that unlock Farms, Hospitals, and efficiency bonuses." },
   { icon: "🧟", title: "Defend the colony", body:
     "From around Day 4, the outbreak arrives — watch the 🦠 dread indicator (top bar); it worsens the more you research. Wall off your base, enlist soldiers, and get the infected into a Hospital fast." },
+  { icon: "🤝", title: "Neighbours & the Storyteller", body:
+    "Three factions ring the greenwood — track your standing with each in the <b>Factions</b> tab. Trading and gifts raise it; selling arms to a rival or cutting down their raiders lowers it, and a hostile neighbour will <b>raid</b> (Ironhold looters make off with your stockpiles). A <b>Storyteller</b> also paces events — migrants, merchants, disasters and wildlife — with its current mood shown in the Stats tab." },
 ];
 
 class Tutorial {

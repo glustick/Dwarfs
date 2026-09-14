@@ -45,6 +45,7 @@ const LOG_CATS = {
   colony: { name: "Colony",    icon: "🧝" },
   skill:  { name: "Skills",    icon: "⭐" },
   faction: { name: "Factions", icon: "🤝" },
+  story:  { name: "Events",    icon: "🎭" },
   system: { name: "System",    icon: "💾" },
 };
 const MAX_EVENTS = 4000;       // in-memory chronicle cap
@@ -139,7 +140,7 @@ class Game {
     this.lightSources = [];   // [{x,y,z,furn,powered}] for rendering glows
     this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
-    this.migrationTimer = DAY_LENGTH * 1.5;
+    this.story = makeStoryState();
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
@@ -229,6 +230,7 @@ class Game {
       })),
       raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
       factionRaidTimer: this.factionRaidTimer, factions: this.factions,
+      story: this.story,
       caveInTimer: this.caveInTimer, floodTimer: this.floodTimer,
       research: this.research, tech: this.tech,
       discoveredArtifacts: this.discoveredArtifacts,
@@ -389,6 +391,8 @@ class Game {
     if (data.factions) for (const id in data.factions) {
       if (this.factions[id] && typeof data.factions[id].rep === "number") this.factions[id].rep = data.factions[id].rep;
     }
+    this.story = Object.assign(makeStoryState(), data.story || {});
+    this.story.cooldown = Object.assign({}, (data.story && data.story.cooldown) || {});
     this.caveInTimer = data.caveInTimer != null ? data.caveInTimer : DAY_LENGTH * 2;
     this.floodTimer = data.floodTimer != null ? data.floodTimer : 2;
     this.events = Array.isArray(data.events) ? data.events : [];
@@ -669,12 +673,8 @@ class Game {
       }
     }
 
-    // migration
-    this.migrationTimer -= dt;
-    if (this.migrationTimer <= 0) {
-      this.migrationTimer = DAY_LENGTH * 1.5;
-      this.tryMigration();
-    }
+    // migration is curated by the Storyteller now (see js/storyteller.js) —
+    // a "migrant wave" incident calls tryMigration(true) in its place.
 
     // trading caravans
     this.tradeTimer -= dt;
@@ -701,6 +701,10 @@ class Game {
       this.factionRaidTimer = randint(this.world.rng, DAY_LENGTH * 3, DAY_LENGTH * 5);
       if (Math.floor(this.time / DAY_LENGTH) + 1 >= 4) this.tryFactionRaid();
     }
+
+    // The Storyteller paces everything else — migrants, merchants, disasters
+    // and windfalls — from a weighted incident pool (see js/storyteller.js).
+    storyTick(this, dt);
 
     // milestones
     this.milestoneTimer -= dt;
@@ -2146,10 +2150,10 @@ class Game {
 
   // Migrants arrive randomly — better odds when the colony is thriving, but
   // only if there is room to house them (beds provide living space).
-  tryMigration() {
+  tryMigration(force = false) {
     const HARD_CAP = 40;
     if (this.dwarves.length >= HARD_CAP) return;
-    if (this.weatherIsHarsh()) return; // migrants wait out a storm/blizzard
+    if (this.weatherIsHarsh() && !force) return; // migrants wait out a storm/blizzard
     const capacity = 8 + this.bedTiles.length; // free buffer + one slot per bed
     const room = capacity - this.dwarves.length;
     if (room <= 0) return; // no space — nowhere to house new arrivals
@@ -2164,7 +2168,7 @@ class Game {
     let chance = 0.12 + (hap / 100) * 0.5 + (wellFed ? 0.15 : -0.12) + cha * 0.02;
     if (this.hasTech("bookkeeping")) chance += 0.15;
     chance = clamp(chance, 0.02, 0.92);
-    if (this.world.rng() >= chance) return; // no arrivals this season
+    if (!force && this.world.rng() >= chance) return; // no arrivals this season
 
     const n = clamp(randint(this.world.rng, 1, 3), 1, room);
     let arrived = 0;
@@ -2970,6 +2974,9 @@ class Game {
         <div class="prod-tile">🧱 <b>${s.built}</b><span>Structures built</span></div>
         <div class="prod-tile">🦊 <b>${s.tamed}</b><span>Animals tamed</span></div>
       </div>
+      <div class="mini2">The Storyteller</div>
+      <div class="mini">Pace: <b>${STORY_PACES[storyPaceIndex(this)]}</b> · incidents so far: <b>${this.story.count || 0}</b> · pressure: <b>${Math.floor((this.story.points || 0) * 10) / 10}</b></div>
+      <div class="mini">${this.events.filter(e => e.cat === "story").slice(-4).reverse().map(e => `<div>D${e.day} · ${this.escapeHtml(e.text)}</div>`).join("") || "<span style='opacity:.6'>No tales yet.</span>"}</div>
       <div class="mini2">Causes of death · all colonies ever played</div>
       <div id="stat-deaths" class="menu-empty">Loading…</div>`;
     c.innerHTML = html;
