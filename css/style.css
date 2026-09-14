@@ -819,3 +819,28 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- new-game setup cards ---- */
+.menu-card.wide { width: min(580px, calc(100vw - 24px)); }
+.opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.opt-card {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto;
+  column-gap: 11px; align-items: baseline; text-align: left;
+  padding: 11px 12px;
+  background: var(--control-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  transition: border-color var(--t), background var(--t), transform var(--t);
+}
+.opt-card:hover { border-color: var(--line-2); transform: translateY(-1px); }
+.opt-card.on { border-color: var(--accent); background: var(--control-hover); }
+.opt-ico { grid-row: 1 / span 3; font-size: 19px; line-height: 1.15; }
+.opt-name { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.opt-blurb { font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+.opt-meta { margin-top: 3px; font-size: 10.5px; font-family: var(--font-mono); color: var(--muted-2); }
+.opt-card.on .opt-meta { color: var(--accent); }
+/* Keep the two-column picker as long as there is room for it: stacked into a
+   single column the seven cards push "Begin" below the fold on short screens. */
+@media (max-width: 620px) {
+  .opt-grid { grid-template-columns: 1fr; }
+}

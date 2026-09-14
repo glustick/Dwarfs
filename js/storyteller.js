@@ -25,7 +25,8 @@ function storyRate(g) {
   const pop = g.dwarves.length;
   const day = Math.floor(g.time / DAY_LENGTH) + 1;
   const wealth = g.countItems(ITEM.BAR) + g.countItems(ITEM.WEAPON) + g.countItems(ITEM.ARMOR);
-  return 0.005 * (1 + pop * 0.12 + day * 0.02 + wealth * 0.03);
+  const diff = g.diff ? g.diff().storyRate : 1;
+  return 0.005 * (1 + pop * 0.12 + day * 0.02 + wealth * 0.03) * diff;
 }
 
 // A rough 0..4 dial used both to speed up incident cadence and to label the

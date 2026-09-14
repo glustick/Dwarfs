@@ -74,7 +74,10 @@ const ESSENCE_CHILL_RADIUS = 4;  // tiles (Manhattan) a powered Frost Chamber ke
 
 class Game {
   // `saveData` restores a saved game; otherwise a fresh world is generated.
-  constructor(saveData) {
+  constructor(saveData, settings) {
+    // Colony setup (difficulty + map size), chosen on the New Game screen. A
+    // restored save carries its own and overwrites these — see restore().
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, settings || {});
     this.items = [];
     this.dwarves = [];
     this.enemies = [];
@@ -141,7 +144,7 @@ class Game {
     this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.story = makeStoryState();
-    this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
+    this.raidTimer = DAY_LENGTH * 3 * this.diff().raidDelay;  // first raid around day 4 (scaled by difficulty)
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
     this.factionRaidTimer = DAY_LENGTH * 4; // first faction raid (only if a neighbour turns hostile)
@@ -197,7 +200,8 @@ class Game {
   }
 
   generateNew() {
-    this.world = new World(90, 70, (Math.floor(performance.now()) ^ 0x9e3779b9) >>> 0);
+    const size = mapSizeById(this.settings.mapSize);
+    this.world = new World(size.w, size.h, (Math.floor(performance.now()) ^ 0x9e3779b9) >>> 0);
     this.cam = { x: this.world.spawnX, y: this.world.spawnY, zoom: 1.1 };
     this.time = 0.25 * DAY_LENGTH; // start at 06:00
     this.speedIdx = 1;
@@ -216,6 +220,7 @@ class Game {
       savedAt: Date.now(),
       day: Math.floor(this.time / DAY_LENGTH) + 1,
       pop: this.dwarves.length,
+      settings: this.settings,
       world: { w: w.w, h: w.h, seed: w.seed, spawnX: w.spawnX, spawnY: w.spawnY, minZ: w.minZ, levels },
       items: this.items.map(it => ({
         id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y, z: it.z || 0,
@@ -311,6 +316,8 @@ class Game {
   }
 
   restore(data) {
+    // A save keeps the difficulty it was founded under.
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, data.settings || {});
     const wd = data.world;
     this.world = new World(wd.w, wd.h, wd.seed, false);
     this.world.spawnX = wd.spawnX; this.world.spawnY = wd.spawnY;
@@ -441,9 +448,10 @@ class Game {
     }
     // Seed a bit of starting stone/wood/food/water so the colony has a grace
     // period to get a Well built before anyone goes hungry or thirsty.
-    for (let i = 0; i < 6; i++) this.jobs.spawnItem(ITEM.STONE, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
-    for (let i = 0; i < 10; i++) this.jobs.spawnItem(ITEM.FOOD, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
-    for (let i = 0; i < 10; i++) this.jobs.spawnItem(ITEM.WATER, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
+    const bonus = this.diff().startBonus;
+    for (let i = 0; i < Math.round(6 * bonus); i++) this.jobs.spawnItem(ITEM.STONE, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
+    for (let i = 0; i < Math.round(10 * bonus); i++) this.jobs.spawnItem(ITEM.FOOD, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
+    for (let i = 0; i < Math.round(10 * bonus); i++) this.jobs.spawnItem(ITEM.WATER, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
   }
 
   get speed() { return SPEEDS[this.speedIdx]; }
@@ -660,7 +668,7 @@ class Game {
     this.raidTimer -= dt;
     if (this.raidTimer <= 0) {
       const day = Math.floor(this.time / DAY_LENGTH) + 1;
-      this.raidTimer = randint(this.world.rng, DAY_LENGTH * 2, DAY_LENGTH * 3);
+      this.raidTimer = randint(this.world.rng, DAY_LENGTH * 2, DAY_LENGTH * 3) * this.diff().raidDelay;
       if (day >= 3) this.spawnRaid();
     }
 
@@ -1289,7 +1297,12 @@ class Game {
     this.updateStats();
   }
 
-  hungerRate() { return HUNGER_RATE * (this.hasTech("rations") ? 0.75 : 1); }
+  hungerRate() {
+    return HUNGER_RATE * (this.hasTech("rations") ? 0.75 : 1) * this.diff().hunger;
+  }
+
+  // The active difficulty preset (see js/settings.js).
+  diff() { return difficultyById(this.settings.difficulty); }
 
   flushRemovals() {
     if (!this._toRemove || !this._toRemove.length) return;
@@ -1686,7 +1699,7 @@ class Game {
   spawnRaid() {
     const day = Math.floor(this.time / DAY_LENGTH) + 1;
     const score = this.techTierScore();
-    const n = clamp(1 + Math.floor(score) + Math.floor(this.dwarves.length / 6), 1, 10);
+    const n = clamp(Math.round((1 + Math.floor(score) + Math.floor(this.dwarves.length / 6)) * this.diff().raid), 1, 12);
 
     // Once a stairwell/ramp reaches underground, raids have a rising chance
     // to follow it down instead of approaching from the surface edge —
@@ -2228,7 +2241,7 @@ class Game {
     }
     if (!pick) return;
     const depth = clamp((pick.raid.minRep - this.factionRep(pick.id)) / 40, 0, 1);
-    if (this.world.rng() >= clamp(0.25 + depth * 0.55, 0.2, 0.85)) return;
+    if (this.world.rng() >= clamp((0.25 + depth * 0.55) * this.diff().factionAggro, 0.05, 0.95)) return;
     this.spawnFactionRaid(pick);
   }
 
@@ -2963,6 +2976,7 @@ class Game {
     });
 
     let html = `<h2>Colony Stats</h2>
+      <div class="mini">Difficulty <b>${difficultyById(this.settings.difficulty).name}</b> · Map <b>${mapSizeById(this.settings.mapSize).name}</b> <span class="tag">${this.world.w} × ${this.world.h}</span></div>
       <div class="mini2">Population over time</div>
       <svg width="${chartW}" height="${chartH}" class="stat-chart">${bars}</svg>
       <div class="mini">Current: <b>${this.dwarves.length}</b> · Peak: <b>${maxPop}</b></div>

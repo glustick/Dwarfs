@@ -52,9 +52,9 @@ class App {
   }
 
   // ---- game lifecycle ----
-  startGame(saveData) {
+  startGame(saveData, settings) {
     if (window.game) window.game.running = false; // stop old loop
-    window.game = new Game(saveData);
+    window.game = new Game(saveData, settings);
     this.inGame = true;
     this.hide();
     this.toast(saveData ? "Game loaded" : "A new elven empire is founded!");
@@ -79,6 +79,9 @@ class App {
       return;
     }
     if (this.panel === "pause") this.resumeGame();
+    else if (this.panel === "newgame") {
+      if (this.inGame) this.openPauseMenu(); else this.openMainMenu();
+    }
     else if (this.panel === "save" || this.panel === "load") {
       if (this.inGame) this.openPauseMenu(); else this.openMainMenu();
     }
@@ -107,7 +110,7 @@ class App {
       </div>`, "main");
 
     if (recent) document.getElementById("mm-continue").onclick = () => this.startGame(SaveManager.load(recent.name));
-    document.getElementById("mm-new").onclick = () => this.startGame(null);
+    document.getElementById("mm-new").onclick = () => this.openNewGameDialog(false);
     // Always reachable, even with zero saves — that's also where importing a
     // save from a file lives, e.g. carrying a save over to a freshly hosted
     // copy of the game (a new origin means fresh, empty localStorage).
@@ -158,6 +161,48 @@ class App {
     status.innerHTML = `Update available: <a href="${this.updateInfo.url}" target="_blank" rel="noopener">v${this.updateInfo.latest}</a>`;
   }
 
+  // ---- NEW GAME SETUP ----
+  // Difficulty and map size are picked before the world is generated: they scale
+  // the Storyteller's pressure, raid size and cadence, how readily an angry
+  // neighbour raids, hunger, and how much of a starting stock the elves get.
+  // The last choice is remembered for the next colony.
+  openNewGameDialog(fromPause = false) {
+    const pick = loadNewGameSettings();
+    const backTo = fromPause ? () => this.openPauseMenu() : () => this.openMainMenu();
+    const cards = (list, group) => list.map(o => `
+        <button class="opt-card${o.id === pick[group] ? " on" : ""}" data-group="${group}" data-id="${o.id}">
+          <span class="opt-ico">${o.icon}</span>
+          <span class="opt-name">${o.name}</span>
+          <span class="opt-blurb">${o.blurb}</span>
+          <span class="opt-meta">${o.meta}</span>
+        </button>`).join("");
+    this.show(`
+      <div class="menu-card wide">
+        <div class="menu-title" style="font-size:26px">✨ Found a new colony</div>
+        <div class="menu-sub">Choose how the forest receives you.</div>
+        <div class="menu-section-title">🌿 Difficulty</div>
+        <div class="opt-grid">${cards(DIFFICULTIES, "difficulty")}</div>
+        <div class="menu-section-title">🗺️ Map size</div>
+        <div class="opt-grid">${cards(MAP_SIZES, "mapSize")}</div>
+        <div class="menu-btns" style="margin-top:20px">
+          <button class="menu-btn primary" id="ng-start"><span class="mi">🌱</span><span>Begin</span></button>
+          <button class="menu-btn ghost" id="ng-back"><span class="mi">←</span><span>Back</span></button>
+        </div>
+      </div>`, "newgame");
+    this.overlay.querySelectorAll(".opt-card").forEach((btn) => {
+      btn.onclick = () => {
+        pick[btn.dataset.group] = btn.dataset.id;
+        if (btn.closest) btn.closest(".opt-grid").querySelectorAll(".opt-card")
+          .forEach(b => b.classList.toggle("on", b === btn));
+      };
+    });
+    document.getElementById("ng-start").onclick = () => {
+      saveNewGameSettings(pick);
+      this.startGame(null, pick);
+    };
+    document.getElementById("ng-back").onclick = backTo;
+  }
+
   // ---- PAUSE / IN-GAME MENU ----
   openPauseMenu() {
     if (window.game) window.game.paused = true;
@@ -167,7 +212,7 @@ class App {
     this.show(`
       <div class="menu-card">
         <div class="menu-title" style="font-size:26px">⏸ Paused</div>
-        <div class="menu-sub">Day ${day} · ${g ? g.dwarves.length : 0} elves</div>
+        <div class="menu-sub">Day ${day} · ${g ? g.dwarves.length : 0} elves${g ? ` · ${difficultyById(g.settings.difficulty).name} · ${mapSizeById(g.settings.mapSize).name}` : ""}</div>
         <div class="menu-btns">
           <button class="menu-btn primary" id="pm-resume"><span class="mi">▶</span><span>Resume</span></button>
           <button class="menu-btn" id="pm-save"><span class="mi">💾</span><span>Save Game</span></button>
@@ -190,7 +235,7 @@ class App {
     document.getElementById("pm-save").onclick = () => this.openSaveDialog();
     document.getElementById("pm-load").onclick = () => this.openLoadDialog();
     document.getElementById("pm-new").onclick = () => {
-      if (confirm("Start a new game? Unsaved progress will be lost.")) this.startGame(null);
+      if (confirm("Start a new game? Unsaved progress will be lost.")) this.openNewGameDialog(true);
     };
     document.getElementById("pm-main").onclick = () => {
       if (confirm("Return to the main menu? Unsaved progress will be lost.")) this.quitToMainMenu();

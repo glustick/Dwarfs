@@ -6,5 +6,5 @@
 //
 // Bump both by hand as part of shipping a change: BUILD_NUMBER always,
 // RELEASE_VERSION when the change is a user-facing feature/enhancement round.
-const RELEASE_VERSION = "1.22.0";
-const BUILD_NUMBER = 49;
+const RELEASE_VERSION = "1.23.0";
+const BUILD_NUMBER = 50;

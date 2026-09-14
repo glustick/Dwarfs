@@ -15,7 +15,7 @@ const path = require("path");
 const vm = require("vm");
 
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
-const FILES = "version,utils,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,audio".split(",");
+const FILES = "version,utils,settings,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,audio".split(",");
 
 // ---------------------------------------------------------------- DOM stub
 class ClassList {
@@ -145,11 +145,15 @@ class AudioContextStub {
   }
 }
 
+let __clock = 0;
 const ctx = {
   console, Math, Date, JSON, Object, Array, String, Number, Boolean, Set, Map, Promise,
   Float32Array, Uint8Array, Uint8ClampedArray, Int32Array, isNaN, isFinite, parseInt, parseFloat,
   setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {},
-  performance: { now: () => Date.now() },
+  // A fixed-step clock instead of the wall clock: the game seeds its world
+  // from performance.now(), so a real clock makes every run a different
+  // colony and the scenario checks only occasionally reproducible.
+  performance: { now: () => (__clock += 16) },
   requestAnimationFrame: () => 0,
   localStorage, document: documentStub,
   AudioContext: AudioContextStub,

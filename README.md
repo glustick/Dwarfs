@@ -18,6 +18,22 @@ shown at the bottom of the main and pause menus (see `CHANGELOG.md`).
 A brand-new game opens a short, skippable **tutorial** walkthrough — dismiss it
 any time, and reopen it whenever with the **❓** button in the top bar.
 
+## Starting a colony
+
+**New Game** opens a setup screen first:
+
+- **🌿 Difficulty** — Gentle, Standard, Harsh or Brutal. This isn't a global
+  stat multiplier: it scales the Storyteller's incident pressure, the size *and*
+  cadence of outbreak raids, how readily an angry neighbour comes raiding, how
+  fast elves get hungry, and how much starting stock the elves arrive with.
+  Standard is the intended balance; Brutal is meant to cost you colonies.
+- **🗺️ Map size** — Tight Grove (70 × 54), Greenwood (90 × 70) or Deep Forest
+  (120 × 92). Bigger maps mean more ore and wildlife, and more ground to defend.
+
+Your choice is remembered for the next colony, shown in the pause menu and the
+Stats tab, and stored in the save — so loading an old colony keeps the
+difficulty it was founded under.
+
 ## Saving & loading
 
 - **In-game menu**: press **Esc** or click **☰ Menu** (top-right) to pause and open

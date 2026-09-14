@@ -262,6 +262,12 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Colony setup & difficulty~~ — New Game opens a setup screen: four
+      difficulty presets (Gentle → Brutal) that scale Storyteller pressure, raid
+      size and cadence, faction aggression, hunger and starting supplies, plus
+      three map sizes (70×54 / 90×70 / 120×92). The choice is remembered, shown
+      in the pause menu and Stats tab, and stored in the save.
+
 - [x] ~~Interface modernization~~ — the two stacked themes in `css/style.css`
       (parchment layer + later override block) are replaced by one token-driven
       system. Three themes ship — Greenwood (default), Aether and Daylight —

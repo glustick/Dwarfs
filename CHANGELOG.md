@@ -4,6 +4,24 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.23.0 (build 50)
+New colony setup round.
+
+- **Choose your colony.** New Game now opens a setup screen instead of dropping
+  you straight into a world: pick a **difficulty** and a **map size**, then
+  found the colony. Your last choice is remembered for next time.
+- **Difficulty** — Gentle, Standard, Harsh or Brutal. Each preset scales the
+  systems the game already runs on rather than bolting on a global multiplier:
+  the Storyteller's incident pressure, outbreak raid size *and* cadence,
+  how readily an angry neighbour actually comes raiding, how fast elves get
+  hungry, and how large a starting stockpile the elves arrive with. Standard is
+  the balance the game has been tuned to; Brutal is meant to be lost.
+- **Map size** — Tight Grove (70 × 54), Greenwood (90 × 70, the previous fixed
+  size) or Deep Forest (120 × 92): more ore and wildlife, and a lot more ground
+  to wall off.
+- Difficulty and map are shown in the pause menu and the Stats tab, and a save
+  keeps the difficulty it was founded under, so old colonies are unaffected.
+
 ## v1.22.0 (build 49)
 Interface round.
 

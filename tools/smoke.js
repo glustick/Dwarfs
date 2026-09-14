@@ -17,7 +17,7 @@ const vm = require("vm");
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
 // audio.js is deliberately omitted: it needs a Web Audio API (see smoke-audio.js).
 const FILES = (process.argv[3] ||
-  "version,utils,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game"
+  "version,utils,settings,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game"
 ).split(",");
 
 // ---------------------------------------------------------------- DOM stub
@@ -95,11 +95,15 @@ const documentStub = {
   documentElement: new El("html"),
   hidden: false,
 };
+let __clock = 0;
 const ctx = {
   console, Math, Date, JSON, Object, Array, String, Number, Boolean, Set, Map, Promise,
   Uint8Array, Uint8ClampedArray, Float32Array, Int32Array, isNaN, isFinite, parseInt, parseFloat,
   setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {},
-  performance: { now: () => Date.now() },
+  // A fixed-step clock instead of the wall clock: the game seeds its world
+  // from performance.now(), so a real clock makes every run a different
+  // colony and the scenario checks only occasionally reproducible.
+  performance: { now: () => (__clock += 16) },
   requestAnimationFrame: () => 0,
   localStorage, document: documentStub,
 };
@@ -212,6 +216,42 @@ check("save: story state survives a round-trip", () => {
   if (!data.story || typeof data.story.points !== "number") throw new Error("story not serialized");
   const g3 = run("(d)=>new Game(d)", data);
   for (let i = 0; i < 200; i++) g3.update(0.1);
+});
+
+check("setup: map size applies to a new colony", () => {
+  const dims = { small: [70, 54], medium: [90, 70], large: [120, 92] };
+  for (const id of Object.keys(dims)) {
+    const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: id });
+    if (gs.world.w !== dims[id][0] || gs.world.h !== dims[id][1]) throw new Error("map size not applied: " + id);
+    if (gs.dwarves.length !== 7) throw new Error("starting elves wrong for " + id);
+  }
+});
+
+check("setup: difficulty is stored and scaled", () => {
+  for (const d of run("DIFFICULTIES")) {
+    const gs = run("(o)=>new Game(null,o)", { difficulty: d.id, mapSize: "small" });
+    if (gs.settings.difficulty !== d.id) throw new Error("difficulty not stored: " + d.id);
+    if (!gs.items.length) throw new Error("no starting supplies for " + d.id);
+    if (d.id === "brutal" && !(gs.hungerRate() > run("HUNGER_RATE"))) throw new Error("brutal hunger not harsher");
+  }
+  // A gentler colony gets a bigger starting stock than a brutal one.
+  const gentle = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const brutal = run("(o)=>new Game(null,o)", { difficulty: "brutal", mapSize: "small" });
+  if (!(gentle.items.length > brutal.items.length)) throw new Error("starting supplies do not scale with difficulty");
+  // ...and brutal sends a bigger raid for the same colony state.
+  const raid = (gg) => { gg.enemies.length = 0; gg.spawnRaid(); return gg.enemies.length; };
+  const rg = raid(gentle), rb = raid(brutal);
+  if (!(rb > rg)) throw new Error("brutal raid (" + rb + ") not larger than gentle (" + rg + ")");
+});
+
+check("setup: choice persists and survives a save", () => {
+  const back = run("(o)=>{ saveNewGameSettings(o); return loadNewGameSettings(); }", { difficulty: "harsh", mapSize: "large" });
+  if (back.difficulty !== "harsh" || back.mapSize !== "large") throw new Error("preference not remembered");
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "harsh", mapSize: "large" });
+  const data = JSON.parse(JSON.stringify(gs.serialize()));
+  if (!data.settings || data.settings.difficulty !== "harsh") throw new Error("settings not serialized");
+  const g2 = run("(d)=>new Game(d)", data);
+  if (g2.settings.mapSize !== "large") throw new Error("settings lost on load");
 });
 
 // ---------------------------------------------------------------- report
