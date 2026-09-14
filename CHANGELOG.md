@@ -4,6 +4,30 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.19.0 (build 46)
+Factions round.
+
+- **Neighbouring factions**: three powers ring the greenwood — the food- and
+  drink-loving **Verdant Concord** 🌿, the ore-hungry **Ironhold Compact** ⚒️,
+  and the marauding **Thornwatch** 🏴 — each with its own reputation
+  (-100 hostile .. +100 allied), shown in a new **Factions** panel tab.
+- **Trade with a face**: caravans now belong to a faction. A faction only buys
+  what it wants (plus gold bars, which always sell), and better standing earns
+  a better price — friendlier neighbours are also likelier to send a caravan.
+- **Reputation shifts**: trading raises a faction's opinion (and sours its
+  rival's); selling arms to one neighbour angers its rival; cutting down a
+  faction's raiders angers that banner and warms its rival. Opinions also drift
+  slowly back toward neutral over time.
+- **Faction raids**: push a neighbour past its threshold and it will come
+  raiding on its own clock — separate from the zombie outbreak. **Ironhold**
+  raids to *plunder*: its looters make for your stockpiles, grab what they can,
+  and flee for the map edge (kill them to recover the goods; let one escape and
+  it is gone). **Verdant** and **Thornwatch** raid to fight.
+- **A neighbour's gift**: a faction at Friendly standing or better may send
+  supplies (via a Storyteller incident).
+- Two new milestones — **Diplomat** (reach Allied with a neighbour) and
+  **Blood Feud** (drive one to open hostility).
+
 ## v1.18.0 (build 45)
 Roofs, darkness & lighting round.
 

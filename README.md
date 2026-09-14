@@ -112,6 +112,24 @@ completely safe from the outbreak — raids never follow you down.
   ore) your colony is shortest on. A high **Charisma** skill among your elves
   improves the exchange rate.
 
+## Neighbours & factions
+
+Three factions ring the greenwood, and each remembers how you treat it — your
+**standing** with them runs from Hostile (-100) to Allied (+100), and every
+caravan that visits is theirs:
+
+- **🌿 Verdant Concord** — woodland traders who pay well for **food, ale, wine
+  and wood**.
+- **⚒️ Ironhold Compact** — delvers who want **ore, marble and bars**, and whose
+  raiders come to **plunder** your stockpiles if you cross them.
+- **🏴 Thornwatch** — marauders who buy **arms** and fight for the rest.
+
+Open the **Factions** tab (right panel) to see each one's standing, what they
+buy, and their rival. Standing rises as you trade and falls when you sell arms
+to a rival or cut down their raiders; it also drifts slowly back toward neutral.
+Get a neighbour to **Friendly** and it may send a gift; push one below its
+threshold and it will **raid** — on its own clock, separate from the outbreak.
+
 ## Essence Craft
 
 Once the **Essence Craft** tech is researched (needs Metallurgy), a new

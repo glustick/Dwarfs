@@ -44,6 +44,7 @@ const LOG_CATS = {
   combat: { name: "Combat",    icon: "⚔️" },
   colony: { name: "Colony",    icon: "🧝" },
   skill:  { name: "Skills",    icon: "⭐" },
+  faction: { name: "Factions", icon: "🤝" },
   system: { name: "System",    icon: "💾" },
 };
 const MAX_EVENTS = 4000;       // in-memory chronicle cap
@@ -142,6 +143,10 @@ class Game {
     this.raidTimer = DAY_LENGTH * 3;  // first raid around day 4
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
+    this.factionRaidTimer = DAY_LENGTH * 4; // first faction raid (only if a neighbour turns hostile)
+    this.factionRepTimer = 5;
+    this._raidersEscaped = false;
+    this.initFactions();
     this.combatFx = [];               // transient hit sparks {x,y,t,bad}
     this.projectileFx = [];           // transient arrow/bile streaks {x1,y1,x2,y2,z,t,bad}
 
@@ -219,8 +224,11 @@ class Game {
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
       enemies: this.enemies.map(e => ({
         kind: e.kind, x: e.x, y: e.y, z: e.z || 0, hp: e.hp, facing: e.facing, facingV: e.facingV,
+        factionId: e.factionId || null, motive: e.motive || null, loot: e.loot || 0,
+        looted: e.looted || null, color: e.color || null, name: e.name || null,
       })),
       raidTimer: this.raidTimer, raidCount: this.raidCount, tradeTimer: this.tradeTimer,
+      factionRaidTimer: this.factionRaidTimer, factions: this.factions,
       caveInTimer: this.caveInTimer, floodTimer: this.floodTimer,
       research: this.research, tech: this.tech,
       discoveredArtifacts: this.discoveredArtifacts,
@@ -367,11 +375,20 @@ class Game {
       if (o.hp != null) e.hp = o.hp;
       e.facing = o.facing || 1;
       e.facingV = o.facingV || 1;
+      e.factionId = o.factionId || null; e.motive = o.motive || null;
+      e.loot = o.loot || 0; e.looted = o.looted || null;
+      if (o.color) e.color = o.color;
+      if (o.name) e.name = o.name;
       return e;
     });
     this.raidTimer = data.raidTimer != null ? data.raidTimer : DAY_LENGTH * 3;
     this.raidCount = data.raidCount || 0;
     this.tradeTimer = data.tradeTimer != null ? data.tradeTimer : DAY_LENGTH * 2;
+    this.factionRaidTimer = data.factionRaidTimer != null ? data.factionRaidTimer : DAY_LENGTH * 4;
+    this.initFactions();
+    if (data.factions) for (const id in data.factions) {
+      if (this.factions[id] && typeof data.factions[id].rep === "number") this.factions[id].rep = data.factions[id].rep;
+    }
     this.caveInTimer = data.caveInTimer != null ? data.caveInTimer : DAY_LENGTH * 2;
     this.floodTimer = data.floodTimer != null ? data.floodTimer : 2;
     this.events = Array.isArray(data.events) ? data.events : [];
@@ -666,6 +683,24 @@ class Game {
       this.trySpawnCaravan();
     }
     if (this.caravans.length) this.updateCaravans(dt);
+
+    // factions: reputation heals slowly toward neutral, and a neighbour pushed
+    // far enough into hostility may come raiding (on its own clock, separate
+    // from the outbreak).
+    this.factionRepTimer -= dt;
+    if (this.factionRepTimer <= 0) {
+      this.factionRepTimer = 5;
+      for (const f of FACTIONS) {
+        const st = this.factions[f.id]; if (!st) continue;
+        if (st.rep > 0) st.rep = Math.max(0, st.rep - 0.08);
+        else if (st.rep < 0) st.rep = Math.min(0, st.rep + 0.08);
+      }
+    }
+    this.factionRaidTimer -= dt;
+    if (this.factionRaidTimer <= 0) {
+      this.factionRaidTimer = randint(this.world.rng, DAY_LENGTH * 3, DAY_LENGTH * 5);
+      if (Math.floor(this.time / DAY_LENGTH) + 1 >= 4) this.tryFactionRaid();
+    }
 
     // milestones
     this.milestoneTimer -= dt;
@@ -1495,6 +1530,18 @@ class Game {
       byDwarf.mood = clamp(byDwarf.mood + 4, 0, 100);
       this.awardXp(byDwarf, "fighting", 15);
     } else this.log(`A ${foe.name} was slain.`, "good", "combat");
+    // Faction raiders: cutting one down sours relations with its banner and
+    // warms that faction's rival. A loot-laden raider drops what it stole.
+    if (foe.factionId && FACTION_BY_ID[foe.factionId]) {
+      const f = FACTION_BY_ID[foe.factionId];
+      this.applyRep(f.id, foe.motive === "plunder" ? -3 : -5);
+      if (f.rival) this.applyRep(f.rival, 2);
+    }
+    if (foe.looted && foe.looted.length) {
+      for (const l of foe.looted) this.jobs.spawnItem(l.kind, foe.tileX, foe.tileY, l.sub, foe.z || 0);
+      this.log(`The stolen goods are recovered from the fallen ${foe.name}.`, "good", "faction");
+      foe.looted = null;
+    }
     if (colonyDB) colonyDB.logEvent(`${byDwarf ? byDwarf.name : "The colony"} slew a ${foe.name}`, day);
   }
 
@@ -1514,6 +1561,10 @@ class Game {
         if (e.hp <= 0) { this.killEnemy(e, null); continue; }
         this.log(`A trap springs on a ${e.name}!`, "good", "combat");
       }
+
+      // A plunderer ignores the fight unless cornered — it makes for the
+      // stockpiles, grabs what it can, and runs for the edge with it.
+      if (e.motive === "plunder") { this.updatePlunderer(e, dt); continue; }
 
       const tgt = this.nearestDwarf(e.x, e.y, ez);
       if (!tgt) {
@@ -1561,9 +1612,11 @@ class Game {
       }
     }
     const before = this.enemies.length;
-    this.enemies = this.enemies.filter(e => e.hp > 0);
+    this.enemies = this.enemies.filter(e => e.hp > 0 && !e._gone);
     if (before && !this.enemies.length) {
-      this.log("The colony has repelled the attack!", "good", "combat");
+      this.log(this._raidersEscaped ? "The raiders withdraw, laden with plunder." : "The colony has repelled the attack!",
+        this._raidersEscaped ? "bad" : "good", this._raidersEscaped ? "faction" : "combat");
+      this._raidersEscaped = false;
       // Manual move orders only make sense mid-fight — once it's over, hand
       // soldiers back to their normal equip/idle/labor routine. Gunners and
       // archers also restock their quivers from stored ammo packs.
@@ -1749,12 +1802,20 @@ class Game {
   }
 
   // ---- trade caravans ----
-  trySpawnCaravan() {
-    if (this.weatherIsHarsh()) return; // caravans wait out a storm/blizzard
+  trySpawnCaravan(force = false) {
+    if (this.weatherIsHarsh() && !force) return; // caravans wait out a storm/blizzard
     // Caravans are surface-only this release — only a Trade Depot on level 0
     // can receive one.
     const surfaceDepots = this.depotTiles.filter(t => !t[2]);
     if (!surfaceDepots.length) return;
+    // A neighbour sends the caravan: openly hostile factions don't trade, and
+    // friendlier ones are likelier to show up.
+    const candidates = FACTIONS.filter(f => this.factionRep(f.id) > -60);
+    if (!candidates.length) return;
+    const weights = candidates.map(f => Math.max(1, 40 + this.factionRep(f.id)));
+    const total = weights.reduce((a, b) => a + b, 0);
+    let r = this.world.rng() * total, faction = candidates[0];
+    for (let i = 0; i < candidates.length; i++) { if (r < weights[i]) { faction = candidates[i]; break; } r -= weights[i]; }
     const edge = this.randomEdgeTile(true);
     if (!edge) return;
     const depot = this.jobs.nearestTile(surfaceDepots, edge.x, edge.y, 0);
@@ -1763,9 +1824,11 @@ class Game {
     const car = new Caravan(edge.x, edge.y);
     car.setPath(path);
     car.depot = depot;
+    car.faction = faction.id;
+    if (force) car.strange = true; // a Storyteller "strange merchant" pays a premium
     this.caravans.push(car);
-    this.log("🐎 A trading caravan approaches the depot!", "good", "colony");
-    if (window.App) window.App.toast("🐎 A caravan has arrived to trade!");
+    this.log(`${faction.icon} A ${faction.name} caravan approaches the depot!`, "good", "faction");
+    if (window.App) window.App.toast(`${faction.icon} A ${faction.name} caravan has arrived to trade!`);
   }
 
   updateCaravans(dt) {
@@ -1791,25 +1854,42 @@ class Game {
   // Sell whatever sellable goods are sitting on depot tiles, then spend the
   // proceeds on whichever staple (food/wood/ore) the colony is shortest on.
   doTrade(car) {
+    const f = FACTION_BY_ID[car.faction] || FACTIONS[0];
+    // Better standing and an eager merchant both improve the exchange rate; a
+    // faction only buys what it wants (plus gold, which always sells).
+    const priceMult = f.priceBias * (1 + this.factionRep(f.id) / 300) * (car.strange ? 1.3 : 1);
     const w = this.world;
     let value = 0, sold = 0;
     for (const [x, y, z] of this.depotTiles) {
       const t = w.get(x, y, z || 0);
       const it = t.item;
       if (!it) continue;
-      const price = tradeSellPrice(it);
-      if (price == null) continue;
-      value += price; sold++;
+      const base = tradeSellPrice(it);
+      if (base == null || !factionAccepts(f, it)) continue;
+      value += base * priceMult; sold++;
+      // Selling arms to one neighbour sours that neighbour's rival.
+      if ((it.kind === ITEM.WEAPON || it.kind === ITEM.ARMOR) && f.rival) this.applyRep(f.rival, -1);
       t.item = null;
       const idx = this.items.indexOf(it);
       if (idx >= 0) this.items.splice(idx, 1);
     }
-    if (!sold) { this.log("The caravan found nothing to trade and moved on.", "", "colony"); return; }
+    if (!sold) { this.log(`The ${f.name} caravan found nothing to its taste and moved on.`, "", "faction"); return; }
     this.milestoneFlags.traded = true;
+    this.applyRep(f.id, clamp(2 + Math.floor(value / 20), 2, 8));
+    if (f.rival) this.applyRep(f.rival, -2);
 
     let cha = 0;
     for (const d of this.dwarves) cha = Math.max(cha, d.skillLevel("charisma"));
     value *= 1 + cha * 0.03;
+    if (car.strange) {
+      // a strange merchant also leaves a few curiosities behind
+      const spots = this.depotTiles.filter(t => !t[2]);
+      if (spots.length) {
+        const spot = spots[Math.floor(this.world.rng() * spots.length)];
+        this.jobs.spawnItem(ITEM.CIRCUIT, spot[0], spot[1], null, 0);
+        this.jobs.spawnItem(ITEM.BAR, spot[0], spot[1], "iron", 0);
+      }
+    }
 
     const needs = [
       { kind: ITEM.FOOD, cost: 2, have: this.countItems(ITEM.FOOD) },
@@ -1835,8 +1915,8 @@ class Game {
     }
     const boughtTxt = Object.keys(bought).length
       ? Object.entries(bought).map(([k, n]) => `${n} ${ITEM_LABEL[k]}`).join(", ") : "nothing";
-    this.log(`Traded ${sold} good${sold > 1 ? "s" : ""} with the caravan for ${boughtTxt}.`, "good", "colony");
-    if (colonyDB) colonyDB.logEvent(`Traded with a caravan for ${boughtTxt}`, Math.floor(this.time / DAY_LENGTH) + 1);
+    this.log(`Traded ${sold} good${sold > 1 ? "s" : ""} with the ${f.name} for ${boughtTxt}.`, "good", "faction");
+    if (colonyDB) colonyDB.logEvent(`Traded with the ${f.name} for ${boughtTxt}`, Math.floor(this.time / DAY_LENGTH) + 1);
   }
 
   rebuildZones() {
@@ -2111,6 +2191,149 @@ class Game {
     return n;
   }
 
+  // ---- factions: reputation & raids ----
+  initFactions() {
+    this.factions = {};
+    for (const f of FACTIONS) this.factions[f.id] = { rep: f.startRep };
+  }
+
+  factionRep(id) { return this.factions[id] ? this.factions[id].rep : 0; }
+
+  // Nudge a faction's opinion, announcing the moment it crosses a tier line.
+  applyRep(id, delta) {
+    const f = FACTION_BY_ID[id]; if (!f) return;
+    const st = this.factions[id] || (this.factions[id] = { rep: f.startRep });
+    const before = factionTier(st.rep).name;
+    st.rep = clamp(st.rep + delta, -100, 100);
+    const tier = factionTier(st.rep);
+    if (tier.name !== before) {
+      this.log(`${f.icon} The ${f.name} now regard you as ${tier.name}.`, tier.name === "Hostile" ? "bad" : "good", "faction");
+      if (window.App) window.App.toast(`${f.icon} ${f.name}: ${tier.name}`);
+    }
+  }
+
+  // A faction whose opinion has fallen past its threshold may send a warband.
+  // The further below the line, the likelier it is.
+  tryFactionRaid() {
+    let pick = null;
+    for (const f of FACTIONS) {
+      if (!f.raid) continue;
+      const rep = this.factionRep(f.id);
+      if (rep > f.raid.minRep) continue;
+      if (!pick || rep < this.factionRep(pick.id)) pick = f;
+    }
+    if (!pick) return;
+    const depth = clamp((pick.raid.minRep - this.factionRep(pick.id)) / 40, 0, 1);
+    if (this.world.rng() >= clamp(0.25 + depth * 0.55, 0.2, 0.85)) return;
+    this.spawnFactionRaid(pick);
+  }
+
+  spawnFactionRaid(f) {
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    const score = this.techTierScore();
+    const n = clamp(Math.round((1 + Math.floor(score * 0.8) + Math.floor(this.dwarves.length / 7)) * f.raid.size), 1, 9);
+    const edge = this.randomEdgeTile(true);
+    if (!edge) return;
+    const kinds = FACTION_RAIDER_KINDS[f.raid.motive] || FACTION_RAIDER_KINDS.slay;
+    let spawned = 0;
+    for (let k = 0; k < n; k++) {
+      for (let t = 0; t < 14; t++) {
+        const x = clamp(edge.x + randint(this.world.rng, -3, 3), 0, this.world.w - 1);
+        const y = clamp(edge.y + randint(this.world.rng, -3, 3), 0, this.world.h - 1);
+        if (this.world.isWalkable(x, y, 0, true)) {
+          const kind = kinds[randint(this.world.rng, 0, kinds.length - 1)];
+          const e = new Enemy(kind, x, y, 0);
+          e.factionId = f.id; e.motive = f.raid.motive;
+          e.color = f.color; e.name = `${f.name} ${ENEMY_TYPES[kind].name}`;
+          if (f.raid.motive === "plunder") { e.lootGoal = 2; e.loot = 0; e.looted = []; }
+          this.enemies.push(e); spawned++;
+          break;
+        }
+      }
+    }
+    if (!spawned) return;
+    const motiveTxt = f.raid.motive === "plunder" ? "to plunder your stores" : "to drive you from the greenwood";
+    this.log(`${f.icon} The ${f.name} raid the colony — ${spawned} warriors, ${motiveTxt}!`, "bad", "faction");
+    if (window.App) window.App.toast(`${f.icon} ${f.name} attack!`);
+    if (colonyDB) colonyDB.logEvent(`${f.name} raided the colony`, day);
+    this.triggerAutoPause(`${f.name} are raiding the colony`);
+  }
+
+  // A looter's turn: grab stockpile goods, then run for the map edge. Cornered
+  // by an elf it fights back, but otherwise it wants loot, not battle.
+  updatePlunderer(e, dt) {
+    const w = this.world;
+    const tgt = this.nearestDwarf(e.x, e.y, 0);
+    if (tgt) {
+      const adj = Math.max(Math.abs(e.tileX - tgt.tileX), Math.abs(e.tileY - tgt.tileY)) <= 1;
+      if (adj) {
+        e.facing = tgt.x > e.x ? 1 : -1; e.path = null;
+        if (e.attackCd <= 0) { e.attackCd = 1.1; this.enemyHitDwarf(e, tgt); }
+        return;
+      }
+    }
+    // standing on something worth taking?
+    const here = w.get(e.tileX, e.tileY, 0);
+    if (here && here.item && !here.item.hauled) {
+      const it = here.item;
+      here.item = null;
+      const idx = this.items.indexOf(it);
+      if (idx >= 0) this.items.splice(idx, 1);
+      e.loot = (e.loot || 0) + 1;
+      (e.looted || (e.looted = [])).push({ kind: it.kind, sub: it.sub });
+      this.log(`A ${e.name} loots a stockpile!`, "bad", "faction");
+      return;
+    }
+    // enough loot (or nothing left)? escape with it
+    if ((e.loot || 0) >= (e.lootGoal || 2)) {
+      if (!e._escaping) {
+        e._escaping = true;
+        const edge = this.randomEdgeTile(true);
+        if (edge) e.setPath(pathTo(w, e.tileX, e.tileY, 0, edge.x, edge.y, 0, true));
+      }
+      if (!e.path) {
+        this.log(`A ${e.name} slips away with ${e.loot} stolen item${e.loot === 1 ? "" : "s"}.`, "bad", "faction");
+        this._raidersEscaped = true; e._gone = true; e.hp = 0;
+        return;
+      }
+      e.move(dt);
+      return;
+    }
+    // otherwise make for the nearest item on the ground
+    let best = null, bd = Infinity;
+    for (const it of this.items) {
+      if (it.hauled) continue;
+      const d = dist2(it.x, it.y, e.x, e.y);
+      if (d < bd) { bd = d; best = it; }
+    }
+    if (!best) { e.lootGoal = 0; return; } // nothing to take — leave next tick
+    e.repath -= dt;
+    if (!e.path || e.repath <= 0) {
+      e.repath = 0.5;
+      const p = pathTo(w, e.tileX, e.tileY, 0, best.x, best.y, 0, true)
+        || pathAdjacent(w, e.tileX, e.tileY, 0, best.x, best.y, 0, true);
+      if (p) e.setPath(p);
+    }
+    e.move(dt);
+  }
+
+  // A friendly neighbour's goodwill gift (a Storyteller "A neighbour's gift").
+  factionGift() {
+    const friendly = FACTIONS.filter(f => f.gift && this.factionRep(f.id) >= 25);
+    if (!friendly.length) return;
+    const f = friendly[randint(this.world.rng, 0, friendly.length - 1)];
+    const w = this.world;
+    for (const [kind, sub, n] of f.gift.items) {
+      for (let i = 0; i < n; i++) {
+        const x = w.spawnX + randint(w.rng, -5, 5), y = w.spawnY + randint(w.rng, -5, 5);
+        if (w.isWalkable(x, y, 0)) this.jobs.spawnItem(kind, x, y, sub, 0);
+      }
+    }
+    this.applyRep(f.id, 2);
+    this.log(`${f.icon} The ${f.name} send a gift of ${f.gift.label}.`, "good", "faction");
+    if (window.App) window.App.toast(`${f.icon} Gift from the ${f.name}!`);
+  }
+
   // ---- UI ----
   // Every message flows through here: it shows in the bottom ticker AND is
   // recorded in the permanent, filterable chronicle (this.events).
@@ -2250,7 +2473,35 @@ class Game {
     else if (this.panelTab === "log") this.renderLog(c);
     else if (this.panelTab === "research") this.renderResearch(c);
     else if (this.panelTab === "stats") this.renderStats(c);
+    else if (this.panelTab === "factions") this.renderFactions(c);
     else this.renderColony(c);
+  }
+
+  // Neighbouring factions: standing, disposition, tastes and raid threat.
+  renderFactions(c) {
+    let html = `<h2>Neighbours</h2>
+      <div class="sched-note">Reputation rises as you trade and falls when you sell arms to a rival or cut down their raiders. High standing means better prices and gifts; push a neighbour far enough and it will come raiding.</div>`;
+    for (const f of FACTIONS) {
+      const rep = this.factionRep(f.id);
+      const tier = factionTier(rep);
+      const pct = clamp((rep + 100) / 2, 0, 100);
+      const rival = f.rival ? FACTION_BY_ID[f.rival] : null;
+      const buys = f.buys.map(k => ITEM_LABEL[k] || k).join(", ");
+      const raiding = rep <= f.raid.minRep;
+      const motiveTxt = f.raid.motive === "plunder" ? "plunder your stores" : "burn the colony";
+      html += `<div class="faction-card">
+        <div class="fac-top"><span class="fac-icon" style="color:${f.color}">${f.icon}</span>
+          <span class="fac-name">${f.name}</span>
+          <span class="fac-tier" style="color:${tier.color}">${tier.name}</span></div>
+        <div class="bar fac-bar"><i style="width:${pct}%;background:${tier.color}"></i></div>
+        <div class="mini">${f.blurb}</div>
+        <div class="mini">Buys: <b>${buys}</b>${rival ? ` · Rival: <b>${rival.icon} ${rival.name}</b>` : ""}</div>
+        <div class="mini" style="color:${raiding ? "#e0553a" : "#b7a988"}">${raiding
+          ? `⚔ Will raid — motive: ${motiveTxt}`
+          : `🕊 At peace (raids below ${f.raid.minRep} standing)`}</div>
+      </div>`;
+    }
+    c.innerHTML = html;
   }
 
   renderResearch(c) {

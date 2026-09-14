@@ -241,8 +241,14 @@ actual room instead of colony-wide counters).
       light ladder with combat-style line of sight, plus a hover tooltip
       showing any pending build's full material bill and what's stalling
       it.
-- [ ] Factions — multiple neighbor groups with per-faction reputation,
-      trade terms, and their own raid motivations beyond the zombie threat.
+- [x] ~~Factions~~ — three neighbouring powers (Verdant Concord, Ironhold
+      Compact, Thornwatch) with per-faction reputation (-100..+100) shown in a
+      new Factions panel tab. Caravans now belong to a faction: each buys only
+      what it wants and pays a price that scales with your standing. Reputation
+      shifts with trade, arms sales and kills, and drifts back toward neutral.
+      A neighbour pushed past its threshold raids on its own clock — Ironhold
+      plunders your stockpiles, the others fight — and a friendly faction may
+      send a gift. Milestones Diplomat and Blood Feud track the extremes.
 - [ ] Storyteller events — a pacing/event-pool system that curates
       incidents (migrant waves, strange merchants, disasters, windfalls)
       instead of purely timer-driven rolls.
@@ -252,6 +258,6 @@ actual room instead of colony-wide counters).
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
       shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
-      (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), and roofs/
-      darkness/lighting (v1.18.0) shipped; factions and storyteller events
-      are the open directions.
+      (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), roofs/darkness/
+      lighting (v1.18.0), and factions (v1.19.0) shipped; storyteller events
+      are the last open direction.

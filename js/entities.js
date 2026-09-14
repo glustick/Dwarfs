@@ -299,6 +299,12 @@ const ENEMY_TYPES = {
   spitter:      { name: "Bile Spitter", hp: 26,  atk: 7,  speed: 2.2, color: "#7d8a3a", infectious: true, biteChance: 0.10, ranged: true, range: 5 },
   vampire:      { name: "Vampire",      hp: 70,  atk: 14, speed: 3.3, color: "#7a2038", curses: true, curseChance: 0.5 },
   vampire_lord: { name: "Vampire Lord", hp: 130, atk: 24, speed: 2.7, color: "#4a0f24", curses: true, curseChance: 0.35 },
+  // Neighbouring factions' warbands (see js/factions.js). Non-infectious — a
+  // political enemy is a different threat from the outbreak. Their banner
+  // colour and name are stamped on at spawn (Game.spawnFactionRaid).
+  faction_raider:   { name: "Raider",   hp: 55,  atk: 12, speed: 3.2, color: "#8a5a3a" },
+  faction_champion: { name: "Champion", hp: 120, atk: 22, speed: 2.6, color: "#7a3a3a" },
+  faction_looter:   { name: "Looter",   hp: 45,  atk: 8,  speed: 3.4, color: "#9a7a3a" },
 };
 
 class Enemy {
@@ -314,6 +320,14 @@ class Enemy {
     this.facing = 1;
     this.facingV = 1;
     this.bob = Math.random() * Math.PI * 2;
+    // ---- factions & raid motives (set at spawn; see js/factions.js) ----
+    this.factionId = null;   // which neighbour this raider belongs to
+    this.motive = null;      // "slay" | "plunder"
+    this.loot = 0;           // items a plunderer has grabbed
+    this.lootGoal = 0;       // how many before it flees
+    this.looted = null;      // [{kind, sub}] the goods it is carrying off
+    this._escaping = false;
+    this._gone = false;
   }
 
   get tileX() { return Math.round(this.x); }

@@ -44,4 +44,10 @@ const MILESTONES = [
   { id: "vampire_cured", icon: "💉", name: "Purged of the Curse",
     desc: "Cure a colonist of vampirism.",
     check: g => g.milestoneFlags.vampireCured },
+  { id: "diplomat", icon: "🤝", name: "Diplomat",
+    desc: "Reach Allied standing with a neighbouring faction.",
+    check: g => FACTIONS.some(f => g.factionRep(f.id) >= 60) },
+  { id: "blood_feud", icon: "🩸", name: "Blood Feud",
+    desc: "Drive a neighbouring faction to open hostility.",
+    check: g => FACTIONS.some(f => g.factionRep(f.id) <= -60) },
 ];
