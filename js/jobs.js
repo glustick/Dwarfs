@@ -1119,6 +1119,7 @@ class JobManager {
       dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
       g.awardXp(dwarf, "cooking", 5);
       if (inDining) g.awardXp(dwarf, "charisma", 4);
+      if (window.sound) window.sound.play("eat", 200);
       dwarf.thought = inDining ? "Dined well in the hall" : "Ate a meal";
     } else if (job.type === "drink") {
       const kind = (dwarf.carrying && dwarf.carrying.kind) || (job.item && job.item.kind);
@@ -1132,6 +1133,7 @@ class JobManager {
       const diningBonus = inDining ? (isAle ? 10 : isWine ? 14 : 6) : (isAle ? 6 : isWine ? 9 : 3);
       dwarf.mood = clamp(dwarf.mood + diningBonus, 0, 100);
       if (inDining) g.awardXp(dwarf, "charisma", 3);
+      if (window.sound) window.sound.play("drink", 200);
       dwarf.thought = isAle
         ? (inDining ? "Enjoyed ale in the hall" : "Enjoyed a mug of ale")
         : isWine

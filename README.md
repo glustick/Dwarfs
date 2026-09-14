@@ -283,10 +283,22 @@ across games as a hall of records.
 ## Audio
 
 Everything is synthesized live (no audio files) — a generative ambient score
-plus procedural sound effects, all built from oscillators and noise. It darkens
-and picks up tempo the moment a raid starts, each workshop has its own crafting
-tone, and daytime brings sparse birdsong. Mute entirely from the 🔊 button (top
-bar), or dial Music and SFX separately from the **⏸ Menu → Audio** sliders.
+plus procedural sound effects, all built from oscillators and noise.
+
+- **The score follows the year and the moment**: brighter and brisker in
+  summer, darker, slower and an octave lower in winter (a low drone hums under
+  autumn and winter), a touch more festive when the colony is thriving or a
+  caravan is trading, and dark, loud and fast during a raid.
+- **Weather ambience** rides under the music — rain hiss, a storm rumble with
+  the occasional thunder crack, a blizzard howl, a heatwave shimmer — and falls
+  silent underground, like everything else weather-related.
+- **Effects for nearly everything**: mining, chopping, gathering, planting and
+  harvesting, building, each workshop's own crafting tone, doors, stairs and
+  ramps, draining, eating and drinking, taming, healing, being bitten, vampire
+  stings, cave-ins, floods, milestones, trades, autosave and more.
+
+Mute entirely from the 🔊 button (top bar), or dial Music (which also carries
+the ambience) and SFX separately from the **⏸ Menu → Audio** sliders.
 
 ## Controls
 

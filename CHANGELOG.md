@@ -4,6 +4,30 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.21.0 (build 48)
+Audio round.
+
+- **A seasonal score**: the ambient music now takes its colour from the year —
+  brighter and brisker in summer, darker, slower and an octave lower in winter,
+  with a low drone humming under autumn and winter. It also lifts into a
+  slightly brighter, quicker "festive" mood when the colony is thriving or a
+  caravan is trading, and goes dark, loud and fast during a raid as before.
+- **Richer harmony**: chords gained a colour tone (panned left) alongside the
+  fifth (panned right) and a soft detuned pad swelling behind them, so the
+  progression has real harmonic colour instead of a bare root.
+- **Weather ambience**: a seamless looping noise bed now crossfades beneath
+  everything to match the weather — rain hiss, a storm rumble with the odd
+  thunder crack, a blizzard howl, a heatwave shimmer — silent underground,
+  since the weather is surface-only.
+- **A master limiter** on the output keeps the fuller mix (pad + drone + melody
+  + ambience + stacked combat hits) from clipping.
+- **New sound effects** fill long-standing gaps: eating and drinking, doors,
+  digging stairs and ramps, draining, planting and harvesting, taming, healing,
+  a zombie's bite, a vampire sting, cave-ins, aquifer floods, thunder, the
+  milestone fanfare, undo, zone/order stamps, autosave, loading, equipping gear
+  and the chime of a completed trade — all wired through the event log (or
+  fired directly where an event never reached it).
+
 ## v1.20.0 (build 47)
 Storyteller events round.
 

@@ -260,9 +260,26 @@ actual room instead of colony-wide counters).
 
 ---
 
+## Tier 7 — presentation & polish
+
+- [x] ~~Adaptive audio, round 2~~ — the score takes its colour from the
+      **season** (brighter/faster in summer, darker/slower and lower in winter,
+      with a low drone under autumn/winter) and lifts into a brighter "festive"
+      mood when the colony thrives or a caravan trades. Chords gained a colour
+      tone and a soft pad; a master limiter stops the fuller mix clipping. A
+      continuous **weather ambience** bed crossfades under everything (rain
+      hiss, storm rumble + thunder, blizzard howl, heatwave shimmer), and a
+      full pass of new effects fills the gaps — eating & drinking, doors,
+      stairs/ramps, draining, planting & harvesting, taming, healing, a bite,
+      a vampire sting, cave-ins, floods, milestones, undo, zone stamps,
+      autosave, load, equip and trade.
+
+---
+
 ### Notes
 - **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
       shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
       (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), roofs/darkness/
       lighting (v1.18.0), factions (v1.19.0) and storyteller events (v1.20.0)
-      have all shipped — **Tier 6 is complete.**
+      have all shipped — **Tier 6 is complete.** Tier 7 (presentation) opened
+      with adaptive audio round 2 (v1.21.0).
