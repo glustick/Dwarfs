@@ -4,6 +4,30 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.28.0 (build 55)
+Playtest readiness round.
+
+- **A serious performance fix.** The biggest cost in a large colony was that every
+  jobless elf re-ran the *entire* job-search chain every single tick — and a
+  search that fails because its target is unreachable burns the pathfinder's full
+  6000-node budget. At forty elves that alone was eating the whole frame. Job
+  searches now back off briefly (`IDLE_ASSIGN_COOLDOWN`), which is imperceptible
+  to play. Measured on identical, deliberately worst-case parameters (40 elves,
+  120×92, unfed): **25.17 ms/update → 0.087 ms/update**, or 151% of a 60fps frame
+  budget down to 0.5%.
+- **A soak harness** (`tools/soak.js`): random-but-valid play for many simulated
+  days — designating, zoning, building, enlisting, hazards, incidents, wounds,
+  plus a save/load round-trip every few days — asserting no exceptions and that
+  invariants hold (finite positions, items on their tiles, population caps, named
+  graves). The bot is deliberately hostile, so colonies usually die; that is the
+  point.
+- **`tools/stress.js` now reports per-slice cost** beside item/population counts,
+  so a cost that grows over a run is distinguishable from a constant one — which
+  is exactly how this bug hid, and `PROFILE=1` names the hot methods.
+- **A playtest kit** (`PLAYTEST.md`): how to run it, a suggested first twenty
+  minutes, what I most want judged, and an honest list of what is already known
+  to be rough.
+
 ## v1.27.0 (build 54)
 Death & remembrance round.
 

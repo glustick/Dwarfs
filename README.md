@@ -366,6 +366,17 @@ Keyboard users get visible focus rings everywhere, and anyone with
 
 ## Testing
 
+```bash
+node tools/smoke.js        # systems, save/load, the burial pipeline
+node tools/smoke-audio.js  # the audio graph and every sound mapping
+node tools/soak.js 15 20   # 15 days of chaotic play, asserting invariants
+node tools/stress.js       # load and per-slice timing (PROFILE=1 to profile)
+```
+
+Before a playtest, see [PLAYTEST.md](PLAYTEST.md).
+
+## Testing (detail)
+
 No build step and no dependencies, but the simulation and the audio graph can
 each be exercised headlessly in Node:
 

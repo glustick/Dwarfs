@@ -262,6 +262,11 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Playtest readiness~~ — a 290x job-search speed-up (idle elves no longer
+      re-run the whole assignment chain every tick, which was burning a full A*
+      budget per elf), a soak harness (`tools/soak.js`), per-slice timing in
+      `tools/stress.js`, and a `PLAYTEST.md` kit.
+
 - [x] ~~Death & remembrance~~ — bodies persist where they fall, a ⚰️ Graveyard
       zone lets haulers bury them, and each grave keeps a named marker (a cross
       tinted with the deceased's colour) you can inspect. Plus a **colony-lost**

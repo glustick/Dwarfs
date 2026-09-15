@@ -1037,7 +1037,15 @@ class Game {
       this.jobs.execute(d, dt);
     } else {
       d.state = "idle";
-      if (!this.jobs.assign(d)) {
+      // Back off between job searches. Without this, every jobless elf re-runs
+      // the full assignment chain every tick, and each failing search costs a
+      // full A* budget — see IDLE_ASSIGN_COOLDOWN in jobs.js.
+      if (d.assignCd > 0) {
+        d.assignCd -= dt;
+      } else {
+        d.assignCd = this.jobs.assign(d) ? 0 : IDLE_ASSIGN_COOLDOWN;
+      }
+      if (!d.job) {
         d.idleWander -= dt;
         if (d.idleWander <= 0) {
           d.idleWander = 2 + Math.random() * 3;

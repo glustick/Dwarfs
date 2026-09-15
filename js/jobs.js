@@ -1,6 +1,11 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
 const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, rampdown: 1.6, drain: 4.0, tame: 2.4, checkup: 2.0 };
+// How long an elf waits before re-running the whole job search after finding
+// nothing to do. Re-assigning every tick is negligible for a handful of elves
+// and ruinous for forty: a dwarf whose target is unreachable runs an A* that
+// burns its full node budget, and at 60 ticks/second that dominated the frame.
+const IDLE_ASSIGN_COOLDOWN = 0.35;
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 

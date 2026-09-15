@@ -120,6 +120,7 @@ if (PROFILE) {
   }
 }
 
+if (process.env.SKIP_FOOD) ctx.__skipFood = true;   // reproduce a starving colony
 const g = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: MAP });
 console.log(`map: ${g.world.w}x${g.world.h} (${MAP}) | difficulty: ${g.settings.difficulty}`);
 
@@ -143,8 +144,10 @@ const TOPUP_SRC = `(g0, target) => {
   // than a busy one.
   let food = 0, water = 0;
   for (const it of g0.items) { if (it.kind === "food") food++; if (it.kind === "water") water++; }
-  for (let i = food; i < 120; i++) g0.jobs.spawnItem("food", w.spawnX + randint(rng, -6, 6), w.spawnY + randint(rng, -6, 6), null, 0);
-  for (let i = water; i < 120; i++) g0.jobs.spawnItem("water", w.spawnX + randint(rng, -6, 6), w.spawnY + randint(rng, -6, 6), null, 0);
+  if (!globalThis.__skipFood) {
+    for (let i = food; i < 120; i++) g0.jobs.spawnItem("food", w.spawnX + randint(rng, -6, 6), w.spawnY + randint(rng, -6, 6), null, 0);
+    for (let i = water; i < 120; i++) g0.jobs.spawnItem("water", w.spawnX + randint(rng, -6, 6), w.spawnY + randint(rng, -6, 6), null, 0);
+  }
   return g0.dwarves.length;
 }`;
 const topUp = (target) => run(TOPUP_SRC, g, target);
@@ -155,12 +158,29 @@ const DT = 0.05;               // one 4x-speed simulation step
 const TICKS = parseInt(process.env.TICKS || "6000", 10);   // sim steps to measure
 for (let i = 0; i < 200; i++) g.update(DT);   // warm up
 
+// Slice the measured window so the *shape* of the cost is visible: a constant
+// per-elf cost and a cost that grows with the length of a run look identical in
+// a single average, and only one of them is a bug.
+const SLICE = Math.max(200, Math.floor(TICKS / 10));
+const slices = [];
 let popSum = 0, samples = 0;
 const t0 = process.hrtime.bigint();
+let sliceStart = t0, sliceTicks = 0;
 for (let i = 0; i < TICKS; i++) {
   g.update(DT);
   if (i % 250 === 249) topUp(POP);
   if (i % 50 === 0) { popSum += g.dwarves.length; samples++; }
+  sliceTicks++;
+  if (sliceTicks === SLICE || i === TICKS - 1) {
+    const now = process.hrtime.bigint();
+    slices.push({
+      ticks: sliceTicks,
+      ms: Number(now - sliceStart) / 1e6,
+      items: g.items.length, dwarves: g.dwarves.length, enemies: g.enemies.length,
+      paths: g.dwarves.filter(d => d.path).length,
+    });
+    sliceStart = now; sliceTicks = 0;
+  }
 }
 const t1 = process.hrtime.bigint();
 const avgPop = samples ? popSum / samples : g.dwarves.length;
@@ -175,6 +195,13 @@ if (PROFILE) {
   const rows = Object.entries(prof).sort((a, b) => b[1] - a[1]).slice(0, 14);
   console.log("\nhottest methods (total ms across the measured window):");
   for (const [k, v] of rows) console.log(`     ${v.toFixed(0).padStart(8)} ms  ${((v / msTotal) * 100).toFixed(1).padStart(5)}%  ${k}`);
+}
+
+console.log("\nper-slice cost (ms/update), with load at the end of each slice:");
+for (const sl of slices) {
+  const per = sl.ms / sl.ticks;
+  const bar = "#".repeat(Math.min(50, Math.round(per * 4)));
+  console.log(`     ${per.toFixed(3).padStart(8)} ms/up  items ${String(sl.items).padStart(4)}  elves ${String(sl.dwarves).padStart(3)}  pathing ${String(sl.paths).padStart(3)}  ${bar}`);
 }
 
 console.log(`\nload: ${avgPop.toFixed(1)} elves averaged over the run (target ${POP})`);
