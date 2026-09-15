@@ -321,9 +321,15 @@ actual room instead of colony-wide counters).
 ---
 
 ### Notes
-- **Tiers 1–5, both Phase 2 rounds, and defensive structures are all
-      shipped.** Tier 6 is underway: room quality (v1.15.0), ranged tactics
-      (v1.16.0), the modern/futuristic weapon ladder (v1.17.0), roofs/darkness/
-      lighting (v1.18.0), factions (v1.19.0) and storyteller events (v1.20.0)
-      have all shipped — **Tier 6 is complete.** Tier 7 (presentation) opened
-      with adaptive audio round 2 (v1.21.0).
+- **Tiers 1–6 are complete, and every Tier 7 (presentation) item has shipped**
+  through **v1.28.0** — the playtest build: interface modernization (v1.22.0),
+  colony setup & difficulty (v1.23.0), the in-game codex (v1.24.0), the arms
+  ladder and tech-tree fix (v1.25.0), the Stock panel and tab layout (v1.26.0),
+  death, graves and remembrance (v1.27.0) and playtest readiness (v1.28.0), on
+  top of adaptive audio round 2 (v1.21.0).
+- **What comes next is not another feature round — it is a human playtest.** See
+  `PLAYTEST.md`: the open questions are difficulty balance, whether the crude
+  weapons make the Day 4 outbreak survivable, and performance in a real colony
+  (the measured hot path is fixed, but only on a synthetic one).
+- Parked until after that: a UI-scale setting, a colourblind-safe palette, and
+  save-format versioning/migration.

@@ -6,7 +6,7 @@ are no asset files and nothing to install.
 
 ## Getting it running
 
-1. Download `elven-empire-v1.28.0.zip` from the latest release.
+1. Download the release zip from the latest release (`elven-empire-v<version>.zip`).
 2. Unzip it anywhere and open `index.html` in a modern browser (Chrome, Safari,
    Firefox or Edge).
 3. Alternatively play the hosted copy on the NAS share.
@@ -17,6 +17,9 @@ menu, which degrades quietly if it is blocked.
 
 **Please check the version in the bottom-right of the main menu and quote it in
 any bug report** — it's the fastest way for me to know what you were running.
+
+Every push runs the automated suites in CI, so the build on `main` is checked
+before it reaches you.
 
 ## A suggested first twenty minutes
 

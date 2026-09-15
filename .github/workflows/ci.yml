@@ -1,0 +1,34 @@
+name: CI
+
+# The game ships as a static site with no build step and no dependencies, but the
+# simulation and the audio graph can both be driven headlessly in Node. This runs
+# the same commands a developer runs locally, so a regression fails the push
+# instead of waiting for someone to notice while playing.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Simulation suite
+        run: node tools/smoke.js
+
+      - name: Audio suite
+        run: node tools/smoke-audio.js
+
+      - name: Soak (hostile bot, 6 days)
+        run: node tools/soak.js 6 14
+
+      - name: Stress (load and timing)
+        run: node tools/stress.js 20 medium

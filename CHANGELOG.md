@@ -4,6 +4,19 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.28.1 (build 56)
+Documentation & CI.
+
+- **Added CI** (`.github/workflows/ci.yml`). The repository had no automated
+  checks at all: every push to `main` and every pull request now runs the
+  simulation suite, the audio suite, a short soak and the stress harness — the
+  same commands a developer runs locally.
+- **README**: the testing documentation had ended up split across two sections
+  ("Testing" and "Testing (detail)"); merged into one.
+- **ROADMAP**: the status notes had drifted and still described Tier 7 as merely
+  opened at v1.21.0; they now reflect the playtest build and what comes next.
+- `PLAYTEST.md` no longer hard-codes a version number in its download step.
+
 ## v1.28.0 (build 55)
 Playtest readiness round.
 

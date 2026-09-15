@@ -366,28 +366,23 @@ Keyboard users get visible focus rings everywhere, and anyone with
 
 ## Testing
 
+No build step and no dependencies, but everything can be exercised headlessly in
+Node — and `.github/workflows/ci.yml` runs these same commands on every push:
+
 ```bash
-node tools/smoke.js        # systems, save/load, the burial pipeline
-node tools/smoke-audio.js  # the audio graph and every sound mapping
-node tools/soak.js 15 20   # 15 days of chaotic play, asserting invariants
+node tools/smoke.js        # systems: raids, trade, storyteller, save/load, draw()
+node tools/smoke-audio.js  # the audio graph and every sound-effect mapping
+node tools/soak.js 15 20   # hostile-bot play for 15 days, asserting invariants
 node tools/stress.js       # load and per-slice timing (PROFILE=1 to profile)
 ```
 
-Before a playtest, see [PLAYTEST.md](PLAYTEST.md).
-
-## Testing (detail)
-
-No build step and no dependencies, but the simulation and the audio graph can
-each be exercised headlessly in Node:
-
-```bash
-node tools/smoke.js          # simulation: raids, trade, storyteller, save/load, draw()
-node tools/smoke-audio.js    # audio: music graph, ambience, every sound-effect mapping
-```
-
-`smoke.js` boots the real game against a stubbed DOM and drives it; `smoke-audio.js`
+`smoke.js` boots the real game against a stubbed DOM and drives it. `smoke-audio.js`
 stubs the Web Audio API and checks the score builds across every season, weather and
-mood state. Both exit non-zero on failure.
+mood state. `soak.js` plays the game badly and randomly, checking that nothing throws
+and the world stays consistent. `stress.js` measures how the simulation behaves under
+load. All of them exit non-zero on failure.
+
+Before a playtest, see [PLAYTEST.md](PLAYTEST.md).
 
 ## Audio
 
