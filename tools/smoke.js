@@ -367,6 +367,86 @@ check("stock: the inventory panel reports real counts", () => {
   g.setPanelTab("colony");
 });
 
+check("death: a fallen elf leaves a named body behind", () => {
+  // fresh colony: the shared one has usually been wiped out by the Storyteller
+  // checks above (40 unattended days of forced incidents).
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const victim = gs.dwarves[gs.dwarves.length - 1];
+  const name = victim.name;
+  const before = gs.items.filter(i => i.kind === "corpse").length;
+  gs.recordDeath(victim, "died in a test");
+  gs.flushRemovals();
+  const bodies = gs.items.filter(i => i.kind === "corpse");
+  if (bodies.length !== before + 1) throw new Error("no body was left behind");
+  const body = bodies[bodies.length - 1];
+  if (body.name !== name) throw new Error("the body lost the elf's name");
+  if (!body.diedDay) throw new Error("the body lost the day of death");
+  // ...and a corpse must never be offered to ordinary hauling
+  const loose = gs.jobs.findLooseItem(body.x, body.y, body.z);
+  if (loose && loose.kind === "corpse") throw new Error("a corpse was offered to ordinary hauling");
+});
+
+check("burial: a graveyard turns a body into a named grave (and it saves)", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const w = gs.world;
+  const victim = gs.dwarves[gs.dwarves.length - 1];
+  const name = victim.name;
+  gs.recordDeath(victim, "died in a test");
+  gs.flushRemovals();
+  const body = gs.items.find(i => i.kind === "corpse");
+  if (!body) throw new Error("no body was left behind");
+  // zone a graveyard around the body, give everyone the hauling labour
+  for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+    const x = body.x + dx, y = body.y + dy;
+    if (w.isWalkable(x, y, body.z)) w.get(x, y, body.z).zone = "graveyard";
+  }
+  gs.rebuildZones();
+  if (!gs.graveyardTiles.length) throw new Error("graveyard zone was not registered");
+  for (const d of gs.dwarves) d.labors.add("hauling");
+  const hasGrave = () => gs.graveyardTiles.some(([x, y, z]) => { const t = w.get(x, y, z || 0); return !!(t && t.grave); });
+  for (let i = 0; i < 8000 && !hasGrave(); i++) gs.update(0.1);
+  if (!hasGrave()) throw new Error("no grave was dug");
+  const plot = gs.graveyardTiles.find(([x, y, z]) => { const t = w.get(x, y, z || 0); return !!(t && t.grave); });
+  const t = w.get(plot[0], plot[1], plot[2] || 0);
+  if (t.grave.name !== name) throw new Error("the grave is not named after the elf");
+  if (!(gs.stats.buried >= 1)) throw new Error("burial was not counted");
+
+  // the grave must survive a save/load
+  const data = JSON.parse(JSON.stringify(gs.serialize()));
+  const g2 = run("(d)=>new Game(d)", data);
+  let found = 0;
+  for (let z = 0; z >= g2.world.minZ; z--) {
+    const tiles = g2.world.getLevel(z);
+    if (!tiles) continue;
+    for (const row of tiles) for (const tile of row) if (tile.grave) found++;
+  }
+  if (!found) throw new Error("graves were not serialized");
+
+  // Exercise the new render paths: a grave and a fresh corpse on screen. draw()
+  // is otherwise only ever called on a map with neither.
+  gs.cam.x = plot[0]; gs.cam.y = plot[1];
+  gs.renderer.draw();
+  const g3 = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  g3.recordDeath(g3.dwarves[0], "died in a test");
+  g3.flushRemovals();
+  const corpse = g3.items.find(i => i.kind === "corpse");
+  if (!corpse) throw new Error("no corpse to draw");
+  g3.cam.x = corpse.x; g3.cam.y = corpse.y;
+  g3.renderer.draw();
+});
+
+check("colony lost: the last death ends the colony", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "small" });
+  for (const d of gs.dwarves.slice()) { gs.recordDeath(d, "died in a test"); gs.flushRemovals(); }
+  if (gs.dwarves.length) throw new Error("dwarves should all be gone");
+  if (!gs.colonyLost) throw new Error("colony was not marked lost");
+  if (!gs.paused) throw new Error("the simulation should stop");
+  const s = gs.colonySummary();
+  for (const key of ["day", "peak", "techs", "techTotal", "milestones", "graves", "burials", "difficulty", "map"]) {
+    if (s[key] === undefined) throw new Error("summary is missing " + key);
+  }
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

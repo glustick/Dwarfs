@@ -53,7 +53,7 @@ const LIGHTS = {
 
 // Zones a tile can belong to (in addition to stockpile).
 // farm/study/hospital are unlocked through research.
-const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade", QUARANTINE: "quarantine" };
+const ZONE = { NONE: null, BEDROOM: "bedroom", DINING: "dining", FARM: "farm", STUDY: "study", HOSPITAL: "hospital", TRADE: "trade", QUARANTINE: "quarantine", GRAVEYARD: "graveyard" };
 
 // Workshops that can be built on a tile.
 const WORKSHOP = { NONE: null, SMELTER: "smelter", FORGE: "forge", WELL: "well", BREWERY: "brewery", CRAFTING: "crafting", WEAPONS: "weapons", CLOTHING: "clothing", ELECTRONICS: "electronics" };
@@ -85,6 +85,9 @@ class Tile {
     this.workshopRecipe = 0;  // selected recipe index for this workshop
     this.workshopTarget = 0;  // 0 = repeat forever, otherwise stop after this many outputs
     this.workshopProduced = 0;
+    // A dug grave: { name, color, day }. Set when an elf is buried here; graves
+    // are never built by hand, only earned by laying someone to rest.
+    this.grave = null;
     this.item = null;         // item resting on this tile
     this.reserved = false;    // a dwarf has claimed the job here
     this.doorLocked = false;  // built === DOOR: barred against raiders
@@ -197,6 +200,7 @@ class World {
         t.zone = a[11] || null; t.furniture = a[12] || null;
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
         t.workshopTarget = a[23] || 0; t.workshopProduced = a[24] || 0;
+        t.grave = a[25] || null;
         t.doorLocked = !!a[15];
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
         t.stockpileFilter = a[17] || null;

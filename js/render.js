@@ -333,6 +333,7 @@ class Renderer {
     if (t.built === B.WALL) this.drawBrickWall(ctx, sx, sy, s, t.buildMaterial);
     if (t.built === B.DOOR) this.drawDoor(ctx, t, sx, sy, ts);
     if (t.kind === K.FLOOR || t.built === B.FLOOR) this.drawFloorGrid(ctx, sx, sy, ts);
+    if (t.grave) this.drawGrave(ctx, t, sx, sy, ts);
     if (t.built === B.STAIRS) this.drawStairs(ctx, sx, sy, ts);
     else if (t.built === B.RAMP) this.drawRamp(ctx, sx, sy, ts);
 
@@ -886,9 +887,34 @@ class Renderer {
   }
 
   // -- items ---------------------------------------------------------------
+  // A dug plot with a stone cross, tinted by the colour of whoever rests here.
+  drawGrave(ctx, t, sx, sy, ts) {
+    const cx = sx + ts / 2, cy = sy + ts * 0.62;
+    ctx.fillStyle = "#4a4034";
+    ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.14, ts * 0.34, ts * 0.16, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#6b5f4c"; ctx.lineWidth = Math.max(1, ts * 0.03);
+    ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.14, ts * 0.34, ts * 0.16, 0, 0, 7); ctx.stroke();
+    ctx.fillStyle = "#b8b0a0";
+    ctx.fillRect(cx - ts * 0.035, cy - ts * 0.34, ts * 0.07, ts * 0.4);
+    ctx.fillRect(cx - ts * 0.13, cy - ts * 0.24, ts * 0.26, ts * 0.07);
+    if (t.grave && t.grave.color) {
+      ctx.fillStyle = t.grave.color;
+      ctx.beginPath(); ctx.arc(cx, cy - ts * 0.4, ts * 0.055, 0, 7); ctx.fill();
+    }
+  }
+
   drawItem(ctx, it, sx, sy, ts) {
     const cx = sx + ts / 2, cy = sy + ts * 0.62;
-    if (it.kind === ITEM.WOOD) {
+    if (it.kind === ITEM.CORPSE) {
+      // A fallen elf: a still, pale shape in their own colour.
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.12, ts * 0.3, ts * 0.11, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = it.color || "#c8c2b4";
+      ctx.beginPath(); ctx.ellipse(cx, cy + ts * 0.04, ts * 0.28, ts * 0.12, 0, 0, 7); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx - ts * 0.3, cy + ts * 0.02, ts * 0.09, 0, 7); ctx.fill();
+      ctx.strokeStyle = "#3a3228"; ctx.lineWidth = Math.max(1, ts * 0.025);
+      ctx.beginPath(); ctx.moveTo(cx - ts * 0.06, cy - ts * 0.06); ctx.lineTo(cx + ts * 0.06, cy + ts * 0.02); ctx.stroke();
+    } else if (it.kind === ITEM.WOOD) {
       ctx.fillStyle = "#8a5a2c";
       ctx.fillRect(cx - ts * 0.22, cy - ts * 0.06, ts * 0.44, ts * 0.13);
       ctx.fillStyle = "#c89a5c";

@@ -4,6 +4,31 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.27.0 (build 54)
+Death & remembrance round.
+
+- **The dead no longer vanish.** When an elf dies their body stays where they
+  fell, carrying their name, colour and the day they died. Click a body to read
+  who it was.
+- **A ⚰️ Graveyard zone** (tool + <b>K</b>). Any hauler will fetch a body and
+  **lay it to rest**: the corpse is consumed and the plot keeps a named marker —
+  a stone cross tinted with the colour of the elf buried there. Graves are not
+  buildable; they are earned.
+- Bodies are deliberately **excluded from stockpiles** — the dead are only ever
+  carried to a graveyard.
+- Burial lifts the colony's mood a little, counts toward the Stock tab and a new
+  **colony status line**, and is announced in the log to the day.
+- **The colony can now be lost.** Previously the last elf died, the sim paused,
+  and nothing happened — no closure, no summary, and the game sat there
+  indefinitely. Now the last death ends the colony and raises a card: days
+  survived, peak population, technologies researched, milestones, burials and
+  graves dug, with <i>new colony / load a save / main menu</i>.
+- **An at-a-glance status line** at the top of the Colony tab —
+  `11 elves · 2 wounded · 1 infected · 1 awaiting burial` — instead of scanning
+  twenty rows for badges.
+- `tools/stress.js` times the simulation under load (40 elves, 120×92 map) so
+  performance claims stop being guesses.
+
 ## v1.26.0 (build 53)
 Logistics & layout round.
 

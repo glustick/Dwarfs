@@ -253,6 +253,7 @@ class JobManager {
     let best = null, bd = Infinity;
     for (const it of g.items) {
       if (it.hauled || it.stored) continue;
+      if (it.kind === ITEM.CORPSE) continue; // the dead go to the graveyard, never a stockpile
       const t = g.world.get(it.x, it.y, it.z);
       if (t && t.stockpile) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
@@ -375,7 +376,7 @@ class JobManager {
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
     if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
-    return this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+    return this.assignBury(dwarf) || this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   assignWork(dwarf) {
@@ -507,6 +508,81 @@ class JobManager {
     dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
     dwarf.thought = "Hauling to stockpile";
     return true;
+  }
+
+  // ---- burial ----
+  // A corpse the colony has not yet dealt with. Corpses are excluded from the
+  // ordinary hauling flow (see findLooseItem) so they are only ever carried to
+  // a graveyard, never dumped in a stockpile.
+  findCorpse(nearX, nearY, nearZ = 0) {
+    const g = this.game;
+    let best = null, bd = Infinity;
+    for (const it of g.items) {
+      if (it.kind !== ITEM.CORPSE || it.hauled) continue;
+      const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
+      if (d < bd) { bd = d; best = it; }
+    }
+    return best;
+  }
+
+  // An empty, unclaimed grave plot.
+  findGravePlot(nearX, nearY, nearZ = 0) {
+    const g = this.game, w = g.world;
+    let best = null, bd = Infinity;
+    for (const [x, y, z] of g.graveyardTiles) {
+      const t = w.get(x, y, z || 0);
+      if (!t || t.item || t.grave || t.built === B.WALL) continue;
+      const d = dist3(x, y, z || 0, nearX, nearY, nearZ);
+      if (d < bd) { bd = d; best = { x, y, z: z || 0 }; }
+    }
+    return best;
+  }
+
+  assignBury(dwarf) {
+    if (!dwarf.labors.has("hauling")) return false;
+    const g = this.game;
+    if (!g.graveyardTiles || !g.graveyardTiles.length) return false;
+    const corpse = this.findCorpse(dwarf.tileX, dwarf.tileY, dwarf.z);
+    if (!corpse) return false;
+    const dest = this.findGravePlot(corpse.x, corpse.y, corpse.z);
+    if (!dest) return false;
+    const path = pathAdjacent(g.world, dwarf.tileX, dwarf.tileY, dwarf.z, corpse.x, corpse.y, corpse.z)
+      || pathTo(g.world, dwarf.tileX, dwarf.tileY, dwarf.z, corpse.x, corpse.y, corpse.z);
+    if (!path) return false;
+    corpse.hauled = true;
+    const job = new Job("haul", corpse.x, corpse.y, corpse.z);
+    job.item = corpse; job.dest = dest; job.phase = "toItem"; job.bury = true;
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = "Fetching a fallen elf";
+    return true;
+  }
+
+  // The corpse is consumed and the plot keeps a named marker.
+  buryCorpse(dwarf, job) {
+    const g = this.game, w = g.world;
+    const it = dwarf.carrying || job.item;
+    dwarf.carrying = null;
+    if (it) {
+      const idx = g.items.indexOf(it);
+      if (idx >= 0) g.items.splice(idx, 1);
+      const at = w.get(it.x, it.y, it.z);
+      if (at && at.item === it) at.item = null;
+    }
+    const t = w.get(job.dest.x, job.dest.y, job.dest.z || 0);
+    const day = Math.floor(g.time / DAY_LENGTH) + 1;
+    const name = (it && it.name) || "An elf";
+    if (t) {
+      t.grave = { name, color: (it && it.color) || "#9c8a64", day: (it && it.diedDay) || day };
+      t.zone = ZONE.GRAVEYARD;
+    }
+    const buried = ((g.stats.buried = (g.stats.buried || 0) + 1));
+    g.log(`${name} is laid to rest. (${buried} buried)`, "good", "colony");
+    if (colonyDB) colonyDB.logEvent(`${name} was buried`, day);
+    for (const other of g.dwarves) other.mood = clamp(other.mood + 3, 0, 100);
+    if (window.App) window.App.toast(`⚰️ ${name} laid to rest`);
+    dwarf.thought = "Laid an elf to rest";
+    g.awardXp(dwarf, "hauling", 8);
+    this.cancel(dwarf);
   }
 
   // How many more of this kind are stockpiled than the militia still needs —
@@ -768,6 +844,7 @@ class JobManager {
       }
       case "carry": {
         if (dwarf.move(dt)) {
+          if (job.bury) { this.buryCorpse(dwarf, job); break; }
           const t = w.get(job.dest.x, job.dest.y, job.dest.z || 0);
           if (t && t.item) {
             const dest = this.findFreeStockpileTile(dwarf.tileX, dwarf.tileY, dwarf.carrying ? dwarf.carrying.kind : null, dwarf.z);

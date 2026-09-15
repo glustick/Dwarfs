@@ -77,6 +77,14 @@ const CODEX_ENTRIES = [
       <p>The <b>📦 Stock</b> tab lists everything you own by type — materials, metal, food and drink, arms, and <b>ammunition</b> with its shot count — and flags archers who have run dry.</p>`,
   },
   {
+    id: "burial", icon: "⚰️", title: "Death, graves & burial", cat: "Work",
+    tags: "death die corpse body grave graveyard burial bury rest memorial cross lost",
+    body: `<p>When an elf dies their <b>body stays where it fell</b> — they do not simply vanish. A body is a drag on the colony until it is dealt with, and it will never be hauled to a stockpile.</p>
+      <p>Paint a <b>⚰️ Graveyard</b> zone (<b>K</b>) anywhere you like. Any elf with the <b>Hauling</b> labour will then fetch the body and <b>lay it to rest</b>: the corpse is consumed and the plot keeps a named marker — a stone cross, tinted with the colour of the elf buried there.</p>
+      <p>Click a grave to read who lies there and on which day they died. Burial lifts the whole colony's mood a little, and the <b>📦 Stock</b> tab and the Colony header both count bodies still awaiting burial.</p>
+      <p>If the last elf dies the colony is <b>lost</b> — the game ends and shows you how long it survived.</p>`,
+  },
+  {
     id: "labors", icon: "⚒️", title: "Labours & schedules", cat: "Work",
     tags: "labour labor jobs priority schedule sleep work shift assign skill",
     body: `<p>There are nine <b>labours</b>: Mining, Woodcutting, Farming, Building, Crafting, Hauling, Doctoring, Foresting and Taming. Elves decide what to do from the jobs available and their own skills — skilled elves work faster and produce more.</p>
@@ -95,6 +103,7 @@ const CODEX_ENTRIES = [
         <li><b>📚 Study</b> — scholars research here (needs <b>Scholarship</b>).</li>
         <li><b>⚕️ Hospital</b> — faster healing; slows the infection.</li>
         <li><b>🚧 Quarantine</b> — slows a <i>known</i> vampire's turn (needs <b>Medicine</b>).</li>
+        <li><b>⚰️ Graveyard</b> — where hauler elves bury the fallen (<b>K</b>).</li>
       </ul>
       <p>A zone with a door is how you make a room that can be sealed.</p>`,
   },
@@ -288,6 +297,7 @@ const CODEX_ENTRIES = [
       <tr><td><b>5</b></td><td>Generator</td><td><b>6</b></td><td>Frost chamber</td></tr>
       <tr><td><b>U</b></td><td>Conduit</td><td><b>O</b></td><td>Door</td></tr>
       <tr><td><b>R</b></td><td>Bedroom zone</td><td><b>T</b></td><td>Dining zone</td></tr>
+      <tr><td><b>K</b></td><td>Graveyard zone</td><td><b>Y</b></td><td>Depot zone</td></tr>
       <tr><td><b>Y</b></td><td>Depot zone</td><td><b>Space</b></td><td>Pause</td></tr>
       <tr><td><b>+</b> / <b>−</b></td><td>Game speed</td><td><b>[</b> / <b>]</b></td><td>Floor up / down</td></tr>
       <tr><td><b>⌘/Ctrl+Z</b></td><td>Undo map action</td><td><b>Esc</b></td><td>Close / pause menu</td></tr>

@@ -19,6 +19,7 @@ const ITEM = {
   ARROW: "arrow",   // a bundle of 5 arrows — archer ammunition (see quiver)
   BULLET: "bullet", // a box of 10 rounds — rifle ammunition
   CELL: "cell",     // a pack of 5 energy cells — laser rifle ammunition
+  CORPSE: "corpse", // a fallen elf, awaiting burial (see the graveyard zone)
 };
 const ITEM_LABEL = {
   wood: "Wood log", stone: "Stone", ore: "Ore", food: "Food",
@@ -26,6 +27,7 @@ const ITEM_LABEL = {
   water: "Water", ale: "Ale", wine: "Wine", marble: "Marble",
   component: "Crafting component", cloth: "Cloth", circuit: "Circuit",
   arrow: "Arrow bundle (5)", bullet: "Bullet box (10)", cell: "Energy cell (5)",
+  corpse: "Elf remains",
 };
 
 // Unique Elven relics discovered in deep stone. They remain with the pawn who
@@ -96,6 +98,10 @@ class Item {
     this.hauled = false; // currently carried / claimed
     this.stored = false; // resting in a stockpile
     this.freshness = 1;  // 1 = fresh .. 0 = spoiled (only meaningful for ITEM.FOOD)
+    // Only meaningful for ITEM.CORPSE: who this was, so the grave can be named.
+    this.name = null;
+    this.color = null;
+    this.diedDay = 0;
   }
 }
 

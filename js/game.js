@@ -251,6 +251,7 @@ class Game {
         id: it.id, kind: it.kind, sub: it.sub, x: it.x, y: it.y, z: it.z || 0,
         hauled: it.hauled ? 1 : 0, stored: it.stored ? 1 : 0,
         fresh: it.freshness != null ? Math.round(it.freshness * 100) : 100,
+        name: it.name || null, color: it.color || null, diedDay: it.diedDay || 0,
       })),
       dwarves: this.dwarves.map(d => this.serializeDwarf(d)),
       enemies: this.enemies.map(e => ({
@@ -303,6 +304,7 @@ class Game {
           t.flooded ? 1 : 0,
           Math.round(t.trapCooldown) || 0,
           t.workshopTarget || 0, t.workshopProduced || 0,
+          t.grave || 0,
         ];
       }
     }
@@ -353,6 +355,7 @@ class Game {
       const it = new Item(o.kind, o.x, o.y, o.sub, o.z || 0);
       it.id = o.id; it.hauled = !!o.hauled; it.stored = !!o.stored;
       it.freshness = o.fresh != null ? o.fresh / 100 : 1;
+      it.name = o.name || null; it.color = o.color || null; it.diedDay = o.diedDay || 0;
       byId.set(o.id, it);
       return it;
     });
@@ -1076,6 +1079,8 @@ class Game {
 
   // ---- milestones: persistent achievements, unlocked once, ever ----
   checkMilestones() {
+    this.checkColonyLost();
+    if (this.colonyLost) return;
     if (!this._milestonesLoaded) return;
     for (const m of MILESTONES) {
       if (this.unlockedMilestones.has(m.id)) continue;
@@ -1102,6 +1107,15 @@ class Game {
         partner.mood = clamp(partner.mood - 20, 0, 100);
         this.log(`${partner.name} mourns the loss of ${d.name}.`, "bad", "colony");
       }
+    }
+    // The dead do not simply vanish: leave a body where they fell. Haulers will
+    // carry it to a graveyard if one is zoned — see assignBury in jobs.js.
+    const corpse = this.jobs.spawnItem(ITEM.CORPSE, d.tileX, d.tileY, null, d.z || 0);
+    if (corpse) {
+      corpse.name = d.name;
+      corpse.color = d.color;
+      corpse.diedDay = Math.floor(this.time / DAY_LENGTH) + 1;
+      this.log(`${d.name}'s body awaits burial.`, "", "colony");
     }
     (this._toRemove || (this._toRemove = [])).push(d);
     if (colonyDB) {
@@ -1339,6 +1353,42 @@ class Game {
     }
     this._toRemove = null;
     this.updatePanel();
+    this.checkColonyLost();
+  }
+
+  // ---- the end of a colony ----
+  // Nothing handled this before: the last elf died, the sim paused, and the
+  // player was left staring at an empty map with no closure.
+  checkColonyLost() {
+    if (this.colonyLost || this.dwarves.length > 0) return;
+    this.colonyLost = true;
+    this.paused = true;
+    const day = Math.floor(this.time / DAY_LENGTH) + 1;
+    this.log(`The colony is lost — its last elf has fallen on day ${day}.`, "bad", "colony");
+    if (colonyDB) colonyDB.logEvent(`Colony lost on day ${day}`, day);
+    if (window.sound) window.sound.play("death", 0);
+    if (window.App && window.App.openColonyLost) window.App.openColonyLost();
+  }
+
+  // The figures on the colony-lost card.
+  colonySummary() {
+    let graves = 0;
+    for (const [x, y, z] of this.graveyardTiles) {
+      const t = this.world.get(x, y, z || 0);
+      if (t && t.grave) graves++;
+    }
+    const peak = this.popHistory.length ? Math.max(...this.popHistory.map(h => h.pop)) : this.dwarves.length;
+    return {
+      day: Math.floor(this.time / DAY_LENGTH) + 1,
+      peak,
+      techs: TECHS.filter(t => this.hasTech(t.id)).length,
+      techTotal: TECHS.length,
+      milestones: this.unlockedMilestones ? this.unlockedMilestones.size : 0,
+      graves,
+      burials: this.stats.buried || 0,
+      difficulty: difficultyById(this.settings.difficulty).name,
+      map: mapSizeById(this.settings.mapSize).name,
+    };
   }
 
   // ---- combat ----
@@ -1965,6 +2015,7 @@ class Game {
     this.bedTiles = []; this.diningTiles = [];
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = []; this.quarantineTiles = [];
     this.depotTiles = []; this.doorTiles = [];
+    this.graveyardTiles = [];
     this.watchtowerTiles = []; this.trapTiles = [];
     const w = this.world;
     for (let z = 0; z >= w.minZ; z--) {
@@ -1984,6 +2035,7 @@ class Game {
           else if (t.zone === ZONE.HOSPITAL) this.hospitalTiles.push([x, y, z]);
           else if (t.zone === ZONE.QUARANTINE) this.quarantineTiles.push([x, y, z]);
           else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y, z]);
+          else if (t.zone === ZONE.GRAVEYARD) this.graveyardTiles.push([x, y, z]);
           if (t.built === B.DOOR) this.doorTiles.push([x, y, z]);
         }
     }
@@ -2735,7 +2787,22 @@ class Game {
   }
 
   renderColony(c) {
-    let html = `<h2>Colony · ${this.dwarves.length}</h2><div id="dwarf-list">`;
+    // One line of triage: with twenty elves the per-row badges mean scanning.
+    const wounded = this.dwarves.filter(d => d.wounded).length;
+    const infected = this.dwarves.filter(d => d.infected).length;
+    const starving = this.dwarves.filter(d => d.hunger > 70).length;
+    const parched = this.dwarves.filter(d => d.thirst > 70).length;
+    const bits = [];
+    if (wounded) bits.push(`<span class="cs-bad">🩹 ${wounded} wounded</span>`);
+    if (infected) bits.push(`<span class="cs-bad">🧟 ${infected} infected</span>`);
+    if (starving) bits.push(`<span class="cs-warn">🍄 ${starving} starving</span>`);
+    if (parched) bits.push(`<span class="cs-warn">💧 ${parched} parched</span>`);
+    const unburied = this.items.filter(it => it.kind === ITEM.CORPSE).length;
+    if (unburied) bits.push(`<span class="cs-warn">⚰️ ${unburied} awaiting burial</span>`);
+    const status = bits.length
+      ? `<div class="colony-status">${bits.join(" · ")}</div>`
+      : `<div class="colony-status ok">🙂 all ${this.dwarves.length} elves are well</div>`;
+    let html = `<h2>Colony · ${this.dwarves.length}</h2>${status}<div id="dwarf-list">`;
     this.dwarves.forEach((d, i) => {
       const hap = d.happiness != null ? d.happiness : 60;
       const hapColor = hap > 60 ? "#7ec86a" : hap > 35 ? "#e0b158" : "#e08a6a";
@@ -2979,6 +3046,14 @@ class Game {
         parts.push(`<button class="mini-btn" id="insp-door-lock">${tile.doorLocked ? "Unlock" : "Lock"} door</button>`);
       }
       if (tile.zone) parts.push(`Zone: <span class="tag">${tile.zone}</span>`);
+      if (tile.grave) {
+        parts.push(`<div class="grave-note"><span class="gn-cross">✝</span> Here lies <b>${this.escapeHtml(tile.grave.name)}</b>` +
+          `${tile.grave.day ? `, who died on day ${tile.grave.day}` : ""}.</div>`);
+      }
+      if (tile.item && tile.item.kind === ITEM.CORPSE) {
+        parts.push(`<div class="grave-note warn"><span class="gn-cross">⚰️</span> The body of <b>${this.escapeHtml(tile.item.name || "an elf")}</b>` +
+          `${tile.item.diedDay ? `, fallen on day ${tile.item.diedDay}` : ""} — zone a graveyard and a hauler will lay them to rest.</div>`);
+      }
       if (tile.zone === ZONE.BEDROOM || tile.zone === ZONE.DINING) {
         const room = this.roomAt.get(`${t.x},${t.y},${t.z || 0}`);
         if (room) {

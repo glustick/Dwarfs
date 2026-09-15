@@ -262,6 +262,12 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Death & remembrance~~ — bodies persist where they fall, a ⚰️ Graveyard
+      zone lets haulers bury them, and each grave keeps a named marker (a cross
+      tinted with the deceased's colour) you can inspect. Plus a **colony-lost**
+      screen when the last elf dies, a one-line colony status (wounded /
+      infected / starving / awaiting burial), and `tools/stress.js`.
+
 - [x] ~~Stock panel & layout~~ — a 📦 **Stock** tab listing everything the colony
       owns by type (including ammunition with shot counts and what's equipped),
       a four-column **icon grid** for the panel tabs instead of a cramped single

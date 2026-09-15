@@ -315,6 +315,19 @@ Soldiers **auto-equip a better spare weapon** when one is available, so simply
 queueing arms keeps your militia improving. Research tab shows what each
 technology unlocks.
 
+## Death & remembrance
+
+An elf who dies leaves a **body** where they fell — it stays on the map, named,
+and is never hauled to a stockpile. Zone a **⚰️ Graveyard** (`K`) and any hauler
+will carry the body there and **lay it to rest**; the plot keeps a stone cross
+tinted with that elf's colour, and clicking it tells you who lies there and when
+they died. Burial lifts the colony's mood.
+
+The Colony tab opens with a one-line status — wounded, infected, starving,
+parched, and bodies still awaiting burial. And if the last elf dies, the colony
+is **lost**: the game ends and shows you how long it survived, how many elves it
+held at its height, what you researched, and how many you laid to rest.
+
 ## Keeping track of things
 
 - **📦 Stock** — every item you own, by type: materials, metal and circuits, food

@@ -948,3 +948,28 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
 .ui-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ui-lbl { font-size: 12px; color: var(--muted); margin-right: 6px; }
 .ui-codex { flex: none; padding: 7px 12px; }
+
+/* ---- colony status line ---- */
+.colony-status { margin: -4px 0 10px; font-size: 11.5px; color: var(--muted); }
+.colony-status.ok { color: var(--ok); }
+.colony-status .cs-bad { color: var(--bad); }
+.colony-status .cs-warn { color: var(--warn); }
+
+/* ---- graves & corpses in the inspector ---- */
+.grave-note {
+  margin: 8px 0; padding: 8px 10px; border-radius: var(--r-sm);
+  background: var(--row-bg); border: 1px solid var(--line); font-size: 12px;
+}
+.grave-note.warn { border-color: var(--bad-line); background: var(--bad-bg); color: var(--bad); }
+.grave-note .gn-cross { margin-right: 5px; }
+
+/* ---- colony lost ---- */
+.menu-card.lost { width: min(520px, calc(100vw - 24px)); }
+.lost-ico { font-size: 46px; line-height: 1; margin-bottom: 6px; }
+.lost-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 18px 0 10px; }
+.lost-tile {
+  display: flex; flex-direction: column; gap: 2px; padding: 10px 6px;
+  background: var(--row-bg); border: 1px solid var(--line); border-radius: var(--r-sm);
+}
+.lost-tile b { font-family: var(--font-mono); font-size: 18px; color: var(--text); }
+.lost-tile span { font-size: 10px; color: var(--muted); }

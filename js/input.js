@@ -8,7 +8,7 @@ const TOOL_CAT = {
   doublebed: "build", painting: "build", conduit: "build", generator: "build", icebox: "build",
   torch: "build", lantern: "build", lamp: "build",
   palisade: "build", watchtower: "build", trap: "build",
-  stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone",
+  stockpile: "zone", bedroom: "zone", dining: "zone", depot: "zone", graveyard: "zone",
 };
 
 class Input {
@@ -386,7 +386,7 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", a: "rampdown", v: "drain", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", x: "erase" };
+      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", a: "rampdown", v: "drain", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", k: "graveyard", x: "erase" };
       if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
@@ -581,6 +581,9 @@ class Input {
           case "depot":
             if (w.isWalkable(x, y, z) && !(t.stockpile && t.zone === ZONE.TRADE)) { t.stockpile = true; t.zone = ZONE.TRADE; count++; }
             break;
+          case "graveyard":
+            if (w.isWalkable(x, y, z) && t.zone !== ZONE.GRAVEYARD) { t.zone = ZONE.GRAVEYARD; count++; }
+            break;
           case "bedroom":
             if (w.isWalkable(x, y, z) && t.zone !== ZONE.BEDROOM) { t.zone = ZONE.BEDROOM; count++; }
             break;
@@ -647,7 +650,7 @@ class Input {
         stockpile: "Stockpile expanded", build: "Walls queued", floor: "Floors queued",
         bed: "Beds queued", smelter: "Smelter queued", forge: "Forge queued", door: "Doors queued",
         well: "Well queued", brewery: "Brewery queued", doublebed: "Double beds queued", painting: "Paintings queued",
-        table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned",
+        table: "Tables queued", bedroom: "Bedroom zoned", dining: "Dining hall zoned", depot: "Trade depot zoned", graveyard: "Graveyard zoned",
         farm: "Farm zoned", study: "Study zoned", hospital: "Hospital zoned", quarantine: "Quarantine zoned", erase: "Cleared",
         conduit: "Arcane conduits queued", generator: "Essence Well queued", icebox: "Frost Chamber queued",
         palisade: "Palisades queued", watchtower: "Watchtowers queued", trap: "Traps queued",

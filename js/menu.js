@@ -76,6 +76,7 @@ class App {
       if (this.inGame) this.openPauseMenu();
       return;
     }
+    if (this.panel === "lost") return; // only the buttons leave this screen
     if (this.panel === "pause") this.resumeGame();
     else if (this.panel === "codex") {
       if (this.inGame) this.openPauseMenu(); else this.openMainMenu();
@@ -162,6 +163,36 @@ class App {
       return;
     }
     status.innerHTML = `Update available: <a href="${this.updateInfo.url}" target="_blank" rel="noopener">v${this.updateInfo.latest}</a>`;
+  }
+
+  // ---- THE COLONY IS LOST ----
+  openColonyLost() {
+    const g = window.game;
+    if (!g) return;
+    const s = g.colonySummary();
+    this.show(`
+      <div class="menu-card lost">
+        <div class="lost-ico">🪦</div>
+        <div class="menu-title" style="font-size:26px">The colony is lost</div>
+        <div class="menu-sub">Every elf is gone. The greenwood takes the rest.</div>
+        <div class="lost-grid">
+          <div class="lost-tile"><b>${s.day}</b><span>days survived</span></div>
+          <div class="lost-tile"><b>${s.peak}</b><span>elves at its height</span></div>
+          <div class="lost-tile"><b>${s.techs}/${s.techTotal}</b><span>technologies</span></div>
+          <div class="lost-tile"><b>${s.milestones}</b><span>milestones</span></div>
+          <div class="lost-tile"><b>${s.burials || 0}</b><span>laid to rest</span></div>
+          <div class="lost-tile"><b>${s.graves || 0}</b><span>graves dug</span></div>
+        </div>
+        <div class="mini" style="text-align:center">${s.difficulty} · ${s.map}</div>
+        <div class="menu-btns" style="margin-top:18px">
+          <button class="menu-btn primary" id="lost-new"><span class="mi">🌱</span><span>Found a new colony</span></button>
+          <button class="menu-btn" id="lost-load"><span class="mi">📂</span><span>Load a save</span></button>
+          <button class="menu-btn ghost" id="lost-menu"><span class="mi">🚪</span><span>Main menu</span></button>
+        </div>
+      </div>`, "lost");
+    document.getElementById("lost-new").onclick = () => this.openNewGameDialog(false);
+    document.getElementById("lost-load").onclick = () => this.openLoadDialog();
+    document.getElementById("lost-menu").onclick = () => this.openMainMenu();
   }
 
   // ---- CODEX ----
