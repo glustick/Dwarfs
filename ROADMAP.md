@@ -318,9 +318,59 @@ actual room instead of colony-wide counters).
       a vampire sting, cave-ins, floods, milestones, undo, zone stamps,
       autosave, load, equip and trade.
 
+## Tier 8 — planned
+
+_Requested 2026-09-15, after the playtest build went out. Not started. Ordered
+roughly as I would tackle them. Each item notes where it lands in the code, so
+the work can start without re-deriving it._
+
+- [ ] **Volume mining (layered designations).** A mining designation should cover a
+      volume, not just the layer you drew on: dragging selects the same footprint
+      through the levels below, elves clear the **outermost layer first**, then the
+      next, until the whole selected block is gone. Today `tile.designation` is a
+      single flag on one tile, so this needs a designation to own an ordered queue
+      of tiles (`jobs.js` mine job + `world.js` tile fields; serialization must
+      stay append-only).
+- [ ] **Precious ore hidden until dug.** Gold and the rarer metals should not be
+      visible — or selectable — until the rock in front of them has been worked.
+      You should *discover* them by mining, not by looking. Once revealed they
+      render and can be designated like any other vein. Iron and coal can stay
+      visible as the common case. Needs a per-tile `revealed` flag, set when a
+      neighbouring tile is mined, consulted by rendering, the hover tip and the
+      inspector, and carried in the save.
+- [ ] **A work scheduler with day and night shifts.** Every elf currently sleeps
+      and wakes together, so a colony can't run around the clock. Add a shift
+      setting (day / night / flexible) per elf or per group, driven from the
+      Schedule tab, so some elves work the day and others the night. Touches
+      `dwarf.activity`, `assignSleep` and the global day/night clock
+      (`dayFraction`); think about lighting, mood and the socialising behaviour
+      that assumes everyone is awake together.
+- [ ] **Starting weapons, equipable per elf.** A new colony should be able to
+      defend itself on day one: give it a basic **short-range** and **long-range**
+      weapon from the start (no research), and let the player **explicitly pick and
+      equip a weapon on each elf** rather than relying on auto-equip. Today the
+      crude arms are gated behind tier-1 techs (Crafting Basics / Fletching) and
+      the inspector only offers "enlist" — see `spawnStartingDwarves`, `RECIPES`,
+      and the inspector in `game.js`.
+- [ ] **Collapsible research tiers.** Finished tiers occupy space they no longer
+      need. Make each tier an accordion, defaulting finished tiers to collapsed and
+      remembering the state (`renderResearch` in `game.js`; persist the choice the
+      same way the theme is persisted).
+- [ ] **Real tier gating.** Give each tier more prerequisites, and gate the *next*
+      tier behind a **structure built at the current tier** — you research your way
+      to a building, then building it opens the next tier — rather than points
+      alone. Touches `TECHS[].requires`, `techPrereqsMet` and the build system
+      (structures need to be visible in the Research tab as the thing that unlocks
+      the tier).
+- [ ] **Colony bar: shrink or expand.** The colonist strip is intrusive. There is
+      currently only an all-or-nothing show/hide toggle; add a **compact
+      (shrunken) mode** as well, with the choice remembered. See `#colonistbar`
+      in `index.html` / `css/style.css`.
+
 ---
 
 ### Notes
+
 - **Tiers 1–6 are complete, and every Tier 7 (presentation) item has shipped**
   through **v1.28.0** — the playtest build: interface modernization (v1.22.0),
   colony setup & difficulty (v1.23.0), the in-game codex (v1.24.0), the arms
@@ -331,5 +381,8 @@ actual room instead of colony-wide counters).
   `PLAYTEST.md`: the open questions are difficulty balance, whether the crude
   weapons make the Day 4 outbreak survivable, and performance in a real colony
   (the measured hot path is fixed, but only on a synthetic one).
+- **Tier 8 lists what is planned next** — volume mining, hidden precious ore, day
+  and night shifts, starting weapons equipable per elf, collapsible research tiers,
+  structure-gated tiers, and a shrunken colony bar. See the section above.
 - Parked until after that: a UI-scale setting, a colourblind-safe palette, and
   save-format versioning/migration.
