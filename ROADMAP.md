@@ -262,6 +262,12 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~In-game codex~~ — a searchable handbook (❓ button / pause menu) with 30
+      entries across eight categories: basics, work, building, industry,
+      survival, threats, neighbours and reference. Grounded in the real
+      simulation constants, with a category filter, free-text search and the
+      tutorial a click away.
+
 - [x] ~~Colony setup & difficulty~~ — New Game opens a setup screen: four
       difficulty presets (Gentle → Brutal) that scale Storyteller pressure, raid
       size and cadence, faction aggression, hunger and starting supplies, plus

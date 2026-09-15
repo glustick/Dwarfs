@@ -17,7 +17,7 @@ const vm = require("vm");
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
 // audio.js is deliberately omitted: it needs a Web Audio API (see smoke-audio.js).
 const FILES = (process.argv[3] ||
-  "version,utils,settings,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game"
+  "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game"
 ).split(",");
 
 // ---------------------------------------------------------------- DOM stub
@@ -252,6 +252,27 @@ check("setup: choice persists and survives a save", () => {
   if (!data.settings || data.settings.difficulty !== "harsh") throw new Error("settings not serialized");
   const g2 = run("(d)=>new Game(d)", data);
   if (g2.settings.mapSize !== "large") throw new Error("settings lost on load");
+});
+
+check("codex: content is intact and searchable", () => {
+  const entries = run("CODEX_ENTRIES");
+  const cats = run("CODEX_CATEGORIES");
+  const search = (q) => run("(q)=>searchCodex(q)", q);
+  if (entries.length < 20) throw new Error("too few codex entries: " + entries.length);
+  const ids = new Set();
+  for (const e of entries) {
+    if (!e.id || !e.title || !e.icon || !e.body) throw new Error("incomplete entry: " + e.id);
+    if (ids.has(e.id)) throw new Error("duplicate codex id: " + e.id);
+    ids.add(e.id);
+    if (!cats.includes(e.cat)) throw new Error("unknown category '" + e.cat + "' on " + e.id);
+    if (!/<(p|ul|ol|table|li)/.test(e.body)) throw new Error("entry body looks empty: " + e.id);
+  }
+  if (search("").length !== entries.length) throw new Error("an empty search should return everything");
+  for (const q of ["aquifer", "vampire", "brutal", "hotkey", "goose"]) { /* goose: title word */ }
+  if (!search("aquifer").length) throw new Error("search missed 'aquifer'");
+  if (!search("vampire").length) throw new Error("search missed 'vampire'");
+  if (!search("hotkey").length) throw new Error("tag search failed");
+  if (search("zzzznotathing").length) throw new Error("a nonsense query returned hits");
 });
 
 // ---------------------------------------------------------------- report

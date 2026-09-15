@@ -14,7 +14,7 @@ class App {
       if (this.inGame) this.openPauseMenu();
     });
     const helpBtn = document.getElementById("help-btn");
-    if (helpBtn) helpBtn.addEventListener("click", () => { if (window.tutorial) window.tutorial.open(); });
+    if (helpBtn) helpBtn.addEventListener("click", () => this.openCodex());
 
     // Autosave loop (real time).
     setInterval(() => this.autosave(), AUTOSAVE_MINUTES * 60 * 1000);
@@ -79,6 +79,9 @@ class App {
       return;
     }
     if (this.panel === "pause") this.resumeGame();
+    else if (this.panel === "codex") {
+      if (this.inGame) this.openPauseMenu(); else this.openMainMenu();
+    }
     else if (this.panel === "newgame") {
       if (this.inGame) this.openPauseMenu(); else this.openMainMenu();
     }
@@ -101,6 +104,7 @@ class App {
             <span>Continue<br><span style="font-size:12px;color:#b7a988">${recent.name} · Day ${recent.day} · ${recent.pop} elves · ${SaveManager.timeAgo(recent.savedAt)}</span></span>
           </button>` : ``}
           <button class="menu-btn" id="mm-new"><span class="mi">✨</span><span>New Game</span></button>
+          <button class="menu-btn" id="mm-codex"><span class="mi">📖</span><span>Codex &amp; Help</span></button>
           <button class="menu-btn" id="mm-load">
             <span class="mi">📂</span><span>Load Game ${saves.length ? `<span style="color:#9c8a64">(${saves.length})</span>` : ""}</span>
           </button>
@@ -111,6 +115,7 @@ class App {
 
     if (recent) document.getElementById("mm-continue").onclick = () => this.startGame(SaveManager.load(recent.name));
     document.getElementById("mm-new").onclick = () => this.openNewGameDialog(false);
+    document.getElementById("mm-codex").onclick = () => this.openCodex();
     // Always reachable, even with zero saves — that's also where importing a
     // save from a file lives, e.g. carrying a save over to a freshly hosted
     // copy of the game (a new origin means fresh, empty localStorage).
@@ -159,6 +164,72 @@ class App {
       return;
     }
     status.innerHTML = `Update available: <a href="${this.updateInfo.url}" target="_blank" rel="noopener">v${this.updateInfo.latest}</a>`;
+  }
+
+  // ---- CODEX ----
+  // A searchable handbook: category chips + entry list on the left, the article
+  // on the right. Opened from the ❓ button or the pause menu.
+  openCodex(entryId) {
+    this.codexCat = this.codexCat || "All";
+    this.codexQuery = this.codexQuery || "";
+    this.codexEntry = entryId || this.codexEntry || CODEX_ENTRIES[0].id;
+    if (!CODEX_BY_ID[this.codexEntry]) this.codexEntry = CODEX_ENTRIES[0].id;
+    this.show(`
+      <div class="menu-card codex">
+        <div class="codex-head">
+          <span class="codex-title">📖 Codex</span>
+          <input id="codex-search" class="codex-search" type="search" placeholder="Search the codex…"
+                 aria-label="Search the codex" value="${String(this.codexQuery).replace(/"/g, "&quot;")}" />
+          <button class="tut-btn codex-tut" id="codex-tut">🎓 Tutorial</button>
+          <button class="tut-btn codex-close" id="codex-close" aria-label="Close the codex">✕</button>
+        </div>
+        <div class="codex-body">
+          <div class="codex-left">
+            <div class="codex-cats" id="codex-cats"></div>
+            <div class="codex-list" id="codex-list"></div>
+          </div>
+          <div class="codex-article" id="codex-article"></div>
+        </div>
+      </div>`, "codex");
+
+    const draw = () => {
+      const hits = searchCodex(this.codexQuery).filter(e => this.codexCat === "All" || e.cat === this.codexCat);
+      document.getElementById("codex-cats").innerHTML = ["All"].concat(CODEX_CATEGORIES).map(c =>
+        `<button class="codex-cat${c === this.codexCat ? " on" : ""}" data-cat="${c}">${c}</button>`).join("");
+      document.getElementById("codex-list").innerHTML = hits.length
+        ? hits.map(e => `<button class="codex-item${e.id === this.codexEntry ? " on" : ""}" data-id="${e.id}">
+             <span class="ci-ico">${e.icon}</span><span class="ci-title">${e.title}</span><span class="ci-cat">${e.cat}</span>
+           </button>`).join("")
+        : `<div class="menu-empty">Nothing matches “${String(this.codexQuery).replace(/</g, "&lt;")}”.</div>`;
+      const entry = hits.find(e => e.id === this.codexEntry) || hits[0];
+      this.codexEntry = entry ? entry.id : null;
+      document.getElementById("codex-article").innerHTML = entry
+        ? `<h3>${entry.icon} ${entry.title}</h3>${entry.body}` : "";
+      document.getElementById("codex-cats").querySelectorAll(".codex-cat").forEach((b) => {
+        b.onclick = () => { this.codexCat = b.dataset.cat; draw(); };
+      });
+      document.getElementById("codex-list").querySelectorAll(".codex-item").forEach((b) => {
+        b.onclick = () => { this.codexEntry = b.dataset.id; draw(); };
+      });
+    };
+    draw();
+
+    const search = document.getElementById("codex-search");
+    if (search) {
+      search.addEventListener("input", () => {
+        this.codexQuery = search.value;
+        this.codexEntry = null;
+        draw();
+      });
+      search.focus();
+    }
+    const close = () => (this.inGame ? this.openPauseMenu() : this.openMainMenu());
+    document.getElementById("codex-close").onclick = close;
+    document.getElementById("codex-tut").onclick = () => {
+      this.overlay.classList.add("hidden");
+      window.appMenuOpen = false;
+      if (window.tutorial) window.tutorial.open();
+    };
   }
 
   // ---- NEW GAME SETUP ----
@@ -217,6 +288,7 @@ class App {
           <button class="menu-btn primary" id="pm-resume"><span class="mi">▶</span><span>Resume</span></button>
           <button class="menu-btn" id="pm-save"><span class="mi">💾</span><span>Save Game</span></button>
           <button class="menu-btn" id="pm-load"><span class="mi">📂</span><span>Load Game</span></button>
+          <button class="menu-btn" id="pm-codex"><span class="mi">📖</span><span>Codex &amp; Help</span></button>
           <button class="menu-btn" id="pm-new"><span class="mi">✨</span><span>New Game</span></button>
           <button class="menu-btn danger ghost" id="pm-main"><span class="mi">🚪</span><span>Quit to Main Menu</span></button>
         </div>
@@ -234,6 +306,7 @@ class App {
     document.getElementById("pm-resume").onclick = () => this.resumeGame();
     document.getElementById("pm-save").onclick = () => this.openSaveDialog();
     document.getElementById("pm-load").onclick = () => this.openLoadDialog();
+    document.getElementById("pm-codex").onclick = () => this.openCodex();
     document.getElementById("pm-new").onclick = () => {
       if (confirm("Start a new game? Unsaved progress will be lost.")) this.openNewGameDialog(true);
     };

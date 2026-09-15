@@ -4,6 +4,22 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.24.0 (build 51)
+Codex round.
+
+- **An in-game codex.** The **❓** button (and a new entry in the pause menu) now
+  opens a searchable handbook instead of just replaying the tutorial. 30 entries
+  cover every system the game has accumulated — zones, labours and schedules,
+  the tech tree, workshops, essence, farming and drink, mood, skills, Z-levels
+  and cave-ins, lighting, combat, the outbreak and vampirism, factions, trade,
+  the Storyteller, seasons, animals, artifacts, and the full keyboard reference.
+- **Search and categories.** Type to search titles, tags and body text, or
+  narrow by category chip. The layout is a two-pane reference (list + article),
+  stacking on narrow screens.
+- The codex is grounded in the actual simulation constants — hotkeys, tech
+  costs, zone effects and difficulty multipliers are read from the code, not
+  remembered — and the tutorial stays one click away from its header.
+
 ## v1.23.0 (build 50)
 New colony setup round.
 

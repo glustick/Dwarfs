@@ -296,6 +296,15 @@ across games as a hall of records.
 - **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
   stop to make decisions or fast-forward the grind.
 
+## Help & the codex
+
+Press **❓** (top bar) or **⏸ Menu → 📖 Codex & Help** for the in-game handbook:
+30 searchable entries covering every system — zones, labours, the tech tree,
+workshops, essence, farming, mood, Z-levels, combat, the outbreak, factions,
+trade and the full keyboard reference. Search matches titles, tags and body
+text; category chips narrow it down. The header has a **🎓 Tutorial** button to
+replay the nine-step walkthrough.
+
 ## Interface & themes
 
 The chrome is one token-driven design system (see `css/style.css`). Three themes
