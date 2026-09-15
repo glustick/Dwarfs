@@ -4,6 +4,29 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.25.0 (build 52)
+Arms & the tech tree.
+
+- **A weapon ladder that starts at the bottom.** The crude arms already existed
+  but sat behind **Weaponsmithing** (tier 2, itself needing Crafting and
+  Metallurgy), so a colony had nothing to fight with for the first days. Clubs,
+  **stone knives** (new), and stone spears now come from the **Crafting Bench**,
+  and **Fletching** (new tier-1 tech) adds a **Short bow** and arrow bundles
+  there too — a real weapon before the forge is even a research project.
+- The **Weapons Bench** now reads as the upgrade: the longbow (renamed from
+  "Bow"), iron swords and axes, rifles and laser blades.
+- **The tech tree was hiding a whole tier.** The Research tab only rendered
+  tiers 1–3, so **Photonics — and the Laser Rifle — were unreachable from the
+  UI**. The ceiling is now derived from the data, so a new top tier can't fall
+  off the bottom again.
+- **Research tab polish**: a progress bar and "N of 19 researched", proper
+  per-tier grouping with spacing, a **🔓 unlocks** line on every tech derived
+  from the recipes and build tools it actually gates, and corrected descriptions
+  for Crafting, Weaponsmithing and Archery.
+- Weapon pickups: the "out of ammo" hint now names the right bench (short bows
+  are a Crafting Bench weapon, not a Weapons Bench one), and gear names cover
+  the new arms.
+
 ## v1.24.0 (build 51)
 Codex round.
 

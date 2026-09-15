@@ -43,11 +43,16 @@ const TECHS = [
   },
   {
     id: "crafting", name: "Crafting Basics", icon: "🛠️", tier: 1, cost: 80, requires: [],
-    desc: "Unlocks a Crafting Bench for components and cloth.", unlock: "crafting",
+    desc: "Unlocks a Crafting Bench for components, cloth — and the crude arms an elf can actually swing: clubs, stone knives and stone spears.",
+    unlock: "crafting",
+  },
+  {
+    id: "fletching", name: "Fletching", icon: "🏹", tier: 1, cost: 70, requires: [],
+    desc: "Unlocks the Short bow and arrow bundles at the Crafting Bench — a hunter's weapon you can field long before the forge is lit. Shorter reach than a longbow, but it keeps its owner out of biting distance.",
   },
   {
     id: "weaponsmithing", name: "Weaponsmithing", icon: "🗡️", tier: 2, cost: 150, requires: ["crafting", "metallurgy"],
-    desc: "Unlocks a Weapons Bench for wooden, stone, and metal arms.", unlock: "weapons",
+    desc: "Unlocks the Weapons Bench: iron swords and axes, plus the longbow once you know Archery.", unlock: "weapons",
   },
   {
     id: "tailoring", name: "Tailoring", icon: "🧵", tier: 2, cost: 130, requires: ["crafting"],
@@ -55,7 +60,7 @@ const TECHS = [
   },
   {
     id: "archery", name: "Archery", icon: "🏹", tier: 2, cost: 140, requires: ["weaponsmithing"],
-    desc: "Unlocks bows and arrow bundles at the Weapons Bench. Archers shoot foes from 6 tiles (8 from a Watchtower) but consume arrows from their quiver — melee with a bow is clumsy.",
+    desc: "Unlocks the Longbow at the Weapons Bench — longer reach than the short bow (6 tiles, 8 from a Watchtower). Archers consume arrows from their quiver, and melee with a bow is clumsy.",
   },
   {
     id: "electronics", name: "Electronics", icon: "⚡", tier: 3, cost: 260, requires: ["weaponsmithing", "essence"],

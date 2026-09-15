@@ -296,6 +296,25 @@ across games as a hall of records.
 - **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
   stop to make decisions or fast-forward the grind.
 
+## Arming your elves
+
+A colony starts with nothing worth swinging, and the outbreak arrives around
+Day 4 — so the arms ladder starts cheap:
+
+| Tier | Weapon | Where | Gate |
+|---|---|---|---|
+| Crude | Wooden club | Crafting Bench | Crafting Basics |
+| Crude | Stone knife | Crafting Bench | Crafting Basics |
+| Crude | Stone spear | Crafting Bench | Crafting Basics |
+| Early ranged | Short bow + arrows | Crafting Bench | Fletching |
+| Iron | Sword / axe | Forge, Weapons Bench | Metallurgy |
+| Ranged | Longbow + arrows | Weapons Bench | Archery |
+| Modern | Rifle / laser rifle | Weapons Bench, Electronics | Ballistics → Photonics |
+
+Soldiers **auto-equip a better spare weapon** when one is available, so simply
+queueing arms keeps your militia improving. Research tab shows what each
+technology unlocks.
+
 ## Help & the codex
 
 Press **❓** (top bar) or **⏸ Menu → 📖 Codex & Help** for the in-game handbook:

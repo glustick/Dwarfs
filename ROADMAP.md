@@ -262,6 +262,13 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Arms ladder & tech-tree polish~~ — crude arms (club, **stone knife**,
+      stone spear) moved to the Crafting Bench, and **Fletching** (new tier-1
+      tech) adds a **short bow** + arrows there, so a colony can fight before the
+      forge exists. Fixed the Research tab only rendering tiers 1–3, which made
+      **Photonics and the Laser Rifle unreachable from the UI**; added a progress
+      bar, per-tier grouping, and a derived **🔓 unlocks** line per technology.
+
 - [x] ~~In-game codex~~ — a searchable handbook (❓ button / pause menu) with 30
       entries across eight categories: basics, work, building, industry,
       survival, threats, neighbours and reference. Grounded in the real

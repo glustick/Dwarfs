@@ -136,10 +136,10 @@ const CODEX_ENTRIES = [
   // ---------------------------------------------------------------- Industry
   {
     id: "research", icon: "🔬", title: "Research", cat: "Industry",
-    tags: "research tech tree points scholar study unlock tier",
-    body: `<p><b>Research points</b> accumulate from your elves and, once you have <b>Scholarship</b>, from elves working in a <b>Study</b>. The <b>Research</b> tab spends them.</p>
-      <p>There are <b>18 technologies</b> across four tiers, and most of the game is locked behind them: the Farm zone, tables, the hospital, the crafting benches, bows, rifles, lasers, and the whole essence branch.</p>
-      <p>Priorities worth knowing: <b>Agriculture</b> (a real food supply), <b>Medicine</b> (survive the outbreak), <b>Weaponsmithing → Archery → Ballistics → Photonics</b> (arms), and <b>Essence Craft</b> (stops food spoiling).</p>`,
+    tags: "research tech tree points scholar study unlock tier progress",
+    body: `<p><b>Research points</b> accumulate from your elves and, once you have <b>Scholarship</b>, from elves working in a <b>Study</b>. The <b>Research</b> tab spends them — it shows a progress bar, what you've finished, and what each technology actually unlocks (🔓).</p>
+      <p>There are <b>19 technologies</b> across four tiers, and most of the game is locked behind them: the Farm zone, tables, the hospital, the crafting benches, bows, rifles, lasers, and the whole essence branch.</p>
+      <p>Priorities worth knowing: <b>Crafting Basics</b> and <b>Fletching</b> (clubs, knives, spears and a short bow — a real weapon before the forge), <b>Agriculture</b> (a food supply), <b>Medicine</b> (survive the outbreak), then <b>Weaponsmithing → Archery → Ballistics → Photonics</b> for the arms ladder and <b>Essence Craft</b> to stop food spoiling.</p>`,
   },
   {
     id: "crafting", icon: "🔨", title: "Crafting & workshops", cat: "Industry",
@@ -148,7 +148,7 @@ const CODEX_ENTRIES = [
       <ul>
         <li><b>🔥 Smelter</b> — ore → metal bars.</li>
         <li><b>⚒️ Forge</b> — bars → weapons and armour.</li>
-        <li><b>🛠️ Crafting Bench</b> — components and cloth.</li>
+        <li><b>🛠️ Crafting Bench</b> — components and cloth, plus the <b>crude arms</b>: clubs, stone knives, stone spears, and (with <b>Fletching</b>) a short bow and arrow bundles.</li>
         <li><b>🗡️ Weapons Bench</b> — wooden, stone and metal arms; bows with <b>Archery</b>, rifles with <b>Ballistics</b>, laser blades with <b>Electronics</b>, laser rifles with <b>Photonics</b>.</li>
         <li><b>🧵 Clothing Bench</b> — cloth and reinforced armour.</li>
         <li><b>⚡ Electronics Bench</b> — circuits, and later energy cells.</li>
@@ -240,9 +240,10 @@ const CODEX_ENTRIES = [
     id: "combat", icon: "⚔️", title: "Combat & soldiers", cat: "Threats",
     tags: "combat soldier enlist weapon armour armor bow rifle laser arrow bullet watchtower trap defence",
     body: `<p>Enlist elves as soldiers from the inspector (<b>⚔ Enlist</b>). They'll train, arm themselves from your stores, and intercept threats.</p>
+      <p>You can't armour an elf with nothing, so the ladder starts cheap: <b>wooden club</b> → <b>stone knife</b> → <b>stone spear</b> (all from a Crafting Bench), then a <b>short bow</b> with <b>Fletching</b> — a real ranged weapon available while the forge is still a research project.</p>
       <ul>
-        <li><b>Melee</b> — swords and axes; short reach, solid damage.</li>
-        <li><b>🏹 Bows</b> — fire from 6 tiles (8 from a Watchtower), consuming arrows from a quiver. Clumsy in melee.</li>
+        <li><b>Melee</b> — clubs, knives and spears early, then iron swords and axes; short reach, solid damage.</li>
+        <li><b>🏹 Short bow</b> — fires from 4 tiles on a slower reload; enough to keep an elf out of biting distance. The <b>longbow</b> reaches 6 (8 from a Watchtower).</li>
         <li><b>🔫 Rifles</b> — 8 tiles, quicker reload than a bow, using bullets.</li>
         <li><b>💫 Laser rifles</b> — 10 tiles and the fastest rate of fire in the empire, on energy cells.</li>
       </ul>
@@ -330,6 +331,7 @@ const CODEX_ENTRIES = [
     tags: "tips advice beginner strategy help tricks",
     body: `<ul>
       <li><b>Designate work or nothing happens.</b> Seven idle elves means an empty order queue.</li>
+      <li><b>Arm them before Day 4.</b> Research <b>Crafting Basics</b> (or <b>Fletching</b> for bows) and queue clubs, knives, spears or short bows at the Crafting Bench — an unarmed elf loses to a single zombie.</li>
       <li><b>Stockpiles first.</b> Un-hauled goods are chaos; a filtered stockpile is a functioning colony.</li>
       <li><b>Research Agriculture early</b> — foraging cannot feed a growing colony through winter.</li>
       <li><b>Build the hospital before you need it</b>, and give one elf Doctoring as their only job.</li>

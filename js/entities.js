@@ -7,7 +7,7 @@ const ITEM = {
   ORE: "ore",       // subtype in item.sub (iron/gold/coal)
   FOOD: "food",
   BAR: "bar",       // smelted metal bar (sub = iron/gold)
-  WEAPON: "weapon", // forged weapon (sub = sword/axe)
+  WEAPON: "weapon", // weapon (sub = club/knife/stone_spear/shortbow/bow/sword/axe/rifle/laser_blade/laser_rifle)
   ARMOR: "armor",   // forged armor (sub = shield/mail)
   WATER: "water",   // drawn from a Well
   ALE: "ale",       // brewed from water + food; quenches thirst better
@@ -61,11 +61,12 @@ function materialItem(id) {
 // ammo item holds when the quiver is refilled from stockpiles; `range` in
 // tiles (Watchtower adds 2); `cd` seconds between shots. Soldiers auto-upgrade
 // to a strictly higher-rank weapon when one is spare (see assignEquip).
-const WEAPON_RANK = { club: 0, stone_spear: 1, sword: 2, axe: 2, bow: 3, rifle: 4, laser_blade: 5, laser_rifle: 6 };
+const WEAPON_RANK = { club: 0, knife: 1, stone_spear: 2, sword: 3, axe: 3, shortbow: 4, bow: 5, rifle: 6, laser_blade: 7, laser_rifle: 8 };
 const RANGED_WEAPONS = {
-  bow:         { ammo: ITEM.ARROW,  per: 5,  range: 6,  cd: 1.4, label: "arrows",  sound: "bow",   color: "#f0dc96" },
-  rifle:       { ammo: ITEM.BULLET, per: 10, range: 8,  cd: 1.1, label: "bullets", sound: "gun",   color: "#e8e8e0" },
-  laser_rifle: { ammo: ITEM.CELL,   per: 5,  range: 10, cd: 0.9, label: "charges", sound: "laser", color: "#7fd8ff" },
+  shortbow:    { ammo: ITEM.ARROW,  per: 5,  range: 4,  cd: 1.6, label: "arrows",  sound: "bow",   color: "#e6d3a0", bench: "Crafting" },
+  bow:         { ammo: ITEM.ARROW,  per: 5,  range: 6,  cd: 1.4, label: "arrows",  sound: "bow",   color: "#f0dc96", bench: "Weapons"  },
+  rifle:       { ammo: ITEM.BULLET, per: 10, range: 8,  cd: 1.1, label: "bullets", sound: "gun",   color: "#e8e8e0", bench: "Weapons"  },
+  laser_rifle: { ammo: ITEM.CELL,   per: 5,  range: 10, cd: 0.9, label: "charges", sound: "laser", color: "#7fd8ff", bench: "Electronics" },
 };
 
 // Stockpile filters group item kinds so a pile can be restricted to just one
@@ -235,7 +236,7 @@ class Dwarf {
 
   // Damage this dwarf deals per swing (weapon + fighting skill).
   attackDamage() {
-    const weaponMult = { club: 1.35, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8, bow: 1.15, rifle: 1.7, laser_rifle: 2.2 };
+    const weaponMult = { club: 1.35, knife: 1.5, stone_spear: 1.7, sword: 1.9, axe: 1.8, laser_blade: 2.8, shortbow: 1.1, bow: 1.15, rifle: 1.7, laser_rifle: 2.2 };
     return (4 + this.skillLevel("fighting") * 0.7) * (this.weapon ? (weaponMult[this.weapon] || 1.9) : 1) * (1 + this.traitBonus("attack"));
   }
   // Incoming damage after armor, skill-based dodge, and Toughness (raw resilience).

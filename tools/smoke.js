@@ -275,6 +275,61 @@ check("codex: content is intact and searchable", () => {
   if (search("zzzznotathing").length) throw new Error("a nonsense query returned hits");
 });
 
+check("tech tree: every tech is rendered and reachable", () => {
+  const techs = run("TECHS");
+  const ids = new Set(techs.map(t => t.id));
+  if (ids.size !== techs.length) throw new Error("duplicate tech id");
+  const maxTier = techs.reduce((m, t) => Math.max(m, t.tier), 1);
+  if (maxTier < 4) throw new Error("expected a tier-4 technology to exist");
+  const el = new El("panel-content");
+  g.renderResearch(el);
+  const html = el._html;
+  for (const t of techs) {
+    if (!html.includes(`data-tech="${t.id}"`)) {
+      throw new Error(`tech not rendered: ${t.id} (tier ${t.tier}) - is the tier loop capped?`);
+    }
+    for (const req of (t.requires || [])) {
+      if (!ids.has(req)) throw new Error(`unknown prerequisite '${req}' on ${t.id}`);
+    }
+  }
+  if (!html.includes("tech-tier")) throw new Error("no tier headings rendered");
+  // the unlocks line should be derived, so at least one tech must advertise one
+  if (!html.includes("tech-unlocks")) throw new Error("no technology advertised what it unlocks");
+  if (!/\d+ of \d+ technologies/.test(html)) throw new Error("no researched counter rendered");
+});
+
+check("arms: early weapons exist, are ordered, and are reachable early", () => {
+  const recipes = [];
+  const byBench = run("RECIPES");
+  for (const bench in byBench) for (const r of byBench[bench]) if (r.out.kind === "weapon") recipes.push({ bench, ...r });
+  const subs = new Set(recipes.map(r => r.out.sub));
+  for (const need of ["club", "knife", "stone_spear", "shortbow", "bow", "sword", "rifle", "laser_rifle"]) {
+    if (!subs.has(need)) throw new Error("no recipe produces weapon: " + need);
+  }
+  const rank = run("WEAPON_RANK");
+  for (const s2 of subs) if (!(s2 in rank)) throw new Error("weapon missing from WEAPON_RANK: " + s2);
+  const ranged = run("RANGED_WEAPONS");
+  if (!ranged.shortbow) throw new Error("shortbow is not a ranged weapon");
+  if (!(ranged.shortbow.range < ranged.bow.range)) throw new Error("shortbow should reach less far than a longbow");
+  if (!(rank.knife < rank.stone_spear && rank.stone_spear < rank.sword && rank.shortbow < rank.bow)) {
+    throw new Error("weapon ladder out of order");
+  }
+  // Every crude arm needs a Crafting Bench recipe no deeper than tier 1.
+  // (Legacy Weapons Bench entries may also exist - recipe indices are stored
+  // per workshop, so removing them would silently retarget saved colonies.)
+  const tierOf = {};
+  run("TECHS").forEach(t => { tierOf[t.id] = t.tier; });
+  for (const crude of ["club", "knife", "stone_spear", "shortbow"]) {
+    const at = recipes.filter(r => r.out.sub === crude && r.bench === "crafting");
+    if (!at.length) throw new Error(crude + " has no Crafting Bench recipe");
+    for (const r of at) {
+      if (r.tech && (tierOf[r.tech] || 9) > 1) throw new Error(crude + " gated behind tier " + tierOf[r.tech]);
+    }
+  }
+  // A knife must beat bare hands but not an iron sword.
+  if (!(rank.knife > rank.club)) throw new Error("knife should outrank a club");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

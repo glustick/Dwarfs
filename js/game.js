@@ -36,6 +36,15 @@ const WEATHER_ODDS = [
 ];
 
 // Event chronicle categories (for the filterable Log panel).
+// Human labels for the build tools/zones a technology can reveal, so the
+// Research tab can say what a tech is actually for.
+const TECH_UNLOCK_LABELS = {
+  farm: "Farm zone", study: "Study zone", hospital: "Hospital zone", quarantine: "Quarantine zone",
+  table: "Table", conduit: "Arcane Conduit", generator: "Essence Well", icebox: "Frost Chamber",
+  lamp: "Aether Lamp", lantern: "Elven Lantern", crafting: "Crafting Bench",
+  weapons: "Weapons Bench", clothing: "Clothing Bench", electronics: "Electronics Bench",
+};
+
 const LOG_CATS = {
   order:  { name: "Orders",   icon: "📋" },
   labor:  { name: "Labor",    icon: "⚒️" },
@@ -2522,29 +2531,50 @@ class Game {
     c.innerHTML = html;
   }
 
+  // What a technology actually puts in your hands: the recipes it gates, plus
+  // any build tool or zone it reveals (the reverse of TOOL_TECH).
+  techUnlocks(id) {
+    const out = [];
+    for (const bench in RECIPES) {
+      for (const r of RECIPES[bench]) if (r.tech === id) out.push(r.name);
+    }
+    for (const key in TOOL_TECH) {
+      if (TOOL_TECH[key] === id && TECH_UNLOCK_LABELS[key]) out.push(TECH_UNLOCK_LABELS[key]);
+    }
+    return out;
+  }
+
   renderResearch(c) {
     const rate = this.researchRate();
+    const doneCount = TECHS.filter(t => this.hasTech(t.id)).length;
+    const pct = Math.round((doneCount / TECHS.length) * 100);
     let html = `<h2>Research</h2>
       <div class="res-hdr">🔬 <b>${Math.floor(this.research)}</b> points
         <span class="res-rate">+${rate.toFixed(1)}/s</span></div>
-      <div class="sched-note">Points accrue from your elves' intellect and Study zones. Spend them to unlock buildings, zones and efficiency bonuses.</div>
+      <div class="res-progress" title="${doneCount} of ${TECHS.length} researched"><i style="width:${pct}%"></i></div>
+      <div class="mini">${doneCount} of ${TECHS.length} technologies researched</div>
+      <div class="sched-note">Points accrue from your elves' intellect and Study zones. Spend them to unlock buildings, zones, arms and efficiency bonuses.</div>
       <div class="tech-list">`;
-    // group by tier
-    for (let tier = 1; tier <= 3; tier++) {
+    // Group by tier. The ceiling is derived from the data so a new top tier can
+    // never silently fall off the bottom of the list again.
+    const maxTier = TECHS.reduce((m, t) => Math.max(m, t.tier), 1);
+    for (let tier = 1; tier <= maxTier; tier++) {
       const inTier = TECHS.filter(t => t.tier === tier);
       if (!inTier.length) continue;
       html += `<div class="tech-tier">Tier ${tier}</div>`;
       for (const t of inTier) {
-        const done = this.hasTech(t.id);
+        const isDone = this.hasTech(t.id);
         const met = this.techPrereqsMet(t);
         const afford = this.research >= t.cost;
-        const state = done ? "done" : !met ? "locked" : afford ? "ready" : "poor";
+        const state = isDone ? "done" : !met ? "locked" : afford ? "ready" : "poor";
         const reqTxt = (t.requires || []).length
           ? `<div class="tech-req">Requires: ${t.requires.map(r => TECH_BY_ID[r] ? TECH_BY_ID[r].name : r).join(", ")}</div>` : "";
+        const unlocks = isDone ? [] : this.techUnlocks(t.id);
+        const unlockTxt = unlocks.length ? `<div class="tech-unlocks">🔓 ${unlocks.join(" · ")}</div>` : "";
         html += `<div class="tech ${state}" data-tech="${t.id}">
           <div class="tech-top"><span class="tech-name">${t.icon} ${t.name}</span>
-            <span class="tech-cost">${done ? "✓ done" : t.cost + " pts"}</span></div>
-          <div class="tech-desc">${t.desc}</div>${reqTxt}</div>`;
+            <span class="tech-cost">${isDone ? "✓ done" : t.cost + " pts"}</span></div>
+          <div class="tech-desc">${t.desc}</div>${unlockTxt}${reqTxt}</div>`;
       }
     }
     html += `</div>`;
@@ -2754,7 +2784,7 @@ class Game {
           <span>${SKILLS[id].icon} ${SKILLS[id].name}</span><b>${lv}</b></div>`;
       }
       sk += `</div>`;
-      const gearNames = { club: "Wooden club", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", bow: "Bow", rifle: "Iron rifle", laser_rifle: "Laser rifle", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
+      const gearNames = { club: "Wooden club", knife: "Stone knife", shortbow: "Short bow", stone_spear: "Stone spear", sword: "Iron sword", axe: "Iron axe", laser_blade: "Laser blade", bow: "Bow", rifle: "Iron rifle", laser_rifle: "Laser rifle", cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail" };
       const gear = [d.weapon ? "🗡 " + (gearNames[d.weapon] || d.weapon) : null, d.armor ? "🛡 " + (gearNames[d.armor] || d.armor) : null].filter(Boolean).join(" · ");
       const rwInfo = RANGED_WEAPONS[d.weapon];
       const quiverTxt = rwInfo ? ` <span class="tag">🏹 ${d.quiver}/20 ${rwInfo.label}</span>` : "";
@@ -2773,7 +2803,7 @@ class Game {
         <div class="mini">Happiness <b>${Math.round(d.happiness != null ? d.happiness : 60)}</b> · HP ${Math.round(d.hp)} · Mood ${Math.round(d.mood)} · Hunger ${Math.round(d.hunger)} · Thirst ${Math.round(d.thirst)} · Energy ${Math.round(d.energy)}</div>
         ${d.infected ? `<div class="mini" style="color:#8fd08f">🧟 Fighting the infection — ${Math.max(0, Math.round(d.infectionTimer))}s until it takes hold</div>` : ""}
         ${gear ? `<div class="mini">Equipped: ${gear}${quiverTxt}</div>` : ""}
-        ${rwInfo && d.quiver === 0 ? `<div class="mini" style="color:#e08a6a">Out of ammo — craft more ${rwInfo.label} (${d.weapon === "laser_rifle" ? "Electronics" : "Weapons"} Bench) so they can shoot.</div>` : ""}
+        ${rwInfo && d.quiver === 0 ? `<div class="mini" style="color:#e08a6a">Out of ammo — craft more ${rwInfo.label} at the ${rwInfo.bench || "Weapons"} Bench so they can shoot.</div>` : ""}
         <div class="mini2">Traits</div><div class="trait-list">${traitsHTML || `<span class="mini">No traits recorded.</span>`}</div>
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="mini2">Inventory · ${inventory.length}</div>${inventoryHTML}

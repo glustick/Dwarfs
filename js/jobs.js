@@ -25,13 +25,21 @@ const RECIPES = {
     { name: "Wooden components", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.COMPONENT }, time: 2.0 },
     { name: "Woven cloth", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.CLOTH }, time: 2.4 },
     { name: "Circuit", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.CIRCUIT }, time: 3.8, tech: "electronics" },
+    // ---- crude arms: the first things you can put in an elf's hands ----
+    // Tagged with the tech as well as gated by the bench, so the Research tab
+    // can say what Crafting Basics actually gives you.
+    { name: "Wooden club", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "club" }, time: 2.0, tech: "crafting" },
+    { name: "Stone knife", in: [{ kind: ITEM.STONE }, { kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "knife" }, time: 1.8, tech: "crafting" },
+    { name: "Stone spear", in: [{ kind: ITEM.STONE }, { kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "stone_spear" }, time: 2.6, tech: "crafting" },
+    { name: "Short bow", in: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "shortbow" }, time: 3.0, tech: "fletching" },
+    { name: "Arrow bundle (5)", in: [{ kind: ITEM.WOOD }, { kind: ITEM.STONE }], out: { kind: ITEM.ARROW }, time: 2.0, tech: "fletching" },
   ],
   weapons: [
     { name: "Wooden club", in: [{ kind: ITEM.WOOD }], out: { kind: ITEM.WEAPON, sub: "club" }, time: 2.2 },
     { name: "Stone spear", in: [{ kind: ITEM.STONE }], out: { kind: ITEM.WEAPON, sub: "stone_spear" }, time: 2.8 },
     { name: "Iron sword", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.WEAPON, sub: "sword" }, time: 3.2 },
     { name: "Laser blade", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.CIRCUIT }], out: { kind: ITEM.WEAPON, sub: "laser_blade" }, time: 5.0, tech: "electronics" },
-    { name: "Bow", in: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "bow" }, time: 3.0, tech: "archery" },
+    { name: "Longbow", in: [{ kind: ITEM.WOOD }, { kind: ITEM.WOOD }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "bow" }, time: 3.0, tech: "archery" },
     { name: "Arrow bundle (5)", in: [{ kind: ITEM.WOOD }, { kind: ITEM.STONE }], out: { kind: ITEM.ARROW }, time: 2.0, tech: "archery" },
     { name: "Iron rifle", in: [{ kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.BAR, sub: "iron" }, { kind: ITEM.COMPONENT }], out: { kind: ITEM.WEAPON, sub: "rifle" }, time: 4.0, tech: "ballistics" },
     { name: "Bullet box (10)", in: [{ kind: ITEM.BAR, sub: "iron" }], out: { kind: ITEM.BULLET }, time: 1.6, tech: "ballistics" },
@@ -69,7 +77,7 @@ const WORKSHOP_INFO = {
 // forged arms are the only surplus goods worth exporting.
 const TRADE_SELL_PRICE = {
   bar: { gold: 14 },
-  weapon: { sword: 10, axe: 10, rifle: 18, laser_rifle: 28 },
+  weapon: { club: 3, knife: 4, stone_spear: 5, shortbow: 7, sword: 10, axe: 10, rifle: 18, laser_rifle: 28 },
   armor: { shield: 10, mail: 10 },
 };
 function tradeSellPrice(it) {

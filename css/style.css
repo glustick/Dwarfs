@@ -904,3 +904,10 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
   .codex-article { padding: 14px; }
   .codex-title { display: none; }
 }
+
+/* ---- research: progress + unlock hints ---- */
+.res-progress { height: 4px; border-radius: 2px; background: var(--track); overflow: hidden; margin: 8px 0 4px; }
+.res-progress > i { display: block; height: 100%; background: var(--info); border-radius: 2px; transition: width var(--t); }
+.tech-unlocks { margin-top: 4px; font-size: 11px; color: var(--ok); }
+.tech.done .tech-unlocks { display: none; }
+.tech-tier:not(:first-child) { margin-top: 16px; }
