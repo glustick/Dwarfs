@@ -315,6 +315,16 @@ Soldiers **auto-equip a better spare weapon** when one is available, so simply
 queueing arms keeps your militia improving. Research tab shows what each
 technology unlocks.
 
+## Keeping track of things
+
+- **📦 Stock** — every item you own, by type: materials, metal and circuits, food
+  and drink, arms (with how many are equipped), and ammunition with its shot
+  count. It flags archers who have run out.
+- **Bench bills** — select a workshop to pick its recipe and set a **Bill target**:
+  `0` repeats forever, any other number stops once that many have been made.
+- **📜 Log** — a filterable chronicle (orders, combat, factions, events…), and
+  **🏆 Records** for milestones and every elf who has ever lived here.
+
 ## Help & the codex
 
 Press **❓** (top bar) or **⏸ Menu → 📖 Codex & Help** for the in-game handbook:

@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.26.0 (build 53)
+Logistics & layout round.
+
+- **A 📦 Stock tab.** Everything the colony owns, by type: materials, metal and
+  circuits, food and drink, arms (weapons and armour by subtype, with how many
+  are actually equipped), and **ammunition with its shot count**. Until now the
+  only stock you could see was five counters in the top bar — bars, arms,
+  components and every kind of ammo meant hunting the map and counting piles by
+  eye. It also warns you when an archer has run dry.
+- **The panel tabs are no longer a cramped row of tiny words.** With an eighth
+  tab arriving, they are now a four-column icon grid with short labels — roomier,
+  and it stays readable if another tab is ever added.
+- **A quieter top bar.** Sound, auto-pause and the codex have moved into the
+  pause menu (where the volume sliders and theme picker already live), leaving
+  the bar for what you need mid-game: resources, floor, doors, clock, speed and
+  the live layout toggles.
+- The tutorial now tells new players to **arm their elves before Day 4**, and the
+  codex documents bill targets and the Stock tab.
+
 ## v1.25.0 (build 52)
 Arms & the tech tree.
 

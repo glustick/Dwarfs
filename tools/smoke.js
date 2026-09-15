@@ -330,6 +330,43 @@ check("arms: early weapons exist, are ordered, and are reachable early", () => {
   if (!(rank.knife > rank.club)) throw new Error("knife should outrank a club");
 });
 
+check("ui: every panel tab declared in index.html actually renders", () => {
+  const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+  const tabs = [...html.matchAll(/data-tab="([a-z]+)"/g)].map(m => m[1]);
+  if (tabs.length < 7) throw new Error("expected the panel to declare its tabs, found " + tabs.length);
+  const el = new El("panel-content");
+  const orig = documentStub.getElementById;
+  documentStub.getElementById = (id) => (id === "panel-content" ? el : getEl(id));
+  try {
+    for (const t of tabs) {
+      el._html = "";
+      g.setPanelTab(t);
+      if (!el._html || el._html.length < 20) throw new Error(`panel tab '${t}' rendered nothing`);
+    }
+  } finally {
+    documentStub.getElementById = orig;
+    g.setPanelTab("colony");
+  }
+});
+
+check("stock: the inventory panel reports real counts", () => {
+  g.jobs.spawnItem("marble", g.world.spawnX, g.world.spawnY, null, 0);
+  g.jobs.spawnItem("arrow", g.world.spawnX, g.world.spawnY, null, 0);
+  const marble = g.countItems("marble");
+  const arrows = g.countItems("arrow");
+  if (!marble || !arrows) throw new Error("failed to seed stock");
+  const el = new El("panel-content");
+  const orig = documentStub.getElementById;
+  documentStub.getElementById = (id) => (id === "panel-content" ? el : getEl(id));
+  try { g.setPanelTab("stock"); } finally { documentStub.getElementById = orig; }
+  const html = el._html;
+  if (!html.includes("Stock")) throw new Error("no Stock heading");
+  if (!html.includes(`<b>${marble}</b>`)) throw new Error("marble count " + marble + " missing");
+  if (!/Ammunition/i.test(html)) throw new Error("no ammunition section");
+  if (!new RegExp(arrows * 5 + " shots").test(html)) throw new Error("arrow count not expressed in shots");
+  g.setPanelTab("colony");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

@@ -65,7 +65,7 @@ const CODEX_ENTRIES = [
   },
   {
     id: "stockpiles", icon: "📦", title: "Stockpiles & hauling", cat: "Work",
-    tags: "stockpile haul category filter store zone items",
+    tags: "stockpile haul category filter store zone items stock inventory count",
     body: `<p>A <b>Stockpile</b> zone (<b>S</b>) is where loose items get carried. Each tile can be filtered to one category, so a tidy colony ends up with separate wood, ore, food, drink and arms piles.</p>
       <ul>
         <li><b>🧱 Building</b> — wood, stone, marble, components, cloth</li>
@@ -73,7 +73,8 @@ const CODEX_ENTRIES = [
         <li><b>🍄 Food</b> · <b>💧 Drink</b> — water, ale, wine</li>
         <li><b>⚔️ Arms</b> — weapons, armour, arrows, bullets, cells</li>
       </ul>
-      <p>Items sitting on the ground still <b>exist</b> — they can be used from anywhere — but hauling them into a stockpile keeps the colony organised and is how a <b>Trade Depot</b> ends up stocked for sale. Hauling is the lowest-priority labour, so idle elves do it.</p>`,
+      <p>Items sitting on the ground still <b>exist</b> — they can be used from anywhere — but hauling them into a stockpile keeps the colony organised and is how a <b>Trade Depot</b> ends up stocked for sale. Hauling is the lowest-priority labour, so idle elves do it.</p>
+      <p>The <b>📦 Stock</b> tab lists everything you own by type — materials, metal, food and drink, arms, and <b>ammunition</b> with its shot count — and flags archers who have run dry.</p>`,
   },
   {
     id: "labors", icon: "⚒️", title: "Labours & schedules", cat: "Work",
@@ -144,7 +145,7 @@ const CODEX_ENTRIES = [
   {
     id: "crafting", icon: "🔨", title: "Crafting & workshops", cat: "Industry",
     tags: "craft workshop smelter forge bench bill recipe weapons clothing electronics components",
-    body: `<p>Workshops turn raw goods into finished ones. Build the bench, then open its <b>bills</b> to queue recipes — repeat orders keep producing until you stop them.</p>
+    body: `<p>Workshops turn raw goods into finished ones. Build the bench, select it, and choose a recipe from its <b>bill</b>. The <b>Bill target</b> sets how many to make: leave it at <b>0</b> to repeat forever, or enter a number (say 5) and the bench stops once it has produced that many.</p>
       <ul>
         <li><b>🔥 Smelter</b> — ore → metal bars.</li>
         <li><b>⚒️ Forge</b> — bars → weapons and armour.</li>

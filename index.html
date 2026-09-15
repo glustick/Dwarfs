@@ -68,25 +68,23 @@
         <button class="spd" data-spd="2" title="Fast (2×)" aria-label="Fast speed, 2 times">⏩</button>
         <button class="spd" data-spd="4" title="Fastest (4×)" aria-label="Fastest speed, 4 times">⏭</button>
       </span>
-      <button id="sound-btn" class="spd" title="Sound on — click to mute" aria-label="Mute sound">🔊</button>
-      <button id="autopause-btn" class="spd" title="Auto-pause on crises (raid, death, starvation, dehydration)" aria-label="Disable auto-pause on crises">🔔</button>
       <button id="undo-btn" class="spd" title="Undo last map action (Cmd/Ctrl+Z)" aria-label="Undo last map action" disabled>↶</button>
       <button id="colonistbar-toggle" class="spd" title="Hide colony bar" aria-label="Hide colony bar">👥</button>
       <button id="panel-toggle" class="spd" title="Hide colony panel" aria-label="Hide colony panel">📋</button>
-      <button id="help-btn" class="spd" title="Codex &amp; help (tutorial inside)" aria-label="Open the codex and help">❓</button>
       <button id="menu-btn" title="Menu (Esc)">☰ Menu</button>
     </div>
 
     <!-- Right info panel -->
     <div id="panel">
       <div id="panel-tabs">
-        <button class="ptab active" data-tab="colony">Colony</button>
-        <button class="ptab" data-tab="schedule">Schedule</button>
-        <button class="ptab" data-tab="research">Research</button>
-        <button class="ptab" data-tab="log">Log</button>
-        <button class="ptab" data-tab="records">Records</button>
-        <button class="ptab" data-tab="stats">Stats</button>
-        <button class="ptab" data-tab="factions">Factions</button>
+        <button class="ptab active" data-tab="colony"><span class="ptab-ico">🧝</span><span class="ptab-lbl">Colony</span></button>
+        <button class="ptab" data-tab="schedule"><span class="ptab-ico">🗓️</span><span class="ptab-lbl">Schedule</span></button>
+        <button class="ptab" data-tab="stock"><span class="ptab-ico">📦</span><span class="ptab-lbl">Stock</span></button>
+        <button class="ptab" data-tab="research"><span class="ptab-ico">🔬</span><span class="ptab-lbl">Research</span></button>
+        <button class="ptab" data-tab="log"><span class="ptab-ico">📜</span><span class="ptab-lbl">Log</span></button>
+        <button class="ptab" data-tab="records"><span class="ptab-ico">🏆</span><span class="ptab-lbl">Records</span></button>
+        <button class="ptab" data-tab="stats"><span class="ptab-ico">📊</span><span class="ptab-lbl">Stats</span></button>
+        <button class="ptab" data-tab="factions"><span class="ptab-ico">🤝</span><span class="ptab-lbl">Factions</span></button>
       </div>
       <div id="panel-content"></div>
     </div>

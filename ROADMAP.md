@@ -262,6 +262,12 @@ actual room instead of colony-wide counters).
 
 ## Tier 7 — presentation & polish
 
+- [x] ~~Stock panel & layout~~ — a 📦 **Stock** tab listing everything the colony
+      owns by type (including ammunition with shot counts and what's equipped),
+      a four-column **icon grid** for the panel tabs instead of a cramped single
+      row of eight, and a quieter top bar with sound / auto-pause / codex moved
+      into the pause menu.
+
 - [x] ~~Arms ladder & tech-tree polish~~ — crude arms (club, **stone knife**,
       stone spear) moved to the Crafting Bench, and **Fletching** (new tier-1
       tech) adds a **short bow** + arrows there, so a colony can fight before the

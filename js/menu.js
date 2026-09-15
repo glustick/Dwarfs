@@ -13,8 +13,6 @@ class App {
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (this.inGame) this.openPauseMenu();
     });
-    const helpBtn = document.getElementById("help-btn");
-    if (helpBtn) helpBtn.addEventListener("click", () => this.openCodex());
 
     // Autosave loop (real time).
     setInterval(() => this.autosave(), AUTOSAVE_MINUTES * 60 * 1000);
@@ -292,6 +290,14 @@ class App {
           <button class="menu-btn" id="pm-new"><span class="mi">✨</span><span>New Game</span></button>
           <button class="menu-btn danger ghost" id="pm-main"><span class="mi">🚪</span><span>Quit to Main Menu</span></button>
         </div>
+        <div class="menu-section-title">🎛 Interface</div>
+        <div class="ui-row">
+          <button class="spd" id="sound-btn" title="Sound on — click to mute" aria-label="Mute sound">🔊</button>
+          <span class="ui-lbl">Sound</span>
+          <button class="spd" id="autopause-btn" title="Auto-pause on crises (raid, death, starvation, dehydration)" aria-label="Disable auto-pause on crises">🔔</button>
+          <span class="ui-lbl">Auto-pause</span>
+          <button class="tut-btn ui-codex" id="help-btn">📖 Codex</button>
+        </div>
         <div class="menu-section-title">🎨 Theme</div>
         <div class="theme-row" id="theme-row">
           <button class="theme-btn" data-theme="greenwood">Greenwood</button>
@@ -324,6 +330,34 @@ class App {
         btn.classList.toggle("on", btn.dataset.theme === active);
         btn.onclick = () => { if (window.setTheme) window.setTheme(btn.dataset.theme); };
       });
+    }
+    // Sound, auto-pause and the codex now live in here rather than the top bar.
+    const sndBtn = document.getElementById("sound-btn");
+    if (sndBtn) sndBtn.onclick = () => { if (window.sound) window.sound.toggle(); };
+    const apBtn = document.getElementById("autopause-btn");
+    if (apBtn) apBtn.onclick = () => {
+      const gg = window.game;
+      if (!gg) return;
+      gg.autoPause = !gg.autoPause;
+      try { localStorage.setItem("ee_autopause", gg.autoPause ? "1" : "0"); } catch (e) {}
+      this.syncInterfaceToggles();
+      gg.updateStats();
+    };
+    const codexBtn = document.getElementById("help-btn");
+    if (codexBtn) codexBtn.onclick = () => this.openCodex();
+    this.syncInterfaceToggles();
+  }
+
+  // Reflect the relocated interface controls (they only exist while the pause
+  // menu is on screen, so their state is pushed in whenever it is built).
+  syncInterfaceToggles() {
+    if (window.sound && window.sound._reflectToggle) window.sound._reflectToggle();
+    const g = window.game;
+    const apBtn = document.getElementById("autopause-btn");
+    if (apBtn && g) {
+      apBtn.classList.toggle("on", g.autoPause);
+      apBtn.textContent = g.autoPause ? "🔔" : "🔕";
+      apBtn.setAttribute("aria-label", g.autoPause ? "Disable auto-pause on crises" : "Enable auto-pause on crises");
     }
   }
 

@@ -36,6 +36,22 @@ const WEATHER_ODDS = [
 ];
 
 // Event chronicle categories (for the filterable Log panel).
+// Icons and names for the stock panel: one row per item type, with the weapon
+// subtypes spelled out so the arms ladder is legible at a glance.
+const STOCK_SUB_ICONS = {
+  club: "🪵", knife: "🔪", stone_spear: "🔱", shortbow: "🏹", bow: "🎯",
+  rifle: "🔫", laser_blade: "⚡", laser_rifle: "💫",
+};
+const STOCK_SUB_LABELS = {
+  iron: "Iron", gold: "Gold", coal: "Coal",
+  club: "Wooden club", knife: "Stone knife", stone_spear: "Stone spear",
+  shortbow: "Short bow", bow: "Longbow", rifle: "Iron rifle",
+  laser_blade: "Laser blade", laser_rifle: "Laser rifle",
+  cloak: "Cloth cloak", shield: "Shield", mail: "Mail", reinforced_mail: "Reinforced mail",
+};
+// How many shots one stored ammunition item refills (see RANGED_WEAPONS.per).
+const AMMO_SHOTS = { arrow: 5, bullet: 10, cell: 5 };
+
 // Human labels for the build tools/zones a technology can reveal, so the
 // Research tab can say what a tech is actually for.
 const TECH_UNLOCK_LABELS = {
@@ -2495,7 +2511,8 @@ class Game {
     if (!c) return;
     document.querySelectorAll(".ptab").forEach(b =>
       b.classList.toggle("active", b.dataset.tab === this.panelTab));
-    if (this.panelTab === "schedule") this.renderSchedule(c);
+    if (this.panelTab === "stock") this.renderStock(c);
+    else if (this.panelTab === "schedule") this.renderSchedule(c);
     else if (this.panelTab === "records") this.renderRecords(c);
     else if (this.panelTab === "log") this.renderLog(c);
     else if (this.panelTab === "research") this.renderResearch(c);
@@ -2527,6 +2544,95 @@ class Game {
           ? `⚔ Will raid — motive: ${motiveTxt}`
           : `🕊 At peace (raids below ${f.raid.minRep} standing)`}</div>
       </div>`;
+    }
+    c.innerHTML = html;
+  }
+
+  // Colony-wide inventory. Before this the only stock you could see was the
+  // five counters in the top bar; everything else — bars, arms, ammunition,
+  // components — meant hunting the map for piles and counting by eye.
+  renderStock(c) {
+    const itemCount = (kind, sub) => this.countItems(kind, sub);
+    const equipped = {};
+    for (const d of this.dwarves) {
+      if (d.weapon) equipped[d.weapon] = (equipped[d.weapon] || 0) + 1;
+      if (d.armor) equipped[d.armor] = (equipped[d.armor] || 0) + 1;
+    }
+    const stored = this.items.filter(it => {
+      const t = this.world.get(it.x, it.y, it.z || 0);
+      return t && t.stockpile;
+    }).length;
+
+    const row = (icon, label, n, note) =>
+      `<div class="stock-row${n ? "" : " empty"}">
+         <span class="sk-ico">${icon}</span><span class="sk-lbl">${label}</span>
+         <b>${n}</b>${note ? `<span class="sk-note">${note}</span>` : ""}
+       </div>`;
+    const group = (title, rows) =>
+      `<div class="mini2">${title}</div><div class="stock-grid">${rows.join("")}</div>`;
+
+    const materials = [
+      row("🪵", "Wood logs", itemCount(ITEM.WOOD)),
+      row("🪨", "Stone", itemCount(ITEM.STONE)),
+      row("⬜", "Marble", itemCount(ITEM.MARBLE)),
+      row("⚙️", "Components", itemCount(ITEM.COMPONENT)),
+      row("🧵", "Cloth", itemCount(ITEM.CLOTH)),
+    ];
+    const metal = [
+      row("⛏️", "Iron ore", itemCount(ITEM.ORE, "iron")),
+      row("⛏️", "Gold ore", itemCount(ITEM.ORE, "gold")),
+      row("⛏️", "Coal", itemCount(ITEM.ORE, "coal")),
+      row("🔩", "Iron bars", itemCount(ITEM.BAR, "iron")),
+      row("🔩", "Gold bars", itemCount(ITEM.BAR, "gold")),
+      row("⚡", "Circuits", itemCount(ITEM.CIRCUIT)),
+    ];
+    const food = [
+      row("🍄", "Food", itemCount(ITEM.FOOD)),
+      row("💧", "Water", itemCount(ITEM.WATER)),
+      row("🍺", "Ale", itemCount(ITEM.ALE)),
+      row("🍷", "Wine", itemCount(ITEM.WINE)),
+    ];
+
+    // Arms: weapons and armour by type, then the ammunition the ranged ladder
+    // burns through — the thing you most need to see during a raid.
+    const weaponSubs = ["club", "knife", "stone_spear", "shortbow", "bow", "rifle", "laser_blade", "laser_rifle"];
+    const weaponRows = weaponSubs
+      .map(subId => {
+        const n = itemCount(ITEM.WEAPON, subId);
+        const eq = equipped[subId] || 0;
+        if (!n && !eq) return null;
+        return row(STOCK_SUB_ICONS[subId] || "🗡️", STOCK_SUB_LABELS[subId] || subId, n, eq ? `${eq} equipped` : "");
+      })
+      .filter(Boolean);
+    const armorSubs = ["cloak", "shield", "mail", "reinforced_mail"];
+    const armorRows = armorSubs
+      .map(subId => {
+        const n = itemCount(ITEM.ARMOR, subId);
+        const eq = equipped[subId] || 0;
+        if (!n && !eq) return null;
+        return row("🛡️", STOCK_SUB_LABELS[subId] || subId, n, eq ? `${eq} worn` : "");
+      })
+      .filter(Boolean);
+    const ammoKinds = [[ITEM.ARROW, "🏹"], [ITEM.BULLET, "🔫"], [ITEM.CELL, "🔋"]];
+    const ammoRows = ammoKinds.map(([kind, icon]) => {
+      const n = itemCount(kind);
+      const shots = n * (AMMO_SHOTS[kind] || 1);
+      return row(icon, ITEM_LABEL[kind], n, shots ? `${shots} shots` : "");
+    });
+    const outOfAmmo = this.dwarves.filter(d => d.military && RANGED_WEAPONS[d.weapon] && d.quiver === 0).length;
+
+    let html = `<h2>Stock</h2>
+      <div class="mini">${this.items.length} items in the colony · <b>${stored}</b> on stockpile tiles</div>
+      <div class="sched-note">Everything you own, by type. Stockpiles keep it tidy, but items on the ground still count.</div>`;
+    html += group("🧱 Materials", materials);
+    html += group("🔩 Metal &amp; circuits", metal);
+    html += group("🍄 Food &amp; drink", food);
+    html += group("⚔️ Arms",
+      (weaponRows.length || armorRows.length ? weaponRows.concat(armorRows)
+        : [row("🗡️", "No weapons or armour", 0, "craft clubs at a Crafting Bench")]));
+    html += group("🏹 Ammunition", ammoRows);
+    if (outOfAmmo) {
+      html += `<div class="stock-warn">⚠️ ${outOfAmmo} archer${outOfAmmo > 1 ? "s" : ""} out of ammunition — queue more at the bench.</div>`;
     }
     c.innerHTML = html;
   }
