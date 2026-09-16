@@ -1,5 +1,10 @@
 // ---- A* pathfinding on the tile grid ----------------------------------------
 
+// How many nodes a search may expand before giving up. Sized to comfortably
+// cover a long legitimate route across the largest map while still bounding the
+// cost of a hopeless one.
+const ROUTINE_PATH_NODES = 4000;
+
 // Binary min-heap keyed on f-score.
 class MinHeap {
   constructor() { this.a = []; }
@@ -34,7 +39,12 @@ class MinHeap {
 // `heuristic(x,y,z)` estimates remaining cost.
 // Returns an array of {x,y,z} steps (excluding start) or null.
 function findPath(world, sx, sy, sz, goalTest, heuristic, opts = {}) {
-  const maxNodes = opts.maxNodes || 6000;
+  // Node budget. A search that *succeeds* stops as soon as it reaches the goal,
+  // so this only ever bites on a search that is going nowhere — which is exactly
+  // the case that hurts, because the assignment chain re-issues them constantly.
+  // Routine job routing uses this value; a player-commanded move asks for more
+  // (see the manual-order path in game.js).
+  const maxNodes = opts.maxNodes || ROUTINE_PATH_NODES;
   const outsider = !!opts.outsider;
   const W = world.w, H = world.h;
   // Pack (x,y,z) into one integer key. z is small (a handful of levels),
@@ -114,15 +124,15 @@ function findPath(world, sx, sy, sz, goalTest, heuristic, opts = {}) {
 
 // Convenience: path to an exact tile. `outsider` (raiders, caravans) can't
 // pass a locked door.
-function pathTo(world, sx, sy, sz, tx, ty, tz, outsider = false) {
+function pathTo(world, sx, sy, sz, tx, ty, tz, outsider = false, maxNodes = 0) {
   return findPath(world, sx, sy, sz,
     (x, y, z) => x === tx && y === ty && z === tz,
-    (x, y, z) => Math.hypot(x - tx, y - ty) + Math.abs(z - tz), { outsider });
+    (x, y, z) => Math.hypot(x - tx, y - ty) + Math.abs(z - tz), { outsider, maxNodes });
 }
 
 // Path to any tile ADJACENT to (tx,ty,tz) — used for mining/chopping/building.
-function pathAdjacent(world, sx, sy, sz, tx, ty, tz, outsider = false) {
+function pathAdjacent(world, sx, sy, sz, tx, ty, tz, outsider = false, maxNodes = 0) {
   return findPath(world, sx, sy, sz,
     (x, y, z) => z === tz && Math.abs(x - tx) <= 1 && Math.abs(y - ty) <= 1 && !(x === tx && y === ty),
-    (x, y, z) => Math.hypot(x - tx, y - ty) + Math.abs(z - tz), { outsider });
+    (x, y, z) => Math.hypot(x - tx, y - ty) + Math.abs(z - tz), { outsider, maxNodes });
 }

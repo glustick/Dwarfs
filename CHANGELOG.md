@@ -4,6 +4,37 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.31.0 (build 61)
+Taming was eating the frame.
+
+- **Found the real hotspot, and it was taming.** Adding time-per-call to the
+  profiler immediately named it: `assignTame` was **98.7% of the entire
+  simulation**, at ~7.8 ms per call. The candidate list is a snapshot taken by
+  the last reindex, and the code only re-checked whether an animal was already
+  claimed — so an animal that had bolted, or was simply unreachable, was picked
+  again on every assignment and each attempt paid a full path search with no
+  memory of the failure.
+  - Now it re-checks the live flee timer, and an animal whose approach fails is
+    remembered for a few seconds. Taming also gets its own small path budget
+    (`TAME_PATH_NODES`), because approaching a standing animal is a short walk,
+    never a cross-map journey.
+  - **Measured, same parameters (25 elves, 1500 ticks): the whole run went from
+    17,559 ms to ~204 ms — ~86x — and `assignTame` from 7.84 ms per call to
+    0.0122 ms.** This also explains the intermittent "spikes" I chased earlier:
+    they lasted exactly as long as an animal sat out of reach.
+- **Routine path searches are bounded.** `ROUTINE_PATH_NODES` (4000) replaces the
+  6000 default, and a player-commanded move explicitly asks for more (12000) —
+  an order must be honoured, and it happens once rather than every tick.
+  Measured justification: across a 6000-tick colony, 847 searches ran, **all
+  succeeded**, the longest path was 34 steps and the average 2.9 — so the budget
+  only ever bites a hopeless search.
+- **The assignment chain can be skipped.** If nothing is designated, nothing is
+  stockpiled and nobody is waiting to be buried, elves no longer walk six
+  assigners to discover that.
+- **The profiler now reports time per call**, which is what found the above: a
+  method that is cheap but called constantly and one that is ruinous per call
+  look identical in a total.
+
 ## v1.30.1 (build 60)
 Performance groundwork — bounding the work, not speeding up the median.
 

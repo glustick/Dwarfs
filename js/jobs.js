@@ -12,6 +12,12 @@ const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drin
 // twice a second — and takes the worst case with it, which matters because a
 // search that fails outright burns the pathfinder's whole node budget.
 const ASSIGN_COOLDOWN = 0.4;
+
+// A taming approach is a short walk to an animal that is standing still — it is
+// never a cross-map journey. Worth its own small budget: this was the single
+// hottest call in the whole simulation, because an animal that had wandered out
+// of reach was retried on every assignment and each attempt paid a full search.
+const TAME_PATH_NODES = 1200;
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -391,7 +397,22 @@ class JobManager {
     // ---- "work" shift ----
     if (dwarf.hunger > 70 && this.assignEat(dwarf, false)) return true;
     if (dwarf.thirst > 70 && this.assignDrink(dwarf, false)) return true;
+    // Nothing designated, nothing stockpiled, nobody to bury: skip straight out
+    // rather than walking six assigners, each scanning items, only to fail.
+    if (!this.hasAnyWork()) return false;
     return this.assignBury(dwarf) || this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+  }
+
+  // Is there anything at all for a working elf to do? Deliberately generous — it
+  // only has to be right when the answer is "nothing", which is the common idle
+  // case in a young colony.
+  hasAnyWork() {
+    const g = this.game, c = this.candidates || {};
+    for (const key in c) if (c[key] && c[key].length) return true;
+    if (g.graveyardTiles && g.graveyardTiles.length) return true;
+    if (g.stockpileTiles && g.stockpileTiles.length) return true;
+    if (g.depotTiles && g.depotTiles.length) return true;
+    return false;
   }
 
   assignWork(dwarf) {
@@ -809,16 +830,19 @@ class JobManager {
     if (!list.length) return false;
     let target = null, bd = Infinity;
     for (const a of list) {
-      // The candidate list is a snapshot from the last reindex — re-check
-      // reserved/tamed live so two dwarves can't both claim it before the
-      // next reindex catches up (same guard assignWork uses for tiles).
-      if (a.reserved || a.tamed) continue;
+      // The candidate list is a snapshot from the last reindex — re-check the
+      // live state so two dwarves can't both claim one animal, and so an animal
+      // that has since bolted or proved unreachable isn't retried (same guard
+      // assignWork uses for tiles).
+      if (a.reserved || a.tamed || a.fleeTimer > 0) continue;
+      if (a.tameFailUntil && a.tameFailUntil > g.time) continue;
       const d = dist3(a.tileX, a.tileY, 0, dx, dy, dz);
       if (d < bd) { bd = d; target = a; }
     }
     if (!target) return false;
-    const path = pathAdjacent(g.world, dx, dy, dz, target.tileX, target.tileY, 0) || pathTo(g.world, dx, dy, dz, target.tileX, target.tileY, 0);
-    if (!path) return false;
+    const path = pathAdjacent(g.world, dx, dy, dz, target.tileX, target.tileY, 0, false, TAME_PATH_NODES)
+      || pathTo(g.world, dx, dy, dz, target.tileX, target.tileY, 0, false, TAME_PATH_NODES);
+    if (!path) { target.tameFailUntil = g.time + 6; return false; }
     target.reserved = true;
     const job = new Job("tame", target.tileX, target.tileY, 0);
     job.animal = target; job.phase = "move";

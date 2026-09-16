@@ -111,7 +111,11 @@ if (PROFILE) {
       proto[k] = function (...a) {
         const t0 = process.hrtime.bigint();
         try { return orig.apply(this, a); }
-        finally { prof[label + "." + k] = (prof[label + "." + k] || 0) + Number(process.hrtime.bigint() - t0) / 1e6; }
+        finally {
+          const e = prof[label + "." + k] || (prof[label + "." + k] = { ms: 0, calls: 0 });
+          e.ms += Number(process.hrtime.bigint() - t0) / 1e6;
+          e.calls++;
+        }
       };
     }
   };
@@ -192,9 +196,13 @@ console.log(`\nsim: ${TICKS} updates (${(TICKS * DT).toFixed(0)}s game time) in 
 console.log(`     ${msPerTick.toFixed(3)} ms/update  ->  ${(1000 / msPerTick).toFixed(0)} updates/sec`);
 console.log(`     ${((msPerTick / budget) * 100).toFixed(1)}% of a 60fps frame budget (sim only)`);
 if (PROFILE) {
-  const rows = Object.entries(prof).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  const rows = Object.entries(prof).sort((a, b) => b[1].ms - a[1].ms).slice(0, 14);
   console.log("\nhottest methods (total ms across the measured window):");
-  for (const [k, v] of rows) console.log(`     ${v.toFixed(0).padStart(8)} ms  ${((v / msTotal) * 100).toFixed(1).padStart(5)}%  ${k}`);
+  console.log("        total   share       calls     ms/call  method");
+  for (const [k, v] of rows) {
+    console.log(`     ${v.ms.toFixed(0).padStart(8)} ms ${((v.ms / msTotal) * 100).toFixed(1).padStart(5)}% ${String(v.calls).padStart(11)} ${(v.ms / v.calls).toFixed(4).padStart(11)}  ${k}`);
+  }
+  console.log("     (total ms < the run time means the cost is in the harness's own loop, not in these methods)");
 }
 
 console.log("\nper-slice cost (ms/update), with load at the end of each slice:");

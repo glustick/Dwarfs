@@ -320,6 +320,9 @@ actual room instead of colony-wide counters).
 
 ## Tier 8 — planned
 
+- [x] ~~Taming hotspot~~ — `assignTame` was 98.7% of the simulation; it now
+      re-checks live state, remembers unreachable animals and uses a short path
+      budget. Measured ~86x on the whole run. See v1.31.0.
 - [x] ~~Performance groundwork~~ — job searches bounded (one per elf per 0.4s,
       staggered) and items indexed by kind. No median gain at 20–40 elves; the
       win is a bounded worst case. See v1.30.1.

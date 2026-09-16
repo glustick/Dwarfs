@@ -1569,7 +1569,9 @@ class Game {
           d.combatRepath -= dt;
           if (!d.path || d.combatRepath <= 0) {
             d.combatRepath = 0.4;
-            const p = pathTo(this.world, d.tileX, d.tileY, dz, mo.x, mo.y, mo.z);
+            // A player-commanded move gets the full budget: the elf really must
+            // get there, and it happens once per order rather than every tick.
+            const p = pathTo(this.world, d.tileX, d.tileY, dz, mo.x, mo.y, mo.z, false, 12000);
             if (p) d.setPath(p); else d.manualOrder = null; // unreachable — drop the order
           }
           d.state = "goto"; d.move(dt);
