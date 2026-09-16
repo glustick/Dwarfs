@@ -345,27 +345,21 @@ the work can start without re-deriving it._
       `dwarf.activity`, `assignSleep` and the global day/night clock
       (`dayFraction`); think about lighting, mood and the socialising behaviour
       that assumes everyone is awake together.
-- [ ] **Starting weapons, equipable per elf.** A new colony should be able to
-      defend itself on day one: give it a basic **short-range** and **long-range**
-      weapon from the start (no research), and let the player **explicitly pick and
-      equip a weapon on each elf** rather than relying on auto-equip. Today the
-      crude arms are gated behind tier-1 techs (Crafting Basics / Fletching) and
-      the inspector only offers "enlist" — see `spawnStartingDwarves`, `RECIPES`,
-      and the inspector in `game.js`.
-- [ ] **Collapsible research tiers.** Finished tiers occupy space they no longer
-      need. Make each tier an accordion, defaulting finished tiers to collapsed and
-      remembering the state (`renderResearch` in `game.js`; persist the choice the
-      same way the theme is persisted).
+- [x] ~~Starting weapons, equipable per elf~~ — a new colony starts with three
+      stone knives, two spears, two short bows with arrows and a cloak (no
+      research), and the inspector's **Equipment** picker hands a chosen weapon to
+      a chosen elf, dropping their old one where they stand.
+- [x] ~~Collapsible research tiers~~ — each tier is an accordion showing
+      `done/total`, finished tiers start collapsed, and the state is remembered.
 - [ ] **Real tier gating.** Give each tier more prerequisites, and gate the *next*
       tier behind a **structure built at the current tier** — you research your way
       to a building, then building it opens the next tier — rather than points
       alone. Touches `TECHS[].requires`, `techPrereqsMet` and the build system
       (structures need to be visible in the Research tab as the thing that unlocks
       the tier).
-- [ ] **Colony bar: shrink or expand.** The colonist strip is intrusive. There is
-      currently only an all-or-nothing show/hide toggle; add a **compact
-      (shrunken) mode** as well, with the choice remembered. See `#colonistbar`
-      in `index.html` / `css/style.css`.
+- [x] ~~Colony bar: shrink or expand~~ — the 👥 button cycles full → compact →
+      hidden. Compact drops the names and tightens the portraits; the mode is
+      remembered.
 
 ---
 

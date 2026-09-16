@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.29.0 (build 58)
+Tier 8, batch 1.
+
+- **A starting armory.** A new colony now begins with weapons in hand: three stone
+  knives, two stone spears, two short bows with arrows, and a cloak — short *and*
+  long reach, with no research needed at all. Previously the first weapons required
+  reaching Crafting Basics (or Fletching for bows), which left the colony unable to
+  defend itself when the outbreak arrives around Day 4.
+- **Equip weapons per elf.** The inspector now has an **Equipment** picker listing
+  every weapon available in the colony (with counts); click one to hand it to that
+  elf, or *bare hands* to disarm them. Their previous weapon is dropped where they
+  stand. Until now weapons could only be assigned by the automatic upgrade.
+- **Collapsible research tiers.** Each tier is now an accordion showing
+  `done/total`, and finished tiers start collapsed — completed research no longer
+  eats the panel. The open/closed state is remembered.
+- **The colony bar shrinks before it vanishes.** The 👥 button now cycles
+  full → compact → hidden: compact drops the names and tightens the portraits, so
+  the bar stays useful without dominating the screen. The mode is remembered.
+
 ## v1.28.1 (build 56)
 Documentation & CI.
 

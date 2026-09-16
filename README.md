@@ -303,6 +303,7 @@ Day 4 — so the arms ladder starts cheap:
 
 | Tier | Weapon | Where | Gate |
 |---|---|---|---|
+| Starter | Stone knife ×3, stone spear ×2, short bow ×2, cloak | in hand at founding | none |
 | Crude | Wooden club | Crafting Bench | Crafting Basics |
 | Crude | Stone knife | Crafting Bench | Crafting Basics |
 | Crude | Stone spear | Crafting Bench | Crafting Basics |
@@ -314,6 +315,17 @@ Day 4 — so the arms ladder starts cheap:
 Soldiers **auto-equip a better spare weapon** when one is available, so simply
 queueing arms keeps your militia improving. Research tab shows what each
 technology unlocks.
+
+## Arming your elves
+
+A new colony starts with a small **armory** — stone knives, spears, short bows
+with arrows and a cloak — so it can defend itself from day one, before any
+research. Harder-hitting arms come later (see the ladder below).
+
+To arm a specific elf, select them and use the **Equipment** picker in the
+inspector: it lists every weapon in the colony with its count, and one click hands
+it over (their old weapon drops where they stand). **Bare hands** disarms them.
+Enlist them with **⚔ Enlist as soldier** if you want them to fight.
 
 ## Death & remembrance
 

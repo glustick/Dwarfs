@@ -253,20 +253,29 @@ class Input {
     const colonyBar = document.getElementById("colonistbar");
     const colonyBarToggle = document.getElementById("colonistbar-toggle");
     if (colonyBar && colonyBarToggle) {
-      let hidden = false;
-      try { hidden = localStorage.getItem("ee_colonybar_hidden") === "1"; } catch (e) {}
-      const updateColonyBarToggle = () => {
-        colonyBar.classList.toggle("collapsed", hidden);
-        colonyBarToggle.textContent = hidden ? "👁️" : "👥";
-        colonyBarToggle.title = hidden ? "Show colony bar" : "Hide colony bar";
+      // Full -> compact -> hidden. The bar is genuinely useful but intrusive at
+      // full width, so it shrinks before it vanishes. The mode is remembered.
+      const MODES = ["full", "compact", "hidden"];
+      const NEXT_LABEL = { full: "shrink", compact: "hide", hidden: "show" };
+      let mode = "full";
+      try {
+        const saved = localStorage.getItem("ee_colonybar_mode");
+        if (MODES.includes(saved)) mode = saved;
+        else if (localStorage.getItem("ee_colonybar_hidden") === "1") mode = "hidden";
+      } catch (e) {}
+      const applyColonyBar = () => {
+        colonyBar.classList.toggle("collapsed", mode === "hidden");
+        colonyBar.classList.toggle("compact", mode === "compact");
+        colonyBarToggle.textContent = mode === "hidden" ? "👁️" : "👥";
+        colonyBarToggle.title = `Colony bar: ${mode} — click to ${NEXT_LABEL[mode]} it`;
         colonyBarToggle.setAttribute("aria-label", colonyBarToggle.title);
-        colonyBarToggle.setAttribute("aria-pressed", String(hidden));
+        colonyBarToggle.setAttribute("data-mode", mode);
       };
-      updateColonyBarToggle();
+      applyColonyBar();
       colonyBarToggle.addEventListener("click", () => {
-        hidden = !hidden;
-        try { localStorage.setItem("ee_colonybar_hidden", hidden ? "1" : "0"); } catch (e) {}
-        updateColonyBarToggle();
+        mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+        try { localStorage.setItem("ee_colonybar_mode", mode); } catch (e) {}
+        applyColonyBar();
       });
     }
 

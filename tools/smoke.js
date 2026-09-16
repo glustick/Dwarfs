@@ -447,6 +447,55 @@ check("colony lost: the last death ends the colony", () => {
   }
 });
 
+check("arms: a new colony starts armed, and weapons equip per elf", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "small" });
+  const count = (kind, sub) => gs.items.filter(i => i.kind === kind && (!sub || i.sub === sub)).length;
+  if (count("weapon", "knife") < 3) throw new Error("a new colony has no knives");
+  if (count("weapon", "stone_spear") < 2) throw new Error("no starting spears");
+  if (count("weapon", "shortbow") < 2) throw new Error("no starting bows");
+  if (count("arrow") < 3) throw new Error("no starting arrows");
+
+  const d = gs.dwarves[0];
+  const bows0 = count("weapon", "shortbow");
+  if (!gs.equipWeaponFor(d, "shortbow")) throw new Error("could not equip a short bow");
+  if (d.weapon !== "shortbow") throw new Error("the weapon was not set on the elf");
+  if (count("weapon", "shortbow") !== bows0 - 1) throw new Error("the bow was not taken from the store");
+  if (!gs.equipWeaponFor(d, "stone_spear")) throw new Error("could not swap weapons");
+  if (count("weapon", "shortbow") !== bows0) throw new Error("the old weapon was not dropped back");
+  if (gs.equipWeaponFor(d, "laser_rifle")) throw new Error("equipped a weapon the colony does not own");
+  if (!gs.equipWeaponFor(d, null)) throw new Error("could not disarm");
+  if (d.weapon) throw new Error("still holding a weapon after disarming");
+});
+
+check("research: tiers collapse, and finished ones start closed", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "small" });
+  const el = new El("panel-content");
+  const orig = documentStub.getElementById;
+  const render = () => {
+    el._html = "";
+    documentStub.getElementById = (id) => (id === "panel-content" ? el : getEl(id));
+    try { gs.setPanelTab("research"); } finally { documentStub.getElementById = orig; }
+  };
+  render();
+  if (!el._html.includes("tech-tier")) throw new Error("no tier headers rendered");
+  if (!el._html.includes("tt-count")) throw new Error("tiers do not show their progress");
+  if (!el._html.includes('data-tech="tools"')) throw new Error("an unfinished tier should start open");
+  for (const t of run("TECHS").filter(x => x.tier === 1)) gs.tech[t.id] = true;   // finish tier 1
+  gs.techTierOpen = {};
+  render();
+  if (el._html.includes('data-tech="tools"')) throw new Error("a finished tier did not collapse");
+  gs.setPanelTab("colony");
+});
+
+check("arms: the inspector offers an equipment picker", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "small" });
+  gs.selectedDwarf = gs.dwarves[0];
+  const html = gs.inspectorHTML();
+  if (!html.includes("Equipment")) throw new Error("the inspector has no Equipment section");
+  if (!html.includes('data-equip=""')) throw new Error("there is no way to disarm an elf");
+  if (!/data-equip="(knife|shortbow|stone_spear)"/.test(html)) throw new Error("no weapons are offered");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

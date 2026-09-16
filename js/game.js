@@ -169,6 +169,12 @@ class Game {
     this.viewZ = 0; // which floor the camera/UI is currently showing
     this.autoPause = (() => { try { return localStorage.getItem("ee_autopause") === "1"; } catch (e) { return false; } })();
     this.story = makeStoryState();
+    // Collapsed state per research tier, remembered like the theme choice.
+    this.techTierOpen = {};
+    try {
+      const saved = localStorage.getItem("ee_tech_tiers");
+      if (saved) this.techTierOpen = JSON.parse(saved) || {};
+    } catch (e) { this.techTierOpen = {}; }
     this.raidTimer = DAY_LENGTH * 3 * this.diff().raidDelay;  // first raid around day 4 (scaled by difficulty)
     this.raidCount = 0;
     this.tradeTimer = DAY_LENGTH * 2; // first caravan around day 2-3
@@ -476,6 +482,19 @@ class Game {
     }
     // Seed a bit of starting stone/wood/food/water so the colony has a grace
     // period to get a Well built before anyone goes hungry or thirsty.
+    // A starting armory: enough to put a weapon in several elves' hands on day
+    // one, with no research at all. Short *and* long reach, because the outbreak
+    // arrives around Day 4 and an unarmed elf loses to a single zombie.
+    const kit = [
+      [ITEM.WEAPON, "knife"], [ITEM.WEAPON, "knife"], [ITEM.WEAPON, "knife"],
+      [ITEM.WEAPON, "stone_spear"], [ITEM.WEAPON, "stone_spear"],
+      [ITEM.WEAPON, "shortbow"], [ITEM.WEAPON, "shortbow"],
+      [ITEM.ARROW], [ITEM.ARROW], [ITEM.ARROW],
+      [ITEM.ARMOR, "cloak"],
+    ];
+    for (const [kind, subId] of kit) {
+      this.jobs.spawnItem(kind, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3), subId || null, 0);
+    }
     const bonus = this.diff().startBonus;
     for (let i = 0; i < Math.round(6 * bonus); i++) this.jobs.spawnItem(ITEM.STONE, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
     for (let i = 0; i < Math.round(10 * bonus); i++) this.jobs.spawnItem(ITEM.FOOD, this.world.spawnX + randint(rng, -3, 3), this.world.spawnY + randint(rng, -3, 3));
@@ -2608,6 +2627,34 @@ class Game {
     c.innerHTML = html;
   }
 
+  // Hand a specific weapon to a specific elf, taking it from the colony's spares
+  // and dropping whatever they were holding. The manual counterpart to
+  // JobManager.assignEquip, which only ever upgrades automatically.
+  equipWeaponFor(dwarf, subId) {
+    if (!dwarf) return false;
+    if ((dwarf.weapon || null) === (subId || null)) return false;
+    if (subId) {
+      const spare = this.items.find(it => it.kind === ITEM.WEAPON && it.sub === subId && !it.hauled);
+      if (!spare) return false;
+      const t = this.world.get(spare.x, spare.y, spare.z || 0);
+      if (t && t.item === spare) t.item = null;
+      const idx = this.items.indexOf(spare);
+      if (idx >= 0) this.items.splice(idx, 1);
+    }
+    if (dwarf.job) this.jobs.cancel(dwarf);   // don't equip mid-task
+    if (dwarf.weapon) {
+      // put the old one back on the ground where they stand
+      this.jobs.spawnItem(ITEM.WEAPON, dwarf.tileX, dwarf.tileY, dwarf.weapon, dwarf.z || 0);
+    }
+    dwarf.weapon = subId || null;
+    if (!subId) dwarf.quiver = 0;
+    const label = subId ? (STOCK_SUB_LABELS[subId] || subId) : null;
+    this.log(`${dwarf.name} ${label ? `takes up a ${label}` : "puts their weapon down"}.`, "", "colony");
+    if (window.sound) window.sound.play("equip", 0);
+    this.updatePanel();
+    return true;
+  }
+
   // Colony-wide inventory. Before this the only stock you could see was the
   // five counters in the top bar; everything else — bars, arms, ammunition,
   // components — meant hunting the map for piles and counting by eye.
@@ -2727,7 +2774,14 @@ class Game {
     for (let tier = 1; tier <= maxTier; tier++) {
       const inTier = TECHS.filter(t => t.tier === tier);
       if (!inTier.length) continue;
-      html += `<div class="tech-tier">Tier ${tier}</div>`;
+      // Tiers collapse: a finished tier is just noise once you have moved on.
+      const doneInTier = inTier.filter(t => this.hasTech(t.id)).length;
+      const open = this.techTierIsOpen(tier, inTier);
+      html += `<button class="tech-tier${open ? "" : " closed"}" data-tier="${tier}" aria-expanded="${open}">
+          <span class="tt-arrow">${open ? "▾" : "▸"}</span><span>Tier ${tier}</span>
+          <span class="tt-count">${doneInTier}/${inTier.length}</span>
+        </button>`;
+      if (!open) continue;
       for (const t of inTier) {
         const isDone = this.hasTech(t.id);
         const met = this.techPrereqsMet(t);
@@ -2748,6 +2802,23 @@ class Game {
     c.querySelectorAll(".tech.ready").forEach(el => {
       el.onclick = () => { this.buyTech(TECH_BY_ID[el.dataset.tech]); };
     });
+    c.querySelectorAll(".tech-tier").forEach(btn => {
+      btn.onclick = () => this.toggleTechTier(+btn.dataset.tier);
+    });
+  }
+
+  // A tier stays open if the player opened it; otherwise the one you are still
+  // working on is open and finished tiers are collapsed.
+  techTierIsOpen(tier, inTier) {
+    if (this.techTierOpen && this.techTierOpen[tier] !== undefined) return !!this.techTierOpen[tier];
+    return !inTier.every(t => this.hasTech(t.id));
+  }
+
+  toggleTechTier(tier) {
+    const inTier = TECHS.filter(t => t.tier === tier);
+    this.techTierOpen[tier] = !this.techTierIsOpen(tier, inTier);
+    try { localStorage.setItem("ee_tech_tiers", JSON.stringify(this.techTierOpen)); } catch (e) {}
+    this.updatePanel();
   }
 
   // Full event chronicle with category filters.
@@ -2842,6 +2913,12 @@ class Game {
 
   // Attach handlers for interactive controls inside the inspector.
   wireInspector(c) {
+    c.querySelectorAll("[data-equip]").forEach(btn => {
+      btn.onclick = () => {
+        const d = this.selectedDwarf;
+        if (d) this.equipWeaponFor(d, btn.dataset.equip || null);
+      };
+    });
     const mil = c.querySelector("#insp-military");
     if (mil && this.selectedDwarf) {
       mil.onclick = () => {
@@ -2969,6 +3046,15 @@ class Game {
       const gear = [d.weapon ? "🗡 " + (gearNames[d.weapon] || d.weapon) : null, d.armor ? "🛡 " + (gearNames[d.armor] || d.armor) : null].filter(Boolean).join(" · ");
       const rwInfo = RANGED_WEAPONS[d.weapon];
       const quiverTxt = rwInfo ? ` <span class="tag">🏹 ${d.quiver}/20 ${rwInfo.label}</span>` : "";
+      // Weapons this elf could take up right now: anything lying around, plus
+      // whatever they are already holding.
+      const spareCounts = {};
+      for (const it of this.items) {
+        if (it.kind !== ITEM.WEAPON || it.hauled || !it.sub) continue;
+        spareCounts[it.sub] = (spareCounts[it.sub] || 0) + 1;
+      }
+      if (d.weapon) spareCounts[d.weapon] = (spareCounts[d.weapon] || 0) + 1;
+      const equipSubs = Object.entries(spareCounts).sort((a, b) => (WEAPON_RANK[a[0]] ?? 0) - (WEAPON_RANK[b[0]] ?? 0));
       const inventory = (d.inventory || []).map(item => ARTIFACT_BY_ID[item.id]).filter(Boolean);
       const inventoryHTML = inventory.length ? inventory.map(artifact => {
         const boosts = Object.entries(artifact.bonuses).map(([stat, value]) => `+${value} ${stat}`).join(" · ");
@@ -2989,6 +3075,12 @@ class Game {
         ${d.carrying ? "Carrying: " + ITEM_LABEL[d.carrying.kind] + "<br/>" : ""}
         <div class="mini2">Inventory · ${inventory.length}</div>${inventoryHTML}
         <div class="thought">“${d.thought || "..."}”</div>
+        <div class="mini2">Equipment</div>
+        <div class="mini">Holding ${d.weapon ? `<b>${gearNames[d.weapon] || d.weapon}</b>` : "<b>nothing</b>"}${d.armor ? ` · wearing <b>${gearNames[d.armor] || d.armor}</b>` : ""}</div>
+        <div class="equip-row">
+          <button class="recipe-btn${d.weapon ? "" : " on"}" data-equip="">Bare hands</button>
+          ${equipSubs.map(([subId, n]) => `<button class="recipe-btn${d.weapon === subId ? " on" : ""}" data-equip="${subId}">${gearNames[subId] || subId}${n > 1 ? ` ×${n}` : ""}</button>`).join("")}
+        </div>
         <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
         ${d.military && d.manualOrder ? `<div class="mini">🎯 Holding a manual position order</div><button class="mini-btn" id="insp-order-release">Release to automatic AI</button>` : ""}
         <div class="mini2">Relationships</div>${this.relationshipsHTML(d)}
