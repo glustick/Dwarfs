@@ -1,6 +1,6 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
-const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, rampdown: 1.6, drain: 4.0, tame: 2.4, checkup: 2.0 };
+const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, rampdown: 1.6, drain: 4.0, tame: 2.4, checkup: 2.0, hunt: 2.6 };
 // How long an elf waits before re-running the whole job search — whether it
 // found something or not.
 //
@@ -123,13 +123,13 @@ class Job {
 class JobManager {
   constructor(game) {
     this.game = game;
-    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], checkup: [] };
+    this.candidates = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], hunt: [], checkup: [] };
   }
 
   // ---- outstanding designations ----
   reindex() {
     const g = this.game, w = g.world;
-    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], checkup: [] };
+    const c = { dig: [], chop: [], gather: [], build: [], craft: [], plant: [], harvest: [], doctor: [], forest: [], stairsdown: [], rampdown: [], drain: [], tame: [], hunt: [], checkup: [] };
     for (let z = 0; z >= w.minZ; z--) {
       const tiles = w.getLevel(z);
       if (!tiles) continue;
@@ -172,6 +172,9 @@ class JobManager {
     }
     // tame candidates are wild animals, not tiles — unclaimed and not currently skittish
     c.tame = g.animals.filter(a => !a.tamed && !a.reserved && a.fleeTimer <= 0);
+    // hunt: the same wild animals. A tamed one is somebody's companion and is
+    // never on the menu — the same rule that stops soldiers attacking your own.
+    c.hunt = g.animals.filter(a => !a.tamed && !a.reserved && a.fleeTimer <= 0);
     this.candidates = c;
   }
 
@@ -400,7 +403,7 @@ class JobManager {
     // Nothing designated, nothing stockpiled, nobody to bury: skip straight out
     // rather than walking six assigners, each scanning items, only to fail.
     if (!this.hasAnyWork()) return false;
-    return this.assignBury(dwarf) || this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
+    return this.assignBury(dwarf) || this.assignWork(dwarf) || this.assignDoctor(dwarf) || this.assignCheckup(dwarf) || this.assignTame(dwarf) || this.assignHunt(dwarf) || this.assignSell(dwarf) || this.assignHaul(dwarf);
   }
 
   // Is there anything at all for a working elf to do? Deliberately generous — it
@@ -851,6 +854,33 @@ class JobManager {
     return true;
   }
 
+  // Hunting mirrors taming: pick the nearest wild animal, walk to it, and kill it
+  // for meat once you are in reach. The failure memory is the same one taming uses
+  // — without it an animal that has bolted gets re-picked, and re-pathed, forever.
+  assignHunt(dwarf) {
+    if (!dwarf.labors.has("hunting") || dwarf.z !== 0) return false;
+    const g = this.game, dx = dwarf.tileX, dy = dwarf.tileY, dz = dwarf.z;
+    const list = this.candidates.hunt;
+    if (!list.length) return false;
+    let target = null, bd = Infinity;
+    for (const a of list) {
+      if (a.reserved || a.tamed || a.fleeTimer > 0) continue;
+      if (a.huntFailUntil && a.huntFailUntil > g.time) continue;
+      const d = dist3(a.tileX, a.tileY, 0, dx, dy, dz);
+      if (d < bd) { bd = d; target = a; }
+    }
+    if (!target) return false;
+    const path = pathAdjacent(g.world, dx, dy, dz, target.tileX, target.tileY, 0, false, TAME_PATH_NODES)
+      || pathTo(g.world, dx, dy, dz, target.tileX, target.tileY, 0, false, TAME_PATH_NODES);
+    if (!path) { target.huntFailUntil = g.time + 6; return false; }
+    target.reserved = true;
+    const job = new Job("hunt", target.tileX, target.tileY, 0);
+    job.animal = target; job.phase = "move";
+    dwarf.setPath(path); dwarf.job = job; dwarf.state = "goto";
+    dwarf.thought = "Stalking a wild " + target.kind;
+    return true;
+  }
+
   assignTrain(dwarf) {
     const job = new Job("train", dwarf.tileX, dwarf.tileY, dwarf.z);
     job.phase = "move"; dwarf.setPath(null);
@@ -1003,6 +1033,14 @@ class JobManager {
         const stillThere = a && !a.tamed && Math.max(Math.abs(dwarf.tileX - a.tileX), Math.abs(dwarf.tileY - a.tileY)) <= 1;
         if (!stillThere) { if (a) a.reserved = false; this.cancel(dwarf); }
         else { dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "tame"); }
+        break;
+      }
+      case "hunt": {
+        const a = job.animal;
+        const inReach = a && !a.tamed && g.animals.includes(a)
+          && Math.max(Math.abs(dwarf.tileX - a.tileX), Math.abs(dwarf.tileY - a.tileY)) <= 1;
+        if (!inReach) { if (a) a.reserved = false; this.cancel(dwarf); }
+        else { dwarf.state = "work"; dwarf.workTimer = this.workDuration(dwarf, "hunt"); }
         break;
       }
       case "train":
@@ -1316,6 +1354,23 @@ class JobManager {
         }
       } else {
         dwarf.thought = "No one to examine";
+      }
+    } else if (job.type === "hunt") {
+      const a = job.animal;
+      const inReach = a && !a.tamed && g.animals.includes(a)
+        && Math.max(Math.abs(dwarf.tileX - a.tileX), Math.abs(dwarf.tileY - a.tileY)) <= 1;
+      if (!inReach) {
+        if (a) a.reserved = false;
+        dwarf.thought = "The animal got away";
+      } else {
+        const type = ANIMAL_TYPES[a.kind] || {};
+        const meat = (type.yield && type.yield.food) || 2;
+        g.animals.splice(g.animals.indexOf(a), 1);
+        for (let i = 0; i < meat; i++) this.spawnItem(ITEM.FOOD, a.tileX, a.tileY, "meat", a.z || 0);
+        g.stats.hunted = (g.stats.hunted || 0) + 1;
+        g.awardXp(dwarf, "hunting", 18);
+        dwarf.thought = "Fresh meat";
+        g.log(`${dwarf.name} hunted a ${type.name ? type.name.toLowerCase() : a.kind}.`, "good", "labor");
       }
     } else if (job.type === "tame") {
       const a = job.animal;

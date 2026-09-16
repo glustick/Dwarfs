@@ -88,7 +88,9 @@ const CODEX_ENTRIES = [
   {
     id: "labors", icon: "⚒️", title: "Labours & schedules", cat: "Work",
     tags: "labour labor jobs priority schedule sleep work shift assign skill",
-    body: `<p>There are nine <b>labours</b>: Mining, Woodcutting, Farming, Building, Crafting, Hauling, Doctoring, Foresting and Taming. Elves decide what to do from the jobs available and their own skills — skilled elves work faster and produce more.</p>
+    body: `<p>There are ten <b>labours</b>: Mining, Woodcutting, Farming, Building, Crafting, Hauling, Doctoring, Foresting, Taming and Hunting. Elves decide what to do from the jobs available and their own skills — skilled elves work faster and produce more.</p>
+      <p><b>Hunting</b> sends an elf after wild animals for <b>meat</b>. They stalk the nearest one, and kill it once in reach; a
+      tamed animal is somebody's pet and is never hunted. It is surface work, like everything to do with wildlife.</p>
       <p>The <b>Schedule</b> tab is where you shape a colony: give each elf a <b>Sleep / Work / Anything</b> timetable and switch individual labours on or off. A specialist who only mines stops wandering off to haul.</p>
       <p>Set a couple of elves to nothing but Doctoring, and lay out a Hospital — that combination is what actually saves lives.</p>`,
   },
@@ -228,7 +230,7 @@ const CODEX_ENTRIES = [
   {
     id: "animals", icon: "🐾", title: "Animals & taming", cat: "Survival",
     tags: "animal tame pet fox wildlife wolf hunt",
-    body: `<p>Wildlife wanders the surface. Set the <b>Taming</b> labour and an elf will try to befriend wild animals; a tamed animal becomes a <b>pet</b> with an owner, and is a real happiness boost.</p>
+    body: `<p>Wildlife wanders the surface, and you have two uses for it. Set the <b>Taming</b> labour and an elf will try to befriend it; a tamed animal becomes a <b>pet</b> with an owner, and is a real happiness boost. Set <b>Hunting</b> instead and they will stalk and kill wild animals for <b>meat</b> — a tamed animal is never quarry.</p>
       <p>Not every animal is friendly — some wildlife will hunt your elves, and the Storyteller's <b>hunting packs</b> are wolves, not pets. Taming is surface-only, like everything else wildlife.</p>`,
   },
 

@@ -917,6 +917,51 @@ check("building: furniture and workshops go on a finished floor", () => {
   if (gs.input.canPlaceFixture(t2)) throw new Error("a wall was treated as a placeable surface");
 });
 
+check("hunting: a hunter kills a wild animal for meat, never a tamed one", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const d = gs.dwarves[0];
+  if (!run("SKILLS").hunting) throw new Error("there is no Hunting skill");
+  if (!run("LABORS").some(l => l.job === "hunt")) throw new Error("there is no Hunting labor");
+  if (!run("JOB_SKILL").hunt) throw new Error("the hunt job trains no skill");
+
+  // a wild fox in reach, and somebody's pet beside it
+  const fox = run("(k,x,y)=>new Animal(k,x,y,0)", "fox", d.tileX + 1, d.tileY);
+  if (fox.tileX === undefined) throw new Error("an animal has no tile position");
+  gs.animals.push(fox);
+  const pet = run("(k,x,y)=>new Animal(k,x,y,0)", "fox", d.tileX - 1, d.tileY);
+  pet.tamed = true;
+  gs.animals.push(pet);
+  gs.jobs.reindex();
+
+  if (!gs.jobs.candidates.hunt.includes(fox)) throw new Error("the wild animal was not offered as quarry");
+  if (gs.jobs.candidates.hunt.includes(pet)) throw new Error("a TAMED animal was offered as quarry");
+
+  // without the labor there is no hunting
+  d.labors.delete("hunting");
+  if (gs.jobs.assignHunt(d)) throw new Error("an elf with no Hunting labor went hunting anyway");
+
+  d.labors.add("hunting");
+  if (!gs.jobs.assignHunt(d)) throw new Error("a hunter did not take the job");
+  if (!d.job || d.job.type !== "hunt") throw new Error("the assigned job was not a hunt");
+
+  const before = d.skillXp ? d.skillXp("hunting") : 0;
+  let ticks = 0;
+  while (gs.animals.includes(fox) && ticks < 3000) { gs.update(1 / 60); ticks++; }
+
+  if (gs.animals.includes(fox)) throw new Error(`the fox survived ${ticks} ticks (job=${d.job && d.job.type}, thought=${d.thought})`);
+  if (!gs.animals.includes(pet)) throw new Error("the hunt killed a tamed animal as well");
+
+  // Counted across the colony rather than at the kill site: haulers pick meat up
+  // the moment it drops, which is the correct behaviour and would otherwise make
+  // this look like a failure.
+  const meat = gs.items.filter(i => i.kind === "food" && i.sub === "meat");
+  if (meat.length < 2) throw new Error(`the kill produced ${meat.length} meat (expected at least 2)`);
+
+  if (d.skillLevel("hunting") < 0) throw new Error("hunting skill is not readable");
+  const after = d.skillXp ? d.skillXp("hunting") : 0;
+  if (d.skillXp && !(after > before)) throw new Error("the hunter learned nothing");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

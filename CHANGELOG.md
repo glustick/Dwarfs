@@ -4,6 +4,19 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.40.0 (build 72)
+- **Hunting is a labour and a skill.** Set it on an elf and they stalk the nearest wild
+  animal, kill it once in reach, and leave **meat** where it fell (haulers collect it like
+  anything else). It trains a **Hunting** skill, with its own proficiency titles, and
+  produces a little more per kill as they improve.
+- **A tamed animal is never quarry** — the same rule that stops soldiers attacking your
+  own side, and enforced the same way, by never offering a tamed animal as a candidate
+  at all.
+- It reuses the shape of the taming job deliberately, including its **failure memory**:
+  without that an animal that has bolted gets re-picked and re-pathed every tick, which
+  is the bug that made taming cost 98% of the whole simulation once.
+- `tools/smoke.js`: 44 checks.
+
 ## v1.39.0 (build 71)
 - **Furniture and workshops can be built on a finished floor.** Every build used to
   require bare ground, which meant that flooring a tile made it permanently

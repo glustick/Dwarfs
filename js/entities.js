@@ -116,6 +116,7 @@ const LABORS = [
   { id: "medicine",    job: "doctor", name: "Doctoring",   icon: "⚕️" },
   { id: "foresting",   job: "forest", name: "Foresting",   icon: "🌲" },
   { id: "taming",      job: "tame",   name: "Taming",      icon: "🐾" },
+  { id: "hunting",     job: "hunt",   name: "Hunting",     icon: "🏹" },
 ];
 const TRAITS = {
   diligent: { name: "Diligent", icon: "⚒️", desc: "Works 12% faster.", workSpeed: 0.12 },
@@ -370,7 +371,7 @@ class Enemy {
 // (see JobManager.assignTame in jobs.js). A tamed animal bonds to its tamer,
 // roams near them, and lifts the mood of any elf who spends time nearby.
 const ANIMAL_TYPES = {
-  fox: { name: "Fox", speed: 3.0, color: "#c9702f" },
+  fox: { name: "Fox", speed: 3.0, color: "#c9702f", yield: { food: 2 } },
 };
 
 class Animal {
