@@ -17,7 +17,7 @@ const vm = require("vm");
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
 // audio.js is deliberately omitted: it needs a Web Audio API (see smoke-audio.js).
 const FILES = (process.argv[3] ||
-  "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,diagnostics"
+  "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,diagnostics,menu"
 ).split(",");
 
 // ---------------------------------------------------------------- DOM stub
@@ -722,6 +722,26 @@ check("camera: WASD pans the map, and the displaced tool keys follow", () => {
   const x2 = gs.cam.x; hold("d");
   if (gs.cam.x !== x2) throw new Error("D still pans with WASD panning off");
   setPan(true);                                  // leave the default in place
+});
+
+check("setup screen: the primary action cannot be pushed off the fold", () => {
+  // The options scroll; Begin and Back sit in a sibling row that does not, so a
+  // short viewport can never hide the screen's primary action.
+  const html = run("(p)=>newGameDialogHTML(p)", { difficulty: "gentle", mapSize: "small" });
+  if (html.indexOf("ng-scroll") === -1) throw new Error("the setup options are not in a scroll container");
+  if (html.indexOf("id=\"ng-start\"") === -1) throw new Error("Begin is missing");
+  if (html.indexOf("id=\"ng-back\"") === -1) throw new Error("Back is missing");
+  if (!(html.indexOf("ng-scroll") < html.indexOf("menu-btns"))) {
+    throw new Error("the action row should come after the scrolling options");
+  }
+  if (!(html.indexOf("menu-btns") < html.indexOf("id=\"ng-start\""))) {
+    throw new Error("Begin should live in the action row, outside the scroller");
+  }
+  // and the options must genuinely be inside the scroller
+  const open = html.indexOf("ng-scroll"), close = html.indexOf("ng-start");
+  if (html.slice(open, close).indexOf("opt-card") === -1) {
+    throw new Error("the option cards are not inside the scroll container");
+  }
 });
 
 // ---------------------------------------------------------------- report

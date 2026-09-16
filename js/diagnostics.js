@@ -116,17 +116,36 @@ const Diagnostics = {
     return L.join("\n");
   },
 
-  // Writing one file is the reliable path: a page opened from file:// has no
-  // clipboard permission, which is exactly how this game is usually played.
-  deliver(text, filename) {
-    let copied = false;
+  // Clipboard copy. The async Clipboard API needs a permission the game may not
+  // have, so the older execCommand path is tried too — and neither is trusted on
+  // its own. Returns whether anything reported success.
+  copyText(text) {
+    let ok = false;
     try {
       if (typeof navigator !== "undefined" && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).catch(() => {});
-        copied = true;                       // best effort; the file is the guarantee
+        ok = true;
       }
     } catch (e) {}
-    let saved = false;
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        ok = !!(document.execCommand && document.execCommand("copy"));
+        ta.remove();
+      } catch (e) {}
+    }
+    return ok;
+  },
+
+  // Save to a file. This is what failed silently in the embedded browser the
+  // verification ran in, which is precisely why the report is *also* shown on
+  // screen: a textarea the player can select cannot be blocked by anything.
+  saveFile(text, filename) {
     try {
       const blob = new Blob([text], { type: "text/plain" });
       const a = document.createElement("a");
@@ -135,8 +154,18 @@ const Diagnostics = {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      saved = true;
-    } catch (e) {}
+      return true;
+    } catch (e) { return false; }
+  },
+
+  filename() {
+    return `ee-diagnostics-${typeof BUILD_NUMBER !== "undefined" ? BUILD_NUMBER : "x"}.txt`;
+  },
+
+  // Both at once, for callers that have no panel to show.
+  deliver(text, filename) {
+    const copied = this.copyText(text);
+    const saved = this.saveFile(text, filename || this.filename());
     return saved ? (copied ? "both" : "download") : (copied ? "clipboard" : "failed");
   },
 

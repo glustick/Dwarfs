@@ -374,10 +374,10 @@ held at its height, what you researched, and how many you laid to rest.
 
 ## Reporting a bug
 
-**⏸ Menu → 📋 Diagnostics** writes a text file describing the run — build,
-colony, performance, and any JavaScript errors the game has thrown, with the line
-they came from. Attach it to a bug report. It is offered on the *colony is lost*
-screen too.
+**⏸ Menu → 📋 Diagnostics** shows a report describing the run — build, colony,
+performance, and any JavaScript errors the game has thrown, with the line they
+came from. Copy it, save it as a file, or select the text by hand. It is offered
+on the *colony is lost* screen too.
 
 ## Accessibility
 

@@ -4,6 +4,23 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.35.0 (build 65)
+All three of these came out of finally getting the game into a real browser.
+
+- **The setup screen's Begin button can no longer fall below the fold.** On a
+  short window the difficulty and map cards pushed it past the bottom of a
+  scrolling card, which made the primary action of the screen the hardest thing
+  on it to reach. The options now scroll; the heading and the action row do not.
+- **The diagnostics report is shown on screen**, not only written to a file.
+  Clicking 📋 Diagnostics opens a panel with the report in a selectable box, plus
+  **Copy** and **Save as a file**. The reason: the download silently produced
+  *nothing* in the embedded browser it was tested in, and the clipboard can be
+  denied. A textarea the player can select by hand cannot be blocked, so that is
+  now the guaranteed path and the other two are conveniences.
+- `tools/smoke.js`: 36 checks — the setup dialog's markup contract (options
+  inside the scroller, Begin outside it) is asserted, and `menu.js` now loads in
+  the harness, so the menu is syntax-checked by CI.
+
 ## v1.34.0 (build 64)
 - **WASD pans the map**, alongside the arrow keys — crossing a 90x70 wood with
   arrows alone was slow. Panning works while paused, and right-drag still works.

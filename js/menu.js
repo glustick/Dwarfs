@@ -2,6 +2,33 @@
 
 const AUTOSAVE_MINUTES = 10;
 
+// The new-game dialog's markup. A free function so the layout contract — the
+  // scroll, the action row does not — can be asserted without a live DOM.
+function newGameDialogHTML(pick) {
+  const cards = (list, group) => list.map(o => `
+        <button class="opt-card${o.id === pick[group] ? " on" : ""}" data-group="${group}" data-id="${o.id}">
+          <span class="opt-ico">${o.icon}</span>
+          <span class="opt-name">${o.name}</span>
+          <span class="opt-blurb">${o.blurb}</span>
+          <span class="opt-meta">${o.meta}</span>
+        </button>`).join("");
+  return `
+      <div class="menu-card wide">
+        <div class="menu-title" style="font-size:26px">✨ Found a new colony</div>
+        <div class="menu-sub">Choose how the forest receives you.</div>
+        <div class="ng-scroll">
+          <div class="menu-section-title">🌿 Difficulty</div>
+          <div class="opt-grid">${cards(DIFFICULTIES, "difficulty")}</div>
+          <div class="menu-section-title">🗺️ Map size</div>
+          <div class="opt-grid">${cards(MAP_SIZES, "mapSize")}</div>
+        </div>
+        <div class="menu-btns">
+          <button class="menu-btn primary" id="ng-start"><span class="mi">🌱</span><span>Begin</span></button>
+          <button class="menu-btn ghost" id="ng-back"><span class="mi">←</span><span>Back</span></button>
+        </div>
+      </div>`;
+  }
+
 class App {
   constructor() {
     this.overlay = document.getElementById("overlay");
@@ -202,7 +229,7 @@ class App {
         </div>
       </div>`, "lost");
     document.getElementById("lost-new").onclick = () => this.openNewGameDialog(false);
-    document.getElementById("lost-diag").onclick = () => this.toast(Diagnostics.send(g));
+    document.getElementById("lost-diag").onclick = () => this.openDiagnostics(false);
     document.getElementById("lost-load").onclick = () => this.openLoadDialog();
     document.getElementById("lost-menu").onclick = () => this.openMainMenu();
   }
@@ -281,26 +308,7 @@ class App {
   openNewGameDialog(fromPause = false) {
     const pick = loadNewGameSettings();
     const backTo = fromPause ? () => this.openPauseMenu() : () => this.openMainMenu();
-    const cards = (list, group) => list.map(o => `
-        <button class="opt-card${o.id === pick[group] ? " on" : ""}" data-group="${group}" data-id="${o.id}">
-          <span class="opt-ico">${o.icon}</span>
-          <span class="opt-name">${o.name}</span>
-          <span class="opt-blurb">${o.blurb}</span>
-          <span class="opt-meta">${o.meta}</span>
-        </button>`).join("");
-    this.show(`
-      <div class="menu-card wide">
-        <div class="menu-title" style="font-size:26px">✨ Found a new colony</div>
-        <div class="menu-sub">Choose how the forest receives you.</div>
-        <div class="menu-section-title">🌿 Difficulty</div>
-        <div class="opt-grid">${cards(DIFFICULTIES, "difficulty")}</div>
-        <div class="menu-section-title">🗺️ Map size</div>
-        <div class="opt-grid">${cards(MAP_SIZES, "mapSize")}</div>
-        <div class="menu-btns" style="margin-top:20px">
-          <button class="menu-btn primary" id="ng-start"><span class="mi">🌱</span><span>Begin</span></button>
-          <button class="menu-btn ghost" id="ng-back"><span class="mi">←</span><span>Back</span></button>
-        </div>
-      </div>`, "newgame");
+    this.show(newGameDialogHTML(pick), "newgame");
     this.overlay.querySelectorAll(".opt-card").forEach((btn) => {
       btn.onclick = () => {
         pick[btn.dataset.group] = btn.dataset.id;
@@ -313,6 +321,40 @@ class App {
       this.startGame(null, pick);
     };
     document.getElementById("ng-back").onclick = backTo;
+  }
+
+
+
+  // The report, on screen. A download can be blocked and a clipboard can be
+  // denied (both were, in testing), but a textarea the player can select by hand
+  // always works — so this, not the file, is the reliable half.
+  openDiagnostics(fromPause = true) {
+    const text = Diagnostics.report(window.game);
+    const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    this.show(`
+      <div class="menu-card wide">
+        <div class="menu-title" style="font-size:22px">📋 Diagnostics</div>
+        <div class="menu-sub">Attach this to a bug report. If the buttons are blocked, select the text and copy it yourself.</div>
+        <textarea class="diag-box" id="diag-text" readonly spellcheck="false">${esc(text)}</textarea>
+        <div class="menu-btns">
+          <button class="menu-btn primary" id="diag-copy"><span class="mi">📋</span><span>Copy</span></button>
+          <button class="menu-btn" id="diag-save"><span class="mi">💾</span><span>Save as a file</span></button>
+          <button class="menu-btn ghost" id="diag-close"><span class="mi">←</span><span>${fromPause ? "Back" : "Close"}</span></button>
+        </div>
+      </div>`, "diagnostics");
+    const box = document.getElementById("diag-text");
+    if (box && box.focus) box.focus();
+    const copyBtn = document.getElementById("diag-copy");
+    if (copyBtn) copyBtn.onclick = () => {
+      if (box && box.select) box.select();
+      this.toast(Diagnostics.copyText(text) ? "Report copied to the clipboard." : "Could not copy — select the text and copy it by hand.");
+    };
+    const saveBtn = document.getElementById("diag-save");
+    if (saveBtn) saveBtn.onclick = () => this.toast(Diagnostics.saveFile(text, Diagnostics.filename())
+      ? `Saved ${Diagnostics.filename()} to your downloads.`
+      : "Could not save a file — select the text and copy it by hand.");
+    const closeBtn = document.getElementById("diag-close");
+    if (closeBtn) closeBtn.onclick = () => fromPause ? this.openPauseMenu() : this.openMainMenu();
   }
 
   // ---- PAUSE / IN-GAME MENU ----
@@ -396,7 +438,7 @@ class App {
     const codexBtn = document.getElementById("help-btn");
     if (codexBtn) codexBtn.onclick = () => this.openCodex();
     const diagBtn = document.getElementById("diag-btn");
-    if (diagBtn) diagBtn.onclick = () => this.toast(Diagnostics.send(window.game));
+    if (diagBtn) diagBtn.onclick = () => this.openDiagnostics(true);
     const palBtn = document.getElementById("palette-btn");
     if (palBtn) palBtn.onclick = () => {
       setPalette(window.__paletteSafe ? "default" : "safe");

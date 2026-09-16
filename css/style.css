@@ -821,7 +821,16 @@ button { font-family: inherit; font-size: inherit; color: inherit; cursor: point
 }
 
 /* ---- new-game setup cards ---- */
-.menu-card.wide { width: min(580px, calc(100vw - 24px)); }
+.menu-card.wide {
+  width: min(580px, calc(100vw - 24px));
+  /* The options scroll; the heading and the action row do not. On a short
+     viewport Begin used to fall below the fold inside a scrolling card, which
+     meant the primary action of the screen was the hardest thing to reach. */
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.menu-card.wide .ng-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.menu-card.wide .menu-btns { flex: 0 0 auto; margin-top: 18px; }
 .opt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .opt-card {
   display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto auto;
@@ -1021,3 +1030,19 @@ html[data-ui="large"] { --ui-scale: 1.15; }
 #tutorial-card, #hover-tip { zoom: var(--ui-scale); }
 /* `zoom` scales an element's own used lengths too, so the chrome's anchors and
    the variables that position it stay consistent without double-counting. */
+
+/* ---- diagnostics report ---- */
+.diag-box {
+  width: 100%; box-sizing: border-box;
+  height: min(46vh, 340px); resize: vertical;
+  margin: 4px 0 2px;
+  padding: 10px 12px;
+  background: var(--control-bg);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; line-height: 1.45;
+  text-align: left; white-space: pre;
+  overflow: auto;
+}

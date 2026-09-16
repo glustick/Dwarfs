@@ -320,8 +320,9 @@ actual room instead of colony-wide counters).
 
 ## Playtest support
 
-- ~~A report the playtester can hand back~~ — **v1.33.0**: 📋 Diagnostics writes
-  build, colony state, performance, save-check and captured errors to a file.
+- ~~A report the playtester can hand back~~ — **v1.33.0**, reworked in **v1.35.0**:
+  📋 Diagnostics shows build, colony state, performance, a save check and captured
+  errors, with Copy / Save-as-file and a selectable box as the fallback.
 
 ## Tier 8 — playtest feedback (complete)
 
