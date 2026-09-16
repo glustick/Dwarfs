@@ -4,6 +4,20 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.39.0 (build 71)
+- **Furniture and workshops can be built on a finished floor.** Every build used to
+  require bare ground, which meant that flooring a tile made it permanently
+  unfurnishable — you could pay for a floor and then never put a bed on it. That is
+  the wrong way round: flooring a room and then furnishing it is the order anyone
+  builds in, and the game quietly forbade it.
+  Furniture (bed, double bed, table, painting, torch, lantern, lamp) and workshops
+  (smelter, forge, well, brewery, crafting, weapons, clothing, electronics, generator,
+  frost chamber) now accept a floor. Walls, floors, doors and palisades still need bare
+  ground, because they replace what is there rather than sitting on it.
+- `tools/smoke.js`: 43 checks.
+- Roadmap: the four items filed from live play on 2026-09-16 are recorded in the
+  player-requested backlog.
+
 ## v1.38.0 (build 70)
 Direct control, as asked for: the RTS conventions, applied to your warband.
 

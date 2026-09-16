@@ -872,6 +872,51 @@ check("command: a multi-selection offers a group enlist", () => {
   if (soldierView.indexOf("Right-click") === -1) throw new Error("the group panel does not explain right-click orders");
 });
 
+check("building: furniture and workshops go on a finished floor", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const Bv = run("B"), w = gs.world;
+  gs.viewZ = 0;
+
+  // a bare, walkable tile
+  let at = null;
+  for (let y = 1; y < w.h - 1 && !at; y++) for (let x = 1; x < w.w - 1 && !at; x++) {
+    const t = w.get(x, y, 0);
+    if (t && t.built === Bv.NONE && w.isWalkable(x, y, 0) && !t.feature && !t.zone) at = { x, y, t };
+  }
+  if (!at) throw new Error("no bare ground found");
+
+  // floor it, exactly as a finished floor build would
+  const t = at.t;
+  t.built = Bv.FLOOR;
+  t.buildMaterial = t.buildMaterial || "wood";
+  t.buildJob = false;
+
+  // the fix: a bed and a workshop can now go on top of it
+  gs.input.tool = "bed";
+  gs.input.applyTool(at, at);
+  if (!t.buildJob || t.buildKind !== "bed") throw new Error("a bed could not be built on a finished floor");
+
+  t.buildJob = false; t.buildKind = null;
+  gs.input.tool = "smelter";
+  gs.input.applyTool(at, at);
+  if (!t.buildJob || t.buildKind !== "smelter") throw new Error("a workshop could not be built on a finished floor");
+
+  // but the structural rules still hold: no floor on a floor, no wall on a floor
+  t.buildJob = false; t.buildKind = null;
+  gs.input.tool = "floor";
+  gs.input.applyTool(at, at);
+  if (t.buildJob) throw new Error("a second floor was allowed on top of a floor");
+
+  t.buildJob = false; t.buildKind = null;
+  gs.input.tool = "build";
+  gs.input.applyTool(at, at);
+  if (t.buildJob) throw new Error("a wall was allowed on top of a floor");
+
+  // and a bed still cannot be placed inside a wall
+  const t2 = { ...t, built: Bv.WALL, buildJob: false, buildKind: null, furniture: null, workshop: null, stockpile: null };
+  if (gs.input.canPlaceFixture(t2)) throw new Error("a wall was treated as a placeable surface");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

@@ -116,6 +116,11 @@ const CODEX_ENTRIES = [
     body: `<p>Everything is built as a <b>build order</b>: drag it out, and Builders carry the material and construct it.</p>
       <p><b>Pick the material first</b> — 🪵 Wood, 🪨 Stone, ⬜ Marble or ⚙️ Metal. Materials change cost, look and durability, not the footprint.</p>
       <p>Categories in the Build menu: <b>Construction</b> (wall, floor, door, palisade), <b>Furniture</b> (bed, double bed, table, painting), <b>Lighting</b> (torch, lantern, aether lamp), <b>Workshops</b> (smelter, forge, crafting, weapons, clothing, electronics, well, brewery), <b>Defences</b> (watchtower, trap) and <b>Arcane</b> (essence well, conduit, frost chamber).</p>
+      <p><b>Floor first, then furnish it.</b> Furniture and workshops can sit on a finished
+      floor as well as on bare ground, so the usual order of work is to lay down a room's
+      floor and then put the beds, benches and torches on top of it. Walls, floors, doors and
+      palisades are the exception — they need bare ground, because they replace what is there
+      rather than sitting on it.</p>
       <p>Several of these stay hidden until their research unlocks them.</p>`,
   },
   {

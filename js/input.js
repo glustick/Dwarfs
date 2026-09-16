@@ -531,6 +531,16 @@ class Input {
   // Right-click. A hostile under the cursor is attacked; open ground is marched
   // to. Your own elves and animals are deliberately not testable here, so a
   // mis-aimed right-click on a colonist can only ever mean "go there".
+  // Where furniture and workshops may be placed. Bare ground and a finished floor
+  // both qualify: flooring a room and then furnishing it is the order people build
+  // in, and requiring bare ground meant that flooring a tile made it permanently
+  // unfurnishable — a bed you had paid for a floor under could never be built.
+  // Only terrain-shaping work (walls, floors, doors, palisades) still needs bare
+  // ground, because it replaces what is there rather than sitting on it.
+  canPlaceFixture(t) {
+    return t.built === B.NONE || t.built === B.FLOOR;
+  }
+
   rightClickOrder(t) {
     const g = this.game;
     if (!t) return;
@@ -639,18 +649,18 @@ class Input {
             if (w.isWalkable(x, y, z) && t.kind !== K.FLOOR && t.built === B.NONE && !t.buildJob) { t.buildJob = true; t.buildKind = "floor"; t.buildMaterial = this.material; count++; }
             break;
           case "bed":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; t.buildMaterial = this.material; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "bed"; t.buildMaterial = this.material; count++; }
             break;
           case "doublebed":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; t.buildMaterial = this.material; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "doublebed"; t.buildMaterial = this.material; count++; }
             break;
           case "painting":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; t.buildMaterial = this.material; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "painting"; t.buildMaterial = this.material; count++; }
             break;
           case "torch":
           case "lantern":
           case "lamp":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; t.buildMaterial = BUILD_MATERIAL[this.tool]; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; t.buildMaterial = BUILD_MATERIAL[this.tool]; count++; }
             break;
           case "smelter":
           case "forge":
@@ -660,7 +670,7 @@ class Input {
           case "weapons":
           case "clothing":
           case "electronics":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "door":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "door"; t.buildMaterial = this.material; count++; }
@@ -669,7 +679,7 @@ class Input {
           case "icebox":
           case "watchtower":
           case "trap":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = this.tool; count++; }
             break;
           case "palisade":
             if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.stockpile && !t.furniture) { t.buildJob = true; t.buildKind = "palisade"; t.buildMaterial = this.material; count++; }
@@ -704,7 +714,7 @@ class Input {
             if (w.isWalkable(x, y, z) && t.zone !== ZONE.QUARANTINE) { t.zone = ZONE.QUARANTINE; count++; }
             break;
           case "table":
-            if (w.isWalkable(x, y, z) && t.built === B.NONE && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; t.buildMaterial = this.material; count++; }
+            if (w.isWalkable(x, y, z) && this.canPlaceFixture(t) && !t.buildJob && !t.furniture && !t.stockpile && !t.workshop) { t.buildJob = true; t.buildKind = "table"; t.buildMaterial = this.material; count++; }
             break;
           case "erase":
             if (t.designation || t.buildJob || t.stockpile || t.zone || t.furniture || t.workshop

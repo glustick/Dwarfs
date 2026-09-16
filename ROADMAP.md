@@ -153,6 +153,21 @@ actual room instead of colony-wide counters).
 
 ## Player-requested backlog
 
+_Live-play feedback, 2026-09-16 — four items filed from an actual colony and all
+shipped the same day._
+
+- [x] ~~Furniture and workshops on a finished floor~~ — every build required bare
+      ground, so flooring a tile made it permanently unfurnishable: you paid for a
+      floor and then could not put a bed on it. Furniture and workshops now accept a
+      finished floor (walls, floors, doors and palisades still need bare ground,
+      since they replace what is there rather than sitting on it). **v1.39.0.**
+- [x] ~~Mining a selection abandoned the interior~~ — a drag designated only the
+      stone with an open face, so elves mined the rim and stopped with the middle
+      undug. **v1.37.0.**
+- [x] ~~Move orders were ignored unless a raid was on~~ — the order was recorded and
+      never read; the logic behind it only ran when enemies existed. **v1.37.0.**
+- [x] ~~RTS-style direct control~~ — drag-select, enlist the group, right-click to
+      move, right-click an enemy to attack. **v1.38.0.**
 - [x] ~~Manual military control~~ — box-select a soldier or squad with the
       Inspect tool and click a destination for a direct move order; they
       hold that ground (still fighting anything adjacent) instead of
