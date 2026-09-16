@@ -73,8 +73,17 @@ Useful: the build number, what you did, what you expected, what happened, and �
 if it's an event in the game rather than a crash — the relevant line from the
 **📜 Log** tab (it's filterable by orders, combat, factions, events…).
 
-If the game throws a JavaScript error, opening the browser console (F12) and
-pasting the first line is enormously helpful.
+**There is now a button for this.** Open **⏸ Menu → 📋 Diagnostics**. It writes a
+plain-text file (`ee-diagnostics-<build>.txt`) covering the build, your browser,
+the colony's state, the game's own performance numbers, a check that the save
+still serialises, and — most usefully — **any JavaScript errors the game has
+thrown since it started**, with the line they came from. Attach that file to your
+notes and I have almost everything I need.
+
+It is also offered on the *colony is lost* screen, since that is exactly when a
+report is worth writing. It copies to the clipboard as well where the browser
+allows it. If nothing downloads, check your browser's download settings and fall
+back to the console (F12) — the first line of an error still helps.
 
 ## For me (not the playtester)
 

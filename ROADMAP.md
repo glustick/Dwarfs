@@ -318,6 +318,11 @@ actual room instead of colony-wide counters).
       a vampire sting, cave-ins, floods, milestones, undo, zone stamps,
       autosave, load, equip and trade.
 
+## Playtest support
+
+- ~~A report the playtester can hand back~~ — **v1.33.0**: 📋 Diagnostics writes
+  build, colony state, performance, save-check and captured errors to a file.
+
 ## Tier 8 — playtest feedback (complete)
 
 _Requested 2026-09-15, after the playtest build went out. All seven items shipped,

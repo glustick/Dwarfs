@@ -595,7 +595,15 @@ class Game {
     dt = Math.min(dt, 0.1); // clamp huge frames
     const gdt = this.paused ? 0 : dt * this.speed;
 
+    // Exponentially weighted frame and simulation costs, for the diagnostics
+    // report — an average over frames, not the last one, so it stays honest.
+    this.frameMs = this.frameMs == null ? dt * 1000 : this.frameMs * 0.95 + dt * 1000 * 0.05;
+    const t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
     if (gdt > 0) this.update(gdt);
+    if (t0) {
+      const um = performance.now() - t0;
+      this.updateMs = this.updateMs == null ? um : this.updateMs * 0.95 + um * 0.05;
+    }
     this.renderer.draw();
     // camera keys (real-time regardless of pause)
     this.handleCameraKeys(dt);

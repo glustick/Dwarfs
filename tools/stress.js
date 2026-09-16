@@ -18,7 +18,7 @@ const vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
 const POP = parseInt(process.argv[2] || "40", 10);
 const MAP = process.argv[3] || "large";
-const FILES = "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game".split(",");
+const FILES = "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,diagnostics".split(",");
 
 // ---- minimal DOM (same stub as smoke.js) ----
 class ClassList {

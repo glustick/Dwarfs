@@ -17,7 +17,7 @@ const vm = require("vm");
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
 // audio.js is deliberately omitted: it needs a Web Audio API (see smoke-audio.js).
 const FILES = (process.argv[3] ||
-  "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game"
+  "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,diagnostics"
 ).split(",");
 
 // ---------------------------------------------------------------- DOM stub
@@ -636,6 +636,51 @@ check("accessibility: the interface scale is remembered and applied", () => {
   if (get() !== "compact") throw new Error("the scale did not change");
   set("nonsense");
   if (get() !== "normal") throw new Error("an unknown scale should fall back to normal");
+});
+
+check("diagnostics: a report carries the facts a playtest needs", () => {
+  const D = run("Diagnostics");
+  D.clear();
+  D.record("before any game", "", 0, "");
+  if (D.errors[0].day !== null) throw new Error("an error before a colony should record no day");
+  const game = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  ctx.window.game = game;                       // record() reads the live game's day
+  D.record("boom", "/tmp/x/game.js", 42, "at a\nat b");
+  D.record("second failure", "", 0, "");
+  if (D.errors.length !== 3) throw new Error("errors were not recorded");
+  if (D.errors[1].where !== "game.js:42") throw new Error("the source was not recorded: " + D.errors[1].where);
+  if (!(D.errors[1].day >= 1)) throw new Error("the in-game day was not recorded");
+
+  // the buffer is bounded, so a crash loop cannot eat memory
+  for (let i = 0; i < 60; i++) D.record("spam " + i, "", 0, "");
+  if (D.errors.length > 20) throw new Error("the error buffer is unbounded: " + D.errors.length);
+
+  const text = run("(g)=>Diagnostics.report(g)", game);
+  for (const want of ["Elven Empire diagnostics", "build", "save check", "perf", "colony", "seed"]) {
+    if (text.indexOf(want) === -1) throw new Error("the report is missing " + want);
+  }
+  if (text.indexOf("serialises OK") === -1) throw new Error("a healthy game did not pass the save check");
+  if (text.indexOf("errors") === -1) throw new Error("the report does not mention errors");
+
+  // with no game it must still produce something, not throw
+  if (run("()=>Diagnostics.report(null)").indexOf("no game in progress") === -1) {
+    throw new Error("an empty report does not say so");
+  }
+
+  // a game that cannot serialise must be reported, not swallowed
+  const broken = { settings: {}, time: 0, weather: "clear", dwarves: [], enemies: [], items: [],
+                   world: { w: 1, h: 1, seed: 1, minZ: 0 },
+                   season: () => ({ name: "Spring" }),
+                   serialize: () => { throw new Error("nope"); } };
+  if (run("(b)=>Diagnostics.report(b)", broken).indexOf("FAILED to serialise") === -1) {
+    throw new Error("a broken save check was not caught");
+  }
+
+  // delivering must not throw even where the DOM cannot do it
+  const how = run("(t)=>Diagnostics.deliver(t,'x.txt')", "hello");
+  if (!how) throw new Error("deliver returned nothing");
+  D.clear();
+  ctx.window.game = null;
 });
 
 // ---------------------------------------------------------------- report

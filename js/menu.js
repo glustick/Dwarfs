@@ -196,11 +196,13 @@ class App {
         <div class="mini" style="text-align:center">${s.difficulty} · ${s.map}</div>
         <div class="menu-btns" style="margin-top:18px">
           <button class="menu-btn primary" id="lost-new"><span class="mi">🌱</span><span>Found a new colony</span></button>
+          <button class="menu-btn" id="lost-diag"><span class="mi">📋</span><span>Write a diagnostics report</span></button>
           <button class="menu-btn" id="lost-load"><span class="mi">📂</span><span>Load a save</span></button>
           <button class="menu-btn ghost" id="lost-menu"><span class="mi">🚪</span><span>Main menu</span></button>
         </div>
       </div>`, "lost");
     document.getElementById("lost-new").onclick = () => this.openNewGameDialog(false);
+    document.getElementById("lost-diag").onclick = () => this.toast(Diagnostics.send(g));
     document.getElementById("lost-load").onclick = () => this.openLoadDialog();
     document.getElementById("lost-menu").onclick = () => this.openMainMenu();
   }
@@ -342,6 +344,7 @@ class App {
           <button class="spd" id="uiscale-btn" title="Interface scale" aria-label="Change the interface scale">🔍</button>
           <span class="ui-lbl" id="uiscale-lbl">Scale</span>
           <button class="tut-btn ui-codex" id="help-btn">📖 Codex</button>
+          <button class="tut-btn ui-diag" id="diag-btn" title="Write a diagnostics report to attach to playtest notes">📋 Diagnostics</button>
         </div>
         <div class="menu-section-title">🎨 Theme</div>
         <div class="theme-row" id="theme-row">
@@ -390,6 +393,8 @@ class App {
     };
     const codexBtn = document.getElementById("help-btn");
     if (codexBtn) codexBtn.onclick = () => this.openCodex();
+    const diagBtn = document.getElementById("diag-btn");
+    if (diagBtn) diagBtn.onclick = () => this.toast(Diagnostics.send(window.game));
     const palBtn = document.getElementById("palette-btn");
     if (palBtn) palBtn.onclick = () => {
       setPalette(window.__paletteSafe ? "default" : "safe");

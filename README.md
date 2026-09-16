@@ -372,6 +372,13 @@ held at its height, what you researched, and how many you laid to rest.
 - **📜 Log** — a filterable chronicle (orders, combat, factions, events…), and
   **🏆 Records** for milestones and every elf who has ever lived here.
 
+## Reporting a bug
+
+**⏸ Menu → 📋 Diagnostics** writes a text file describing the run — build,
+colony, performance, and any JavaScript errors the game has thrown, with the line
+they came from. Attach it to a bug report. It is offered on the *colony is lost*
+screen too.
+
 ## Accessibility
 
 Two settings live in **⏸ Menu → 🎛 Interface**:

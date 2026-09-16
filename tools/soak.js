@@ -24,7 +24,7 @@ const vm = require("vm");
 const ROOT = path.resolve(__dirname, "..");
 const DAYS = parseInt(process.argv[2] || "20", 10);
 const POP = parseInt(process.argv[3] || "18", 10);
-const FILES = "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game".split(",");
+const FILES = "version,utils,settings,codex,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,diagnostics".split(",");
 
 // ---------------------------------------------------------------- DOM stub
 class ClassList {

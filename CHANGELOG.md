@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.33.0 (build 63)
+Made for the playtest: a report a playtester can actually hand back.
+
+- **📋 Diagnostics** (pause menu → Interface, and on the *colony is lost* screen)
+  writes `ee-diagnostics-<build>.txt`: build and browser, colony state, settings,
+  the mean frame and simulation cost, a check that the save still serialises, the
+  recent log, and **every JavaScript error the game has thrown since it started**
+  with the file and line they came from. It copies to the clipboard too where the
+  browser allows it, but the downloaded file is the guarantee — a page opened
+  straight from `file://` has no clipboard permission.
+- **Errors are now captured at all**, in a bounded 20-entry ring buffer, so a
+  crash that flashed past on the console is still in the report afterwards.
+- The game tracks a **mean frame cost and mean simulation cost** (exponentially
+  weighted, so it is not just the last frame), which the report quotes — so a
+  performance complaint arrives with a number attached.
+- `PLAYTEST.md` now points the playtester at the button instead of asking them to
+  open the developer console.
+- `tools/smoke.js`: 34 checks.
+
 ## v1.32.0 (build 62)
 The three parked items: accessibility and save robustness.
 
