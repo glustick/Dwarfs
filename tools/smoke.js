@@ -295,6 +295,7 @@ check("tech tree: every tech is rendered and reachable", () => {
   if (!html.includes("tech-tier")) throw new Error("no tier headings rendered");
   // the unlocks line should be derived, so at least one tech must advertise one
   if (!html.includes("tech-unlocks")) throw new Error("no technology advertised what it unlocks");
+  if (!html.includes("tt-gate")) throw new Error("a gated tier does not advertise what it needs");
   if (!/\d+ of \d+ technologies/.test(html)) throw new Error("no researched counter rendered");
 });
 
@@ -494,6 +495,90 @@ check("arms: the inspector offers an equipment picker", () => {
   if (!html.includes("Equipment")) throw new Error("the inspector has no Equipment section");
   if (!html.includes('data-equip=""')) throw new Error("there is no way to disarm an elf");
   if (!/data-equip="(knife|shortbow|stone_spear)"/.test(html)) throw new Error("no weapons are offered");
+});
+
+check("mining: a designation covers the volume, one layer at a time", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const K = run("K");
+  const w = gs.world;
+  let spot = null;
+  // Find a column of rock: a surface stone tile that also has stone under it.
+  // The level below only exists once the world has generated it, which is what
+  // digging a stairwell down does in play — so materialise it first.
+  w.getLevel(-1);
+  for (let y = 1; y < w.h - 1 && !spot; y++) for (let x = 1; x < w.w - 1 && !spot; x++) {
+    const t = w.get(x, y, 0);
+    if (!t || t.kind !== K.STONE || !w.hasWalkableNeighbor(x, y, 0)) continue;
+    const below = w.get(x, y, -1);
+    if (below && below.kind === K.STONE) spot = { x, y };
+  }
+  if (!spot) throw new Error("no column of rock to test mining with");
+  gs.input.tool = "dig"; gs.viewZ = 0;
+  gs.input.applyTool({ x: spot.x, y: spot.y }, { x: spot.x, y: spot.y });
+  if (w.get(spot.x, spot.y, 0).designation !== "dig") throw new Error("the tile was not designated");
+  let queued = 0;
+  for (let z = -1; z >= w.minZ; z--) {
+    const t = w.get(spot.x, spot.y, z);
+    if (t && t.designation === "dig" && t.digQueue > 0) queued++; else break;
+  }
+  if (!queued) throw new Error("no deeper layers were queued - volume mining is not working");
+  run("(g)=>g.jobs.reindex()", gs);
+  const offered = gs.jobs.candidates.dig.some(([x, y, z]) => x === spot.x && y === spot.y && z < 0);
+  if (offered) throw new Error("a queued layer was offered before the layer above was cleared");
+});
+
+check("mining: gold and marble are hidden until the rock is worked", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "medium" });
+  const w = gs.world, hiddenOres = run("HIDDEN_ORES");
+  let precious = 0, hidden = 0;
+  for (let z = 0; z >= w.minZ; z--) {
+    const tiles = w.getLevel(z);
+    if (!tiles) continue;
+    for (const row of tiles) for (const t of row) {
+      if (!t.ore) continue;
+      if (hiddenOres.includes(t.ore)) { precious++; if (!t.revealed) hidden++; }
+      else if (!t.revealed) throw new Error("common ore should not be hidden: " + t.ore);
+    }
+  }
+  if (!precious) throw new Error("no precious ore in the generated world");
+  if (!hidden) throw new Error("precious ore was not hidden at world gen");
+});
+
+check("shifts: a night elf works while everyone else sleeps", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const DAY = run("DAY_LENGTH");
+  const d = gs.dwarves[0];
+  d.hunger = 0; d.thirst = 0; d.energy = 80;
+  d.wounded = false; d.infected = false; d.vampireExposed = false;
+  d.schedule = { day: "work", night: "sleep" };
+  gs.time = DAY * 0.9;                      // night
+  d.shiftPref = "any";
+  if (gs.resolveActivity(d) !== "sleep") throw new Error("an ordinary elf should be asleep at night");
+  d.shiftPref = "night";
+  if (gs.resolveActivity(d) !== "work") throw new Error("a night-shift elf should be working at night");
+  gs.time = DAY * 0.5;                      // daytime
+  if (gs.resolveActivity(d) !== "sleep") throw new Error("a night-shift elf should sleep through the day");
+  d.shiftPref = "any";
+  if (gs.resolveActivity(d) !== "work") throw new Error("an ordinary elf should be working by day");
+});
+
+check("research: tiers are gated behind a built structure", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "standard", mapSize: "small" });
+  const w = gs.world, K = run("K");
+  for (const t of run("TECHS").filter(t2 => t2.tier === 1)) gs.tech[t.id] = true;
+  const tech = run("TECHS").find(t => t.tier === 2);
+  gs.rebuildZones();
+  if (gs.tierGateMet(2)) throw new Error("tier 2 should start locked");
+  if (!gs.tierGateMissing(2)) throw new Error("a locked tier should say what it needs");
+  if (gs.techPrereqsMet(tech)) throw new Error("a tier-2 tech should be locked before its structure exists");
+  let placed = false;
+  for (let y = 2; y < w.h - 2 && !placed; y++) for (let x = 2; x < w.w - 2 && !placed; x++) {
+    if (w.isWalkable(x, y, 0)) { w.get(x, y, 0).workshop = "crafting"; placed = true; }
+  }
+  if (!placed) throw new Error("could not place a test bench");
+  gs.rebuildZones();
+  if (!gs.tierGateMet(2)) throw new Error("building a Crafting Bench did not open tier 2");
+  if (!gs.techPrereqsMet(tech)) throw new Error("the tech is still gated after the bench was built");
 });
 
 // ---------------------------------------------------------------- report

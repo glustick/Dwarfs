@@ -374,7 +374,7 @@ class Renderer {
     ctx.lineTo(sx + ((h >> 3) % 100) / 100 * s, sy + s);
     ctx.stroke();
     // ore flecks
-    if (t.ore) {
+    if (t.ore && t.revealed) {
       ctx.fillStyle = ORE_COLOR[t.ore];
       for (let i = 0; i < 5; i++) {
         const rx = sx + ((h >> (i * 2)) % 100) / 100 * s * 0.8 + s * 0.1;

@@ -517,7 +517,20 @@ class Input {
         const before = this.tileSnapshot(t);
         switch (this.tool) {
           case "dig":
-            if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y, z)) { t.designation = "dig"; count++; }
+            if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y, z)) {
+              t.designation = "dig"; t.digQueue = 0; count++;
+              // Volume mining: the same footprint is queued downward through the
+              // rock. Elves clear the layer they can reach first; jobs.reindex
+              // keeps a queued tile out of the pool until the tile above it has
+              // been dug, so the block comes out one layer at a time.
+              let depth = 0;
+              for (let zz = z - 1; zz >= w.minZ; zz--) {
+                const below = w.get(x, y, zz);
+                if (!below || below.kind !== K.STONE) break;
+                depth++;
+                if (!below.designation) { below.designation = "dig"; below.digQueue = depth; count++; }
+              }
+            }
             break;
           case "chop":
             if (t.feature === F.TREE) { t.designation = "chop"; count++; }

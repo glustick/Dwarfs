@@ -311,6 +311,8 @@ class Game {
           Math.round(t.trapCooldown) || 0,
           t.workshopTarget || 0, t.workshopProduced || 0,
           t.grave || 0,
+          t.revealed === false ? 0 : 1,
+          t.digQueue || 0,
         ];
       }
     }
@@ -326,7 +328,7 @@ class Game {
       infected: d.infected ? 1 : 0, infectionTimer: d.infectionTimer || 0,
       vampiric: d.vampiric ? 1 : 0, vampireTimer: d.vampireTimer || 0, vampireExposed: d.vampireExposed ? 1 : 0,
       checkupCooldown: d.checkupCooldown || 0, beingInspected: d.beingInspected ? 1 : 0,
-      weapon: d.weapon, armor: d.armor, quiver: d.quiver,
+      weapon: d.weapon, armor: d.armor, quiver: d.quiver, shiftPref: d.shiftPref || "any",
       inventory: d.inventory || [],
       traits: d.traits || [],
       state: d.state, thought: d.thought, workTimer: d.workTimer,
@@ -383,6 +385,7 @@ class Game {
       d.energy = o.energy != null ? o.energy : 100;
       d.hp = o.hp != null ? o.hp : 100; d.maxhp = o.maxhp || 100;
       d.military = !!o.military; d.weapon = o.weapon || null; d.armor = o.armor || null; d.quiver = o.quiver || 0;
+      d.shiftPref = o.shiftPref || "any";
       d.inventory = Array.isArray(o.inventory) ? o.inventory : [];
       d.traits = Array.isArray(o.traits) ? o.traits : rollTraits(Math.random);
       d.manualOrder = o.manualOrder || null;
@@ -920,7 +923,11 @@ class Game {
     if (d.vampireExposed) return "quarantine";
     if (d.wounded || d.infected) return "recover";
     if (d.energy < 15) return "sleep";
-    return d.schedule[this.shift()] || "work";
+    // A night-shift elf runs their day/night the other way round, so a colony can
+    // keep working after everyone else has gone to bed.
+    const global = this.shift();
+    const local = d.shiftPref === "night" ? (global === "night" ? "day" : "night") : global;
+    return d.schedule[local] || "work";
   }
 
   updateDwarf(d, dt) {
@@ -1256,7 +1263,20 @@ class Game {
     return r;
   }
 
-  techPrereqsMet(t) { return (t.requires || []).every(id => this.hasTech(id)); }
+  // A tier is open once the structure it asks for has been built.
+  tierGateMet(tier) {
+    const gate = TIER_GATES[tier];
+    if (!gate) return true;
+    return !!(this.builtWorkshops && this.builtWorkshops.has(gate.build));
+  }
+  tierGateMissing(tier) {
+    if (this.tierGateMet(tier)) return null;
+    return (TIER_GATES[tier] || {}).label || "a workshop";
+  }
+
+  techPrereqsMet(t) {
+    return (t.requires || []).every(id => this.hasTech(id)) && this.tierGateMet(t.tier);
+  }
   canResearch(t) { return !this.hasTech(t.id) && this.techPrereqsMet(t) && this.research >= t.cost; }
 
   buyTech(t) {
@@ -2043,6 +2063,7 @@ class Game {
     this.farmTiles = []; this.studyTiles = []; this.hospitalTiles = []; this.quarantineTiles = [];
     this.depotTiles = []; this.doorTiles = [];
     this.graveyardTiles = [];
+    this.builtWorkshops = new Set();
     this.watchtowerTiles = []; this.trapTiles = [];
     const w = this.world;
     for (let z = 0; z >= w.minZ; z--) {
@@ -2063,6 +2084,7 @@ class Game {
           else if (t.zone === ZONE.QUARANTINE) this.quarantineTiles.push([x, y, z]);
           else if (t.zone === ZONE.TRADE) this.depotTiles.push([x, y, z]);
           else if (t.zone === ZONE.GRAVEYARD) this.graveyardTiles.push([x, y, z]);
+          if (t.workshop) this.builtWorkshops.add(t.workshop);
           if (t.built === B.DOOR) this.doorTiles.push([x, y, z]);
         }
     }
@@ -2766,7 +2788,7 @@ class Game {
         <span class="res-rate">+${rate.toFixed(1)}/s</span></div>
       <div class="res-progress" title="${doneCount} of ${TECHS.length} researched"><i style="width:${pct}%"></i></div>
       <div class="mini">${doneCount} of ${TECHS.length} technologies researched</div>
-      <div class="sched-note">Points accrue from your elves' intellect and Study zones. Spend them to unlock buildings, zones, arms and efficiency bonuses.</div>
+      <div class="sched-note">Points accrue from your elves' intellect and Study zones. Each tier also needs a structure built at the previous tier — look for the 🔒 on a tier header.</div>
       <div class="tech-list">`;
     // Group by tier. The ceiling is derived from the data so a new top tier can
     // never silently fall off the bottom of the list again.
@@ -2777,9 +2799,12 @@ class Game {
       // Tiers collapse: a finished tier is just noise once you have moved on.
       const doneInTier = inTier.filter(t => this.hasTech(t.id)).length;
       const open = this.techTierIsOpen(tier, inTier);
-      html += `<button class="tech-tier${open ? "" : " closed"}" data-tier="${tier}" aria-expanded="${open}">
+      const gateMissing = this.tierGateMissing(tier);
+      html += `<button class="tech-tier${open ? "" : " closed"}${gateMissing ? " gated" : ""}" data-tier="${tier}" aria-expanded="${open}">
           <span class="tt-arrow">${open ? "▾" : "▸"}</span><span>Tier ${tier}</span>
-          <span class="tt-count">${doneInTier}/${inTier.length}</span>
+          ${gateMissing
+            ? `<span class="tt-gate">🔒 build a ${gateMissing}</span>`
+            : `<span class="tt-count">${doneInTier}/${inTier.length}</span>`}
         </button>`;
       if (!open) continue;
       for (const t of inTier) {
@@ -3106,7 +3131,8 @@ class Game {
       if (matInfo && (tile.built === B.WALL || tile.built === B.FLOOR || tile.built === B.DOOR)) {
         parts.push(`Material: <span class="tag">${matInfo.icon} ${matInfo.name}</span>`);
       }
-      if (tile.ore) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
+      if (tile.ore && tile.revealed) parts.push(`Ore: <span class="tag" style="color:${ORE_COLOR[tile.ore]}">${tile.ore}</span>`);
+      else if (tile.ore && !tile.revealed) parts.push(`<div class="mini">Unworked rock — something glints deeper in.</div>`);
       if (tile.feature) parts.push(`Plant: <span class="tag">${tile.feature}</span>`);
       if (tile.feature === F.CROP) parts.push(`Growth: <span class="tag">${Math.round(tile.growth * 100)}%</span>`);
       if (tile.furniture === FURN.GENERATOR || tile.furniture === FURN.ICEBOX || tile.furniture === FURN.WATCHTOWER || tile.furniture === FURN.TRAP || tile.furniture === FURN.TORCH || tile.furniture === FURN.LANTERN || tile.furniture === FURN.LAMP) {
@@ -3192,6 +3218,11 @@ class Game {
         <div class="sd-shifts">
           <label>☀️<select class="sd-day">${opts(d.schedule.day)}</select></label>
           <label>🌙<select class="sd-night">${opts(d.schedule.night)}</select></label>
+          <label title="Which hours this elf keeps">🕒<select class="sd-shift">
+            <option value="any"${d.shiftPref !== "day" && d.shiftPref !== "night" ? " selected" : ""}>Any hours</option>
+            <option value="day"${d.shiftPref === "day" ? " selected" : ""}>Day shift</option>
+            <option value="night"${d.shiftPref === "night" ? " selected" : ""}>Night shift</option>
+          </select></label>
         </div>
         <div class="sd-labors">
           ${LABORS.map(l => {
@@ -3215,6 +3246,8 @@ class Game {
       const d = this.dwarves[+row.dataset.idx];
       row.querySelector(".sd-day").onchange = (e) => { d.schedule.day = e.target.value; };
       row.querySelector(".sd-night").onchange = (e) => { d.schedule.night = e.target.value; };
+      const shiftSel = row.querySelector(".sd-shift");
+      if (shiftSel) shiftSel.onchange = (e) => { d.shiftPref = e.target.value; };
       row.querySelectorAll(".chip").forEach(chip => {
         chip.onclick = () => {
           const id = chip.dataset.labor;

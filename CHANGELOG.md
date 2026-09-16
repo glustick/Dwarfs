@@ -4,6 +4,26 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.30.0 (build 59)
+Tier 8, batch 2 — the last four items.
+
+- **Volume mining.** A mining designation now covers a *volume*: dragging selects
+  the same footprint down through the rock, and elves clear it one layer at a
+  time — the layer they can reach first, then the next, until the whole block is
+  gone. Deeper tiles are queued (`tile.digQueue`) and kept out of the job pool
+  until the layer above them has been dug.
+- **Precious ore is hidden until dug.** Gold and marble are no longer visible, or
+  inspectable, until the rock in front of them is worked — you discover them by
+  mining, and the log tells you when a vein is exposed. Iron and coal stay visible
+  as the common case.
+- **Day and night shifts.** Each elf keeps **day**, **night** or **any** hours,
+  set from the Schedule tab. A night-shift elf runs their day/night the other way
+  round, so a colony can keep working after everyone else has gone to bed.
+- **Research tiers are earned, not bought.** Tiers 2, 3 and 4 each need a
+  structure built at the previous tier — a **Crafting Bench**, a **Forge**, an
+  **Electronics Bench** — shown as a 🔒 on the tier header. Points alone no longer
+  climb the tree.
+
 ## v1.29.0 (build 58)
 Tier 8, batch 1.
 

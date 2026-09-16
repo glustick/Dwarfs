@@ -995,3 +995,8 @@ button.tech-tier:hover { color: var(--text); }
 
 /* ---- inspector equipment picker ---- */
 .equip-row { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0 2px; }
+
+/* ---- research: gated tiers ---- */
+.tech-tier .tt-gate { margin-left: auto; font-size: 9.5px; letter-spacing: .04em; color: var(--warn); text-transform: none; }
+.tech-tier.gated { color: var(--muted-2); }
+.sd-shifts select.sd-shift { max-width: 104px; }

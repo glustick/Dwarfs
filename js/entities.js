@@ -205,6 +205,7 @@ class Dwarf {
     this.armor = null;       // equipped armor sub (shield/mail)
     this.quiver = 0;         // arrows held by a bowman (bundles refill adds 5)
     this.assignCd = 0;       // idle job-search throttle (see Game.updateDwarf)
+    this.shiftPref = "any";  // "any" | "day" | "night" — which hours they keep
     this.inventory = [];     // persistent carried relics and other personal items
     this.attackCd = 0;       // swing cooldown
     this.combatRepath = 0;   // throttle for chasing/fleeing pathing

@@ -24,6 +24,10 @@ const F = {
 // Ores (and marble, a decorative stone) embedded in solid rock
 const ORES = ["iron", "gold", "coal", "marble"];
 const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "#e8e2d8" };
+// Veins of these are not visible (or selectable) until the rock in front of them
+// has been worked: you should discover treasure by digging, not by looking.
+// Iron and coal stay visible as the common case.
+const HIDDEN_ORES = ["gold", "marble"];
 
 // Built structures
 const B = { NONE: null, WALL: "wall", FLOOR: "floor", DOOR: "door", STAIRS: "stairs", RAMP: "ramp" };
@@ -68,6 +72,8 @@ class Tile {
     this.kind = kind;
     this.feature = F.NONE;
     this.ore = null;
+    this.revealed = true;   // false for precious veins until they are dug out
+    this.digQueue = 0;      // >0 = waiting for the layer above to be cleared
     this.aquifer = false;     // hidden hazard: mining this stone tile floods it instead of a normal drop
     this.flooded = false;     // true only for aquifer-originated water (not an ordinary surface lake) — lets `drain` target it
     this.growth = 0;          // plant maturity 0..1
@@ -158,6 +164,7 @@ class World {
         const veins = noise(x + z * 733, y - z * 411, 22, 4);
         if (veins > 0.55 && rng() < 0.16) {
           t.ore = choice(rng, ORES);
+          if (HIDDEN_ORES.includes(t.ore)) t.revealed = false;
         } else {
           // Aquifers: a real hazard, not a common annoyance — rarer than ore,
           // own noise field so they don't just track vein placement, and
@@ -201,6 +208,8 @@ class World {
         t.workshop = a[13] || null; t.workshopRecipe = a[14] || 0;
         t.workshopTarget = a[23] || 0; t.workshopProduced = a[24] || 0;
         t.grave = a[25] || null;
+        t.revealed = a[26] === undefined ? true : !!a[26];
+        t.digQueue = a[27] || 0;
         t.doorLocked = !!a[15];
         t.bedOccupants = a[16] ? String(a[16]).split(",") : [];
         t.stockpileFilter = a[17] || null;
@@ -262,7 +271,7 @@ class World {
         } else if (rock > 0.62) {
           // exposed stone highlands — solid rock to mine into
           t = new Tile(K.STONE);
-          if (rng() < 0.11) t.ore = choice(rng, ORES);
+          if (rng() < 0.11) { t.ore = choice(rng, ORES); if (HIDDEN_ORES.includes(t.ore)) t.revealed = false; }
         } else {
           t = new Tile(moist > 0.5 ? K.GRASS : K.SOIL);
         }

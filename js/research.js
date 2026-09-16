@@ -95,6 +95,14 @@ const TECHS = [
 ];
 
 const TECH_BY_ID = {};
+
+// Each tier has to be *earned*: build something at the previous tier and the next
+// one opens up. Research points alone are no longer enough to climb.
+const TIER_GATES = {
+  2: { build: "crafting", label: "Crafting Bench" },
+  3: { build: "forge", label: "Forge" },
+  4: { build: "electronics", label: "Electronics Bench" },
+};
 for (const t of TECHS) TECH_BY_ID[t.id] = t;
 
 // Tools/zones that stay hidden until their tech is researched.

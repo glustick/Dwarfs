@@ -324,21 +324,21 @@ _Requested 2026-09-15, after the playtest build went out. Not started. Ordered
 roughly as I would tackle them. Each item notes where it lands in the code, so
 the work can start without re-deriving it._
 
-- [ ] **Volume mining (layered designations).** A mining designation should cover a
+- [x] ~~Volume mining (layered designations)~~ — `tile.digQueue` marks the depth; `jobs.reindex` holds a queued tile back until the layer above is cleared. (Originally:) A mining designation should cover a
       volume, not just the layer you drew on: dragging selects the same footprint
       through the levels below, elves clear the **outermost layer first**, then the
       next, until the whole selected block is gone. Today `tile.designation` is a
       single flag on one tile, so this needs a designation to own an ordered queue
       of tiles (`jobs.js` mine job + `world.js` tile fields; serialization must
       stay append-only).
-- [ ] **Precious ore hidden until dug.** Gold and the rarer metals should not be
+- [x] ~~Precious ore hidden until dug~~ — `tile.revealed` starts false for gold and marble, is honoured by rendering and the inspector, and is set when a neighbouring tile is dug. (Originally:) Gold and the rarer metals should not be
       visible — or selectable — until the rock in front of them has been worked.
       You should *discover* them by mining, not by looking. Once revealed they
       render and can be designated like any other vein. Iron and coal can stay
       visible as the common case. Needs a per-tile `revealed` flag, set when a
       neighbouring tile is mined, consulted by rendering, the hover tip and the
       inspector, and carried in the save.
-- [ ] **A work scheduler with day and night shifts.** Every elf currently sleeps
+- [x] ~~A work scheduler with day and night shifts~~ — `dwarf.shiftPref` ("any" | "day" | "night"), set per elf in the Schedule tab, applied in `resolveActivity`. (Originally:) Every elf currently sleeps
       and wakes together, so a colony can't run around the clock. Add a shift
       setting (day / night / flexible) per elf or per group, driven from the
       Schedule tab, so some elves work the day and others the night. Touches
@@ -351,7 +351,7 @@ the work can start without re-deriving it._
       a chosen elf, dropping their old one where they stand.
 - [x] ~~Collapsible research tiers~~ — each tier is an accordion showing
       `done/total`, finished tiers start collapsed, and the state is remembered.
-- [ ] **Real tier gating.** Give each tier more prerequisites, and gate the *next*
+- [x] ~~Real tier gating~~ — `TIER_GATES` + `tierGateMet` feed `techPrereqsMet`; the tier header shows a 🔒 until the structure exists. (Originally:) Give each tier more prerequisites, and gate the *next*
       tier behind a **structure built at the current tier** — you research your way
       to a building, then building it opens the next tier — rather than points
       alone. Touches `TECHS[].requires`, `techPrereqsMet` and the build system

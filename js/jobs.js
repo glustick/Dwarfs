@@ -125,7 +125,11 @@ class JobManager {
         for (let x = 0; x < w.w; x++) {
           const t = tiles[y][x];
           if (t.reserved) continue;
-          if (t.designation === "dig" && w.hasWalkableNeighbor(x, y, z)) c.dig.push([x, y, z]);
+          if (t.designation === "dig" && w.hasWalkableNeighbor(x, y, z)) {
+            // Volume mining: a queued (deeper) tile waits for the layer above it.
+            const above = w.get(x, y, z + 1);
+            if (!(t.digQueue > 0 && above && above.designation === "dig")) c.dig.push([x, y, z]);
+          }
           else if (t.designation === "chop" && w.hasWalkableNeighbor(x, y, z)) c.chop.push([x, y, z]);
           else if (t.designation === "gather" && w.hasWalkableNeighbor(x, y, z)) c.gather.push([x, y, z]);
           else if (t.designation === "forest" && w.hasWalkableNeighbor(x, y, z)) c.forest.push([x, y, z]);
@@ -1032,7 +1036,13 @@ class JobManager {
     const t = w.get(job.x, job.y, job.z);
 
     if (job.type === "dig" && t) {
-      t.designation = null; t.reserved = false;
+      t.designation = null; t.reserved = false; t.digQueue = 0;
+      // Working the rock exposes whatever was behind it.
+      t.revealed = true;
+      for (const [nx, ny] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        const nt = w.get(job.x + nx, job.y + ny, job.z);
+        if (nt && nt.ore && !nt.revealed) { nt.revealed = true; g.log(`A vein of ${nt.ore} is exposed!`, "good", "labor"); }
+      }
       const ore = t.ore;
       if (t.aquifer) {
         // Struck groundwater — the chamber floods instead of yielding stone/ore.

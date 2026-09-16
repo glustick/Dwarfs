@@ -296,6 +296,30 @@ across games as a hall of records.
 - **Time controls** — the ⏸ ▶ ⏩ ⏭ buttons (top bar) pause or set speed so you can
   stop to make decisions or fast-forward the grind.
 
+## Mining
+
+Drag the **⛏️ Mine** tool and the designation covers a **volume**, not just the
+layer you drew on: the same footprint is queued downward, and elves clear it **one
+layer at a time** — the rock they can reach first, then the next, until the block
+is gone. A deeper tile waits until the layer above it has been dug, so you can
+carve a whole shaft in one gesture.
+
+**Gold and marble are hidden until you dig them out** — the rock has to be worked
+before a vein shows, and the log tells you when one is exposed. Iron and coal are
+always visible.
+
+## Work shifts
+
+Each elf keeps **day**, **night** or **any** hours (Schedule tab). A night-shift
+elf runs their day/night the other way round: they sleep through the day and work
+through the night, so a colony can keep mining while everyone else sleeps.
+
+## Research is earned
+
+Each tier needs a structure built at the previous tier: a **Crafting Bench** opens
+Tier 2, a **Forge** opens Tier 3, an **Electronics Bench** opens Tier 4. A 🔒 shows
+on the tier header until it exists — points alone won't climb the tree.
+
 ## Arming your elves
 
 A colony starts with nothing worth swinging, and the outbreak arrives around
@@ -315,8 +339,6 @@ Day 4 — so the arms ladder starts cheap:
 Soldiers **auto-equip a better spare weapon** when one is available, so simply
 queueing arms keeps your militia improving. Research tab shows what each
 technology unlocks.
-
-## Arming your elves
 
 A new colony starts with a small **armory** — stone knives, spears, short bows
 with arrows and a cloak — so it can defend itself from day one, before any
