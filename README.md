@@ -436,7 +436,10 @@ node tools/soak.js 15 20   # hostile-bot play for 15 days, asserting invariants
 node tools/stress.js       # load and per-slice timing (PROFILE=1 to profile)
 ```
 
-`smoke.js` boots the real game against a stubbed DOM and drives it. `smoke-audio.js`
+`tools/harness.js` holds what all four share — the stubbed DOM, the fixed-step
+clock, and loading the game scripts into a vm context — so a stub fix is made once
+rather than four times. `smoke.js` boots the real game against that stub and
+drives it. `smoke-audio.js`
 stubs the Web Audio API and checks the score builds across every season, weather and
 mood state. `soak.js` plays the game badly and randomly, checking that nothing throws
 and the world stays consistent. `stress.js` measures how the simulation behaves under

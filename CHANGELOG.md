@@ -4,6 +4,21 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.36.1 (build 67)
+Developer tooling only — the game itself is unchanged.
+
+- **`tools/harness.js`**: the stubbed DOM, the fixed-step clock and the script
+  loading are now shared by all four test tools instead of copy-pasted into each
+  one. The copy in `stress.js` had already drifted (it said "same stub as
+  smoke.js" and no longer was), which is the argument for the extraction: a stub
+  fix now happens once. ~180 lines of duplication gone.
+- **CI** runs the suites on Node **22 and 24** (the runtime this is developed
+  against, and the active LTS) rather than only 20, and the actions are on
+  `checkout@v7` / `setup-node@v7`.
+- The `redesign/` mock-ups that became the three themes are out of the repo tree;
+  they were an accidental commit and the themes have long since lived in CSS.
+  They remain in git history if they are ever wanted back.
+
 ## v1.36.0 (build 66)
 Two things aimed at what the playtest is meant to answer.
 

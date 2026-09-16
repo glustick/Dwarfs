@@ -14,12 +14,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Both the runtime this is developed against and the active LTS, because the
+    # tools are plain Node scripts and a version difference is exactly the kind of
+    # thing that would otherwise only show up on someone else's machine.
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: ${{ matrix.node-version }}
 
       - name: Simulation suite
         run: node tools/smoke.js

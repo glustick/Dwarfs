@@ -17,82 +17,6 @@ const vm = require("vm");
 const ROOT = path.resolve(process.argv[2] || path.join(__dirname, ".."));
 const FILES = "version,utils,settings,skills,research,milestones,db,world,pathfinding,entities,factions,jobs,storyteller,render,input,save,game,audio".split(",");
 
-// ---------------------------------------------------------------- DOM stub
-class ClassList {
-  constructor() { this.s = new Set(); }
-  add(...a) { a.forEach(x => this.s.add(x)); }
-  remove(...a) { a.forEach(x => this.s.delete(x)); }
-  toggle(c, force) {
-    if (force === undefined) { this.s.has(c) ? this.s.delete(c) : this.s.add(c); }
-    else if (force) this.s.add(c); else this.s.delete(c);
-    return this.s.has(c);
-  }
-  contains(c) { return this.s.has(c); }
-}
-class El {
-  constructor(id) {
-    this.id = id || ""; this.children = []; this.style = {}; this.dataset = {};
-    this.classList = new ClassList(); this._html = ""; this.textContent = "";
-    this.scrollTop = 0; this.scrollHeight = 0; this.offsetWidth = 120; this.offsetHeight = 24;
-    this.value = ""; this.disabled = false; this.listeners = {};
-  }
-  get innerHTML() { return this._html; }
-  set innerHTML(v) { this._html = String(v); }
-  appendChild(c) { this.children.push(c); return c; }
-  removeChild(c) { const i = this.children.indexOf(c); if (i >= 0) this.children.splice(i, 1); return c; }
-  remove() {}
-  addEventListener(t, fn) { (this.listeners[t] || (this.listeners[t] = [])).push(fn); }
-  removeEventListener() {}
-  querySelector() { return null; }
-  querySelectorAll() { return []; }
-  setAttribute(k, v) { this["attr_" + k] = v; }
-  getAttribute(k) { return this["attr_" + k]; }
-  focus() {} select() {} click() {}
-  getBoundingClientRect() { return { left: 0, top: 0, width: 1000, height: 700 }; }
-  setPointerCapture() {}
-  get firstChild() { return this.children[0]; }
-}
-function makeCtx() {
-  const t = {};
-  const noop = () => {};
-  const grad = { addColorStop: noop };
-  return new Proxy(t, {
-    get(o, p) {
-      if (p in o) return o[p];
-      if (p === "createRadialGradient" || p === "createLinearGradient") return () => grad;
-      if (p === "measureText") return () => ({ width: 12 });
-      if (p === "getImageData" || p === "createImageData") return (x, y, w, h) => ({ data: new Uint8ClampedArray(Math.max(0, w * h * 4)), width: w, height: h });
-      if (p === "canvas") return o.__canvas;
-      return noop;
-    },
-    set(o, p, v) { o[p] = v; return true; },
-  });
-}
-class CanvasEl extends El {
-  constructor() { super("canvas"); this.width = 1000; this.height = 700; this._ctx = makeCtx(); this._ctx.__canvas = this; }
-  getContext() { return this._ctx; }
-}
-const elements = new Map();
-function getEl(id) { if (!elements.has(id)) elements.set(id, id === "canvas" ? new CanvasEl() : new El(id)); return elements.get(id); }
-const store = new Map();
-const localStorage = {
-  getItem: k => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-  removeItem: k => store.delete(k),
-  key: i => [...store.keys()][i],
-  get length() { return store.size; },
-};
-const documentStub = {
-  getElementById: getEl,
-  querySelector: () => null,
-  querySelectorAll: () => [],
-  createElement: tag => (tag === "canvas" ? new CanvasEl() : new El()),
-  addEventListener: () => {},
-  body: new El("body"),
-  documentElement: new El("html"),
-  hidden: false,
-};
-
 // ------------------------------------------------------- Web Audio API stub
 class Param {
   constructor(v = 0) { this.value = v; }
@@ -145,29 +69,12 @@ class AudioContextStub {
   }
 }
 
-let __clock = 0;
-const ctx = {
-  console, Math, Date, JSON, Object, Array, String, Number, Boolean, Set, Map, Promise,
-  Float32Array, Uint8Array, Uint8ClampedArray, Int32Array, isNaN, isFinite, parseInt, parseFloat,
-  setTimeout, clearTimeout, setInterval: () => 0, clearInterval: () => {},
-  // A fixed-step clock instead of the wall clock: the game seeds its world
-  // from performance.now(), so a real clock makes every run a different
-  // colony and the scenario checks only occasionally reproducible.
-  performance: { now: () => (__clock += 16) },
-  requestAnimationFrame: () => 0,
-  localStorage, document: documentStub,
-  AudioContext: AudioContextStub,
-};
-ctx.window = ctx; ctx.globalThis = ctx; ctx.self = ctx;
-ctx.devicePixelRatio = 1; ctx.innerWidth = 1000; ctx.innerHeight = 700;
-ctx.addEventListener = () => {};
-ctx.crypto = undefined; ctx.indexedDB = undefined; ctx.webkitAudioContext = undefined;
-vm.createContext(ctx);
-for (const name of FILES) {
-  const p = path.join(ROOT, "js", name + ".js");
-  vm.runInContext(fs.readFileSync(p, "utf8"), ctx, { filename: p });
-}
-
+// ---------------------------------------------------------------- harness
+const { createHarness } = require("./harness.js");
+const { ctx, document: documentStub } = createHarness({
+  files: FILES, root: ROOT,
+  onContext: (c) => { c.AudioContext = AudioContextStub; c.webkitAudioContext = undefined; },
+});
 // ---------------------------------------------------------------- scenarios
 const results = [];
 function check(name, fn) {
