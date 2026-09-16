@@ -962,6 +962,46 @@ check("hunting: a hunter kills a wild animal for meat, never a tamed one", () =>
   if (d.skillXp && !(after > before)) throw new Error("the hunter learned nothing");
 });
 
+check("command: several elves on one square can still be picked apart", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const a = gs.dwarves[0], b = gs.dwarves[1];
+  // put them on the same square, which a rout used to cause
+  b.x = a.x; b.y = a.y; b.z = a.z;
+  const t = { x: a.tileX, y: a.tileY };
+
+  gs.selectedDwarf = null;
+  gs.input.handleSelect(t);
+  const first = gs.selectedDwarf;
+  gs.input.handleSelect(t);
+  const second = gs.selectedDwarf;
+
+  if (!first || !second) throw new Error("a square with two elves on it selected nobody");
+  if (first === second) throw new Error("clicking a stack always returned the same elf — a selection dead end");
+  if (![first, second].includes(a) || ![first, second].includes(b)) {
+    throw new Error("cycling did not reach both elves on the square");
+  }
+  gs.input.handleSelect(t);
+  if (!gs.selectedDwarf) throw new Error("cycling left nothing selected");
+});
+
+check("rout: fleeing civilians scatter instead of all running for one tile", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const squad = gs.dwarves.slice(0, 4);
+  if (squad.length < 4) throw new Error("not enough elves to test a rout");
+  for (const d of squad) { d.fleeing = true; d.fleeTarget = gs.claimFleeSpot(d); }
+
+  const spots = new Set(squad.map(d => d.fleeTarget.x + "," + d.fleeTarget.y));
+  if (spots.size !== squad.length) {
+    throw new Error(`${squad.length} fleeing elves claimed only ${spots.size} distinct squares`);
+  }
+  // and each claimed square is somewhere they can actually stand
+  for (const d of squad) {
+    if (!gs.world.isWalkable(d.fleeTarget.x, d.fleeTarget.y, 0)) {
+      throw new Error("a flee spot was claimed on unwalkable ground");
+    }
+  }
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

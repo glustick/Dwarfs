@@ -4,6 +4,22 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.41.0 (build 73)
+A colony wipe, reported from play, and the two things that made it possible.
+
+- **A rout no longer merges the colony onto one square.** Every fleeing civilian ran
+  for the same tile — the colony entrance — and nothing stopped two elves sharing a
+  square, so an attack could stack the whole colony on it. Each fleeing elf now claims
+  its own landing spot near the entrance, so a rout scatters.
+- **A shared square is no longer a selection dead end.** Clicking a tile where several
+  elves stand steps through them one at a time instead of always handing back the
+  first, so a pile-up can always be picked apart. This is the safety net for the above:
+  even if elves do end up sharing a tile, you can still give them orders.
+- Still open, and recorded on the roadmap as such: `move()` has no occupancy check, so
+  one-elf-to-a-square is not yet enforced in movement itself. It wants a
+  wait-when-blocked step with an escape valve so a one-wide corridor cannot deadlock.
+- `tools/smoke.js`: 46 checks.
+
 ## v1.40.0 (build 72)
 - **Hunting is a labour and a skill.** Set it on an elf and they stalk the nearest wild
   animal, kill it once in reach, and leave **meat** where it fell (haulers collect it like

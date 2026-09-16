@@ -443,12 +443,18 @@ class Input {
   handleSelect(t, ev) {
     const g = this.game;
     // Did we click on a dwarf on the currently viewed floor?
-    let picked = null, bd = 0.7;
+    const near = [];
     for (const d of g.dwarves) {
       if ((d.z || 0) !== (g.viewZ || 0)) continue;
       const dd = Math.hypot(d.x + 0.5 - (t.x + 0.5), d.y + 0.5 - (t.y + 0.5));
-      if (dd < bd) { bd = dd; picked = d; }
+      if (dd < 0.7) near.push(d);
     }
+    // If several elves share the square — which a rout used to cause — each click
+    // steps to the next one instead of always handing back the first. Otherwise a
+    // stack is a selection dead end, and a dead end in a fight is a wipe.
+    let picked = null;
+    if (near.length === 1) picked = near[0];
+    else if (near.length > 1) picked = near[(near.indexOf(g.selectedDwarf) + 1) % near.length];
     // Failing that, an animal (wildlife is surface-only, like raiders).
     let pickedAnimal = null;
     if (!picked && (g.viewZ || 0) === 0) {

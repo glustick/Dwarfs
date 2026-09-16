@@ -1648,14 +1648,44 @@ class Game {
       d.combatRepath -= dt;
       if (!d.path || d.combatRepath <= 0) {
         d.combatRepath = 0.5;
-        const p = pathTo(this.world, d.tileX, d.tileY, dz, this.world.spawnX, this.world.spawnY, 0);
-        if (p) d.setPath(p);
+        // Every fleeing elf used to run for the same tile — the colony entrance —
+        // and since nothing stopped two elves sharing a square, a rout could merge
+        // the whole colony onto it: unselectable, and then slaughtered. Each
+        // fleeing elf now claims its own landing spot near the entrance.
+        const spot = this.claimFleeSpot(d);
+        const p = pathTo(this.world, d.tileX, d.tileY, dz, spot.x, spot.y, spot.z);
+        if (p) { d.fleeTarget = spot; d.setPath(p); }
       }
       d.state = "goto"; d.move(dt);
       return true;
     }
     d.fleeing = false;
     return false;
+  }
+
+  // A free tile to flee to: the nearest walkable ground around the colony's
+  // entrance that no other fleeing elf has already claimed, so a rout spreads out
+  // instead of piling everyone onto one square.
+  claimFleeSpot(d) {
+    const w = this.world, sx = w.spawnX, sy = w.spawnY;
+    const taken = new Set();
+    for (const e of this.dwarves) {
+      if (e === d || !e.fleeing || !e.fleeTarget) continue;
+      taken.add(e.fleeTarget.x + "," + e.fleeTarget.y);
+    }
+    for (let r = 0; r <= 5; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;   // just the ring
+          const x = sx + dx, y = sy + dy;
+          if (x < 0 || y < 0 || x >= w.w || y >= w.h) continue;
+          if (!w.isWalkable(x, y, 0)) continue;
+          if (taken.has(x + "," + y)) continue;
+          return { x, y, z: 0 };
+        }
+      }
+    }
+    return { x: sx, y: sy, z: 0 };
   }
 
   // A soldier fighting from a watchtower tile is both harder-hitting and

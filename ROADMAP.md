@@ -153,9 +153,21 @@ actual room instead of colony-wide counters).
 
 ## Player-requested backlog
 
-_Live-play feedback, 2026-09-16 — four items filed from an actual colony and all
-shipped the same day._
+_Live-play feedback, 2026-09-16 — filed from an actual colony._
 
+- [x] ~~The colony merged onto one square and became unselectable~~ — under attack,
+      every civilian fled to the **same** tile (the colony entrance) and nothing
+      stopped two elves sharing a square, so a rout could stack the whole colony on one
+      tile: unselectable, and then slaughtered. Fleeing elves now claim separate landing
+      spots near the entrance, and clicking a shared square **cycles** through the elves
+      standing on it, so a stack is never a selection dead end. **v1.41.0.**
+- [x] ~~Hunting as a labour and skill~~ — a tenth labour. **v1.40.0.**
+- [ ] **One elf to a square, enforced in movement.** The rout above was fixed at its
+      cause (a shared destination) and by making a shared square selectable, but
+      `move()` still has no occupancy check: two elves routed to the same tile by some
+      other means can still overlap. A hard rule wants a wait-on-blocked movement step
+      with an escape valve so a one-wide corridor cannot deadlock — worth doing
+      carefully rather than at the end of a long day.
 - [x] ~~Furniture and workshops on a finished floor~~ — every build required bare
       ground, so flooring a tile made it permanently unfurnishable: you paid for a
       floor and then could not put a bed on it. Furniture and workshops now accept a
