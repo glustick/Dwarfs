@@ -4,6 +4,30 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.37.0 (build 69)
+Two things that were broken in play, both reported from an actual colony.
+
+- **Mining a selected area now marks the whole area.** A drag used to designate
+  only stone tiles that already had an open face, so a selection over a rock body
+  marked its edge and nothing else: the elves mined the rim and then stood there
+  with the middle undug. The whole selection is marked now, and reachability is
+  enforced where it belongs — when the job pool is built, so nothing unreachable
+  is ever *offered* — which means the interior lights up by itself as the rim
+  comes away and the elves keep going until the area is finished. Verified end to
+  end: a 4x4 sample with 5 reachable tiles out of 11 came out **completely dug**,
+  where before the other 6 were abandoned.
+- **An enlisted elf now obeys a move order.** The manual-order logic lived inside
+  `handleCombat`, which the game only calls when there are enemies on the map — so
+  in a quiet colony the click recorded an order that nothing ever read. Clicking
+  an enlisted elf and then clicking open ground now marches them there, and they
+  hold the spot (the inspector can release them back to the AI). A refused order
+  now says why instead of looking like the click was ignored.
+- **Six stale hotkeys in the codex prose** — mining still said `D`, stockpile `S`,
+  ramps `A`, long after the WASD change moved them to `M`/`I`/`N`. The shortcut
+  table had been updated; the sentences around it had not.
+- Direct control over soldiers is documented at last, in *Combat & soldiers*.
+- `tools/smoke.js`: 40 checks.
+
 ## v1.36.2 (build 68)
 Two stale controls in the playtest guide, found by checking it against the build.
 

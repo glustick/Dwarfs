@@ -687,6 +687,113 @@ check("diagnostics: the report carries the colony's history, not just its state"
   }
 });
 
+check("mining: a selection designates the whole area, not just the reachable rim", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const K = run("K"), w = gs.world;
+
+  // Find a rock body whose 4x4 corner has both reachable and buried stone.
+  let at = null;
+  for (let y = 1; y < w.h - 5 && !at; y++) {
+    for (let x = 1; x < w.w - 5 && !at; x++) {
+      const a = w.get(x, y, 0), b = w.get(x + 1, y, 0), c = w.get(x, y + 1, 0);
+      if (a && b && c && a.kind === K.STONE && b.kind === K.STONE && c.kind === K.STONE) at = { x, y };
+    }
+  }
+  if (!at) throw new Error("no rock body found to test with");
+
+  let stone = 0, reachable = 0;
+  for (let y = at.y; y < at.y + 4; y++) for (let x = at.x; x < at.x + 4; x++) {
+    const t = w.get(x, y, 0);
+    if (t && t.kind === K.STONE) { stone++; if (w.hasWalkableNeighbor(x, y, 0)) reachable++; }
+  }
+  if (reachable === 0 || reachable === stone) throw new Error("the sample has no buried stone to distinguish");
+
+  gs.viewZ = 0;
+  gs.input.tool = "dig";
+  gs.input.applyTool({ x: at.x, y: at.y }, { x: at.x + 3, y: at.y + 3 });
+
+  let designated = 0;
+  for (let y = at.y; y < at.y + 4; y++) for (let x = at.x; x < at.x + 4; x++) {
+    const t = w.get(x, y, 0);
+    if (t && t.kind === K.STONE && t.designation === "dig") designated++;
+  }
+  if (designated !== stone) {
+    throw new Error(`only ${designated} of ${stone} stone tiles were designated (the rim is ${reachable})`);
+  }
+
+  // The reachability guard must still live in the job pool, or elves would be
+  // handed work they cannot walk to.
+  gs.jobs.reindex();
+  for (const [x, y, z] of gs.jobs.candidates.dig) {
+    if (!w.hasWalkableNeighbor(x, y, z)) throw new Error(`an unreachable tile entered the job pool: ${x},${y},${z}`);
+  }
+  if (!gs.jobs.candidates.dig.length) throw new Error("no mining jobs were offered at all");
+
+  // And when the rim comes away, the interior must become available by itself —
+  // this is what stops elves "mining the outside and stopping".
+  const buried = [];
+  for (let y = at.y; y < at.y + 4; y++) for (let x = at.x; x < at.x + 4; x++) {
+    const t = w.get(x, y, 0);
+    if (t && t.kind === K.STONE && t.designation === "dig" && !w.hasWalkableNeighbor(x, y, 0)) buried.push([x, y]);
+  }
+  if (!buried.length) throw new Error("the sample has no buried designations");
+  // dig out a tile adjacent to a buried one, as a finished dig would
+  const [bx, by] = buried[0];
+  const rim = [[bx - 1, by], [bx + 1, by], [bx, by - 1], [bx, by + 1]]
+    .find(([x, y]) => { const t = w.get(x, y, 0); return t && t.kind === K.STONE && t.designation === "dig"; });
+  if (!rim) throw new Error("no adjacent designated tile to clear");
+  w.get(rim[0], rim[1], 0).kind = K.FLOOR;
+  gs.jobs.reindex();
+  const nowOffered = gs.jobs.candidates.dig.some(([x, y, z]) => x === bx && y === by && z === 0);
+  if (!nowOffered) throw new Error("the interior stayed unofferable after the rim was cleared");
+});
+
+check("command: an enlisted elf obeys a move order in a quiet colony", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const w = gs.world;
+  // The bug was that the order was only ever read when enemies were about, so
+  // that condition is the whole point of this check.
+  if (gs.enemies.length) throw new Error("this check needs an unthreatened colony");
+
+  const d = gs.dwarves[0];
+  d.military = true;
+  gs.selectedSquad = []; gs.selectedDwarf = null;
+
+  // Exactly what a player does: click the elf, then click the ground.
+  const at = { x: d.tileX, y: d.tileY };
+  gs.input.handleSelectDrag(at, at, {});
+  if (!gs.selectedSquad.length) throw new Error("clicking an enlisted elf did not select them");
+
+  let target = null;
+  for (let r = 3; r < 7 && !target; r++) {
+    for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const x = d.tileX + dx, y = d.tileY + dy;
+      if (x > 0 && y > 0 && x < w.w && y < w.h && w.isWalkable(x, y, d.z || 0)) { target = { x, y }; break; }
+    }
+  }
+  if (!target) throw new Error("no walkable ground to order them to");
+
+  gs.input.handleSelectDrag(target, target, {});
+  if (!d.manualOrder) throw new Error("the move order was not recorded");
+
+  const before = Math.hypot(d.x - target.x, d.y - target.y);
+  for (let i = 0; i < 900; i++) gs.update(1 / 60);
+  const after = Math.hypot(d.x - target.x, d.y - target.y);
+  if (after > 1.2) {
+    throw new Error(`the elf did not arrive: ${before.toFixed(1)} -> ${after.toFixed(1)} tiles (${d.thought})`);
+  }
+  if (d.thought !== "Holding position") throw new Error("the elf did not report holding the position");
+
+  // A civilian must NOT be given manual control — that rule is deliberate.
+  const civ = gs.dwarves.find(x => !x.military);
+  if (civ) {
+    gs.selectedSquad = [civ]; gs.selectedDwarf = civ;
+    civ.manualOrder = null;
+    gs.input.handleSelectDrag({ x: civ.tileX + 3, y: civ.tileY }, { x: civ.tileX + 3, y: civ.tileY }, {});
+    if (civ.manualOrder) throw new Error("a civilian was given a manual move order");
+  }
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

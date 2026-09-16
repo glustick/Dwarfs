@@ -496,7 +496,12 @@ class Input {
       // Move orders stay manual-military-only: a mixed or civilian group
       // never receives them, so civilians keep running on automatic AI.
       const allMilitary = g.selectedSquad.every(d => d.military);
-      if (allMilitary && !clickedDwarf && g.world.isWalkable(a.x, a.y, g.viewZ || 0)) {
+      if (allMilitary && !clickedDwarf) {
+        if (!g.world.isWalkable(a.x, a.y, g.viewZ || 0)) {
+          // Say so rather than appearing to ignore the click.
+          g.log("Soldiers cannot be stationed there — pick open ground.", "", "order");
+          return;
+        }
         this.issueMoveOrder(g.selectedSquad, a.x, a.y, g.viewZ || 0);
         return;
       }
@@ -533,7 +538,14 @@ class Input {
         const before = this.tileSnapshot(t);
         switch (this.tool) {
           case "dig":
-            if (t.kind === K.STONE && t.built === B.NONE && w.hasWalkableNeighbor(x, y, z)) {
+            // Every stone tile in the selection is marked, buried ones included.
+            // Reachability is enforced where it belongs — when the job pool is
+            // built, `jobs.reindex` only offers a tile that has an open face — so
+            // a drag over a rock body marks the whole thing and the interior
+            // lights up as the rim comes away. Gating it here instead meant a
+            // selection stopped at the edge: elves mined the rim and then stood
+            // around with the middle still undug.
+            if (t.kind === K.STONE && t.built === B.NONE) {
               t.designation = "dig"; t.digQueue = 0; count++;
               // Volume mining: the same footprint is queued downward through the
               // rock. Elves clear the layer they can reach first; jobs.reindex

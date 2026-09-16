@@ -17,8 +17,8 @@ const CODEX_ENTRIES = [
     tags: "start intro first steps beginner loop",
     body: `<p>You lead <b>seven elves</b> in a greenwood. The loop is always the same:</p>
       <ol>
-        <li><b>Designate work</b> — mark trees to chop and stone to mine (hotkeys <b>C</b> and <b>D</b>).</li>
-        <li><b>Haul it home</b> — designate a <b>Stockpile</b> (<b>S</b>) so Miners and Haulers actually move the goods.</li>
+        <li><b>Designate work</b> — mark trees to chop and stone to mine (hotkeys <b>C</b> and <b>M</b>).</li>
+        <li><b>Haul it home</b> — designate a <b>Stockpile</b> (<b>I</b>) so Miners and Haulers actually move the goods.</li>
         <li><b>Build shelter</b> — beds in a Bedroom zone lift mood and energy (<b>E</b>, then <b>R</b>).</li>
         <li><b>Feed them</b> — forage first, then research <b>Agriculture</b> and lay out a Farm zone.</li>
         <li><b>Research</b> — scholars generate research points; the tree unlocks everything else.</li>
@@ -55,11 +55,11 @@ const CODEX_ENTRIES = [
     tags: "mine chop gather plant dig stairs ramp drain designate orders cancel drag",
     body: `<p>Pick a tool and <b>drag a rectangle</b> to mark tiles. A line of text appears in the log confirming the order.</p>
       <ul>
-        <li><b>⛏️ Mine</b> (<b>D</b>) — cuts through stone; strikes ore veins, marble and occasionally an <b>aquifer</b>.</li>
+        <li><b>⛏️ Mine</b> (<b>M</b>) — cuts through stone; strikes ore veins, marble and occasionally an <b>aquifer</b>.</li>
         <li><b>🪓 Chop</b> (<b>C</b>) — fells trees into logs.</li>
         <li><b>🌿 Gather</b> (<b>G</b>) — forage food and plants.</li>
         <li><b>🌲 Plant tree</b> (<b>P</b>) — reforests; needs Foresting.</li>
-        <li><b>Stairs <b>Z</b> / Ramp <b>A</b></b> — carve a way down to the next Z-level.</li>
+        <li><b>Stairs <b>Z</b> / Ramp <b>N</b></b> — carve a way down to the next Z-level.</li>
         <li><b>Drain</b> (<b>V</b>) — removes a flooded tile.</li>
       </ul>
       <p><b>X</b> erases a designation, a build order or a zone — the universal "never mind". Only the <i>top</i> Z-level tiles you can see are affected; switch floors with <b>[</b> and <b>]</b>.</p>`,
@@ -67,7 +67,7 @@ const CODEX_ENTRIES = [
   {
     id: "stockpiles", icon: "📦", title: "Stockpiles & hauling", cat: "Work",
     tags: "stockpile haul category filter store zone items stock inventory count",
-    body: `<p>A <b>Stockpile</b> zone (<b>S</b>) is where loose items get carried. Each tile can be filtered to one category, so a tidy colony ends up with separate wood, ore, food, drink and arms piles.</p>
+    body: `<p>A <b>Stockpile</b> zone (<b>I</b>) is where loose items get carried. Each tile can be filtered to one category, so a tidy colony ends up with separate wood, ore, food, drink and arms piles.</p>
       <ul>
         <li><b>🧱 Building</b> — wood, stone, marble, components, cloth</li>
         <li><b>⛏️ Ore &amp; Bars</b> — ore, smelted bars, circuits</li>
@@ -128,7 +128,7 @@ const CODEX_ENTRIES = [
   {
     id: "zlevels", icon: "⛰️", title: "Z-levels, stairs & cave-ins", cat: "Building",
     tags: "z level floor stairs ramp dig down mine underground cave-in collapse support aquifer",
-    body: `<p>The world is layered. Switch floors with <b>[</b> / <b>]</b> (or the ▲▼ buttons) and dig a <b>stairwell</b> (<b>Z</b>) or <b>ramp</b> (<b>A</b>) to connect them.</p>
+    body: `<p>The world is layered. Switch floors with <b>[</b> / <b>]</b> (or the ▲▼ buttons) and dig a <b>stairwell</b> (<b>Z</b>) or <b>ramp</b> (<b>N</b>) to connect them.</p>
       <p>Underground you find the ore veins, marble and coal that the surface lacks — and two hazards:</p>
       <ul>
         <li><b>💥 Cave-ins</b> — a wide unsupported ceiling can collapse. Leave pillars, or accept the risk.</li>
@@ -251,6 +251,7 @@ const CODEX_ENTRIES = [
     id: "combat", icon: "⚔️", title: "Combat & soldiers", cat: "Threats",
     tags: "combat soldier enlist weapon armour armor bow rifle laser arrow bullet watchtower trap defence",
     body: `<p>Enlist elves as soldiers from the inspector (<b>⚔ Enlist</b>). They'll train, arm themselves from your stores, and intercept threats.</p>
+      <p><b>Taking direct control.</b> Select an enlisted elf — click them, or pick them from the inspector — then click an open tile. They drop what they are doing, march there, and hold that spot. The inspector's <b>Release to automatic AI</b> button hands them back to the AI. Only enlisted elves take orders this way; civilians stay on their own schedule.</p>
       <p>You can't armour an elf with nothing, so the ladder starts cheap: <b>wooden club</b> → <b>stone knife</b> → <b>stone spear</b> (all from a Crafting Bench), then a <b>short bow</b> with <b>Fletching</b> — a real ranged weapon available while the forge is still a research project.</p>
       <ul>
         <li><b>Melee</b> — clubs, knives and spears early, then iron swords and axes; short reach, solid damage.</li>

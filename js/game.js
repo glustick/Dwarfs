@@ -1084,7 +1084,12 @@ class Game {
     // surface-only, since a raid can now follow a stairwell/ramp down;
     // handleCombat/nearestEnemy are z-aware so this only ever matches a
     // threat on the dwarf's own floor.
-    if (this.enemies.length && this.handleCombat(d, dt)) return;
+    //
+    // A manual move order is also handled in there — which is why the order has
+    // to open the door as well, not just `enemies.length`. Behind that gate an
+    // enlisted elf standing in a quiet colony simply ignored the click: the
+    // order was recorded, and never once looked at.
+    if ((this.enemies.length || d.manualOrder) && this.handleCombat(d, dt)) return;
 
     if (d.job) {
       this.jobs.execute(d, dt);
