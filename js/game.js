@@ -612,12 +612,20 @@ class Game {
   }
 
   handleCameraKeys(dt) {
-    // Arrow keys pan (letters are reserved for tool hotkeys).
+    // Arrow keys and WASD both pan. WASD is the one most players reach for, and
+    // crossing a wide map with arrows alone is slow — see `wasdPans` for how the
+    // three letters that used to be tool shortcuts were reconciled.
     const k = this.input.keys, sp = 14 * dt / this.cam.zoom;
     if (k.has("arrowup")) this.cam.y -= sp;
     if (k.has("arrowdown")) this.cam.y += sp;
     if (k.has("arrowleft")) this.cam.x -= sp;
     if (k.has("arrowright")) this.cam.x += sp;
+    if (window.__wasdPan) {
+      if (k.has("w")) this.cam.y -= sp;
+      if (k.has("s")) this.cam.y += sp;
+      if (k.has("a")) this.cam.x -= sp;
+      if (k.has("d")) this.cam.x += sp;
+    }
     this.input.clampCam();
   }
 

@@ -683,6 +683,47 @@ check("diagnostics: a report carries the facts a playtest needs", () => {
   ctx.window.game = null;
 });
 
+check("camera: WASD pans the map, and the displaced tool keys follow", () => {
+  const setPan = (on) => run("(on)=>setWasdPan(on)", on);
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const input = gs.input;
+  const hold = (k) => { input.keys.add(k); gs.handleCameraKeys(0.5); input.keys.clear(); };
+
+  setPan(true);
+  gs.cam.x = 20; gs.cam.y = 20;
+  hold("d");
+  if (!(gs.cam.x > 20)) throw new Error("D did not pan the camera east");
+  hold("a");
+  if (!(gs.cam.x < 20 + 1)) throw new Error("A did not pan the camera west");
+  const y0 = gs.cam.y; hold("w");
+  if (!(gs.cam.y < y0)) throw new Error("W did not pan north");
+  const y1 = gs.cam.y; hold("s");
+  if (!(gs.cam.y > y1)) throw new Error("S did not pan south");
+
+  // while panning, the letters must NOT also pick a tool
+  for (const k of ["a", "s", "d"]) {
+    if (input.toolForKey(k) !== null) throw new Error(k + " still selects a tool while WASD panning");
+  }
+  // ...but mining, stockpiling and ramps still have home keys
+  if (input.toolForKey("m") !== "dig") throw new Error("M should mine");
+  if (input.toolForKey("i") !== "stockpile") throw new Error("I should open stockpiles");
+  if (input.toolForKey("n") !== "rampdown") throw new Error("N should dig a ramp");
+
+  // the arrow keys never stopped working
+  const x1 = gs.cam.x; hold("arrowright");
+  if (!(gs.cam.x > x1)) throw new Error("the arrow keys stopped panning");
+
+  // switching it off restores the original bindings exactly
+  setPan(false);
+  if (input.toolForKey("d") !== "dig") throw new Error("D should mine again with WASD panning off");
+  if (input.toolForKey("s") !== "stockpile") throw new Error("S should stockpile again");
+  if (input.toolForKey("a") !== "rampdown") throw new Error("A should be ramps again");
+  if (input.toolForKey("m") !== "dig") throw new Error("M should still mine either way");
+  const x2 = gs.cam.x; hold("d");
+  if (gs.cam.x !== x2) throw new Error("D still pans with WASD panning off");
+  setPan(true);                                  // leave the default in place
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

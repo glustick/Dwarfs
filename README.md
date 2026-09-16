@@ -464,11 +464,16 @@ the ambience) and SFX separately from the **⏸ Menu → Audio** sliders.
 | Action | Control |
 |---|---|
 | Designate / build | Left-drag with a tool selected |
-| Pan camera | Arrow keys, or right-drag |
+| Pan camera | **WASD** or arrow keys, or right-drag |
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |
-| Tool hotkeys | `Q` inspect · `D` mine · `C` chop · `G` gather · `P` plant tree · `Z` dig stairs · `S` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `5` Essence Well · `6` Frost Chamber · `U` conduit · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+| Tool hotkeys | `Q` inspect · `M` mine · `C` chop · `G` gather · `P` plant tree · `Z` dig stairs · `N` dig ramp · `I` stockpile · `B` wall · `F` floor · `E` bed · `O` door · `1` smelter · `2` forge · `3` well · `4` brewery · `5` Essence Well · `6` Frost Chamber · `U` conduit · `R` bedroom · `T` dining · `Y` depot · `X` cancel |
+
+**WASD pans the map** in addition to the arrow keys. Since `A`, `S` and `D` were the
+ramp/stockpile/mine shortcuts, those three tools moved to `N`, `I` and `M`. If you
+prefer the old bindings, switch **⌨️ WASD pans** off in **⏸ Menu → 🎛 Interface** —
+the arrow keys pan either way.
 | Switch floor | `[` / `]`, or the ▲/▼ buttons next to the ⛰️ floor indicator |
 
 ## Under the hood

@@ -42,6 +42,10 @@
     var ui = "normal";
     try { ui = localStorage.getItem("ee_uiscale") || "normal"; } catch (e) {}
     document.documentElement.setAttribute("data-ui", ["compact", "normal", "large"].includes(ui) ? ui : "normal");
+    // WASD pans the map unless it has been switched off (see settings.js).
+    var wasd = true;
+    try { wasd = localStorage.getItem("ee_wasd_pan") !== "0"; } catch (e) {}
+    window.__wasdPan = wasd;
   })();
 </script>
 </head>

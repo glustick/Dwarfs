@@ -61,6 +61,20 @@ const DEFAULT_SETTINGS = { difficulty: "standard", mapSize: "medium" };
 // Okabe-Ito style ramp — which colour-vision deficiency handles well — and the
 // renderer additionally gives each ore a distinct *shape*, because a palette
 // alone cannot separate kinds for every kind of colour blindness.
+// ---- camera keys ------------------------------------------------------------
+// WASD pans the map, because crossing a 90x70 wood with the arrow keys alone is
+// slow. A/S/D were already tool shortcuts (ramp-down, stockpile, dig), so rather
+// than silently shadow them the three tools moved to M/I/N, and turning this off
+// restores the original bindings exactly.
+function wasdPans() {
+  try { return localStorage.getItem("ee_wasd_pan") !== "0"; } catch (e) { return true; }
+}
+function setWasdPan(on) {
+  try { localStorage.setItem("ee_wasd_pan", on ? "1" : "0"); } catch (e) {}
+  window.__wasdPan = !!on;
+  return !!on;
+}
+
 // ---- interface scale --------------------------------------------------------
 // The HUD type is small at 9-10px, which is uncomfortable on a large display.
 // The chrome is scaled with `zoom`, which magnifies a fixed-position element and

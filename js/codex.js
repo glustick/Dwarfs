@@ -287,11 +287,11 @@ const CODEX_ENTRIES = [
     id: "hotkeys", icon: "⌨️", title: "Keyboard shortcuts", cat: "Reference",
     tags: "hotkey key keyboard shortcut bind control commands",
     body: `<table class="codex-keys">
-      <tr><td><b>Q</b></td><td>Inspect</td><td><b>D</b></td><td>Mine</td></tr>
+      <tr><td><b>Q</b></td><td>Inspect</td><td><b>M</b></td><td>Mine</td></tr>
       <tr><td><b>C</b></td><td>Chop trees</td><td><b>G</b></td><td>Gather</td></tr>
-      <tr><td><b>P</b></td><td>Plant tree</td><td><b>Z</b> / <b>A</b></td><td>Dig stairs / ramp</td></tr>
+      <tr><td><b>P</b></td><td>Plant tree</td><td><b>Z</b> / <b>N</b></td><td>Dig stairs / ramp</td></tr>
       <tr><td><b>V</b></td><td>Drain</td><td><b>X</b></td><td>Erase / cancel</td></tr>
-      <tr><td><b>S</b></td><td>Stockpile</td><td><b>B</b></td><td>Wall (build)</td></tr>
+      <tr><td><b>I</b></td><td>Stockpile</td><td><b>B</b></td><td>Wall (build)</td></tr>
       <tr><td><b>F</b></td><td>Floor</td><td><b>E</b></td><td>Bed</td></tr>
       <tr><td><b>1</b></td><td>Smelter</td><td><b>2</b></td><td>Forge</td></tr>
       <tr><td><b>3</b></td><td>Well</td><td><b>4</b></td><td>Brewery</td></tr>
@@ -299,10 +299,15 @@ const CODEX_ENTRIES = [
       <tr><td><b>U</b></td><td>Conduit</td><td><b>O</b></td><td>Door</td></tr>
       <tr><td><b>R</b></td><td>Bedroom zone</td><td><b>T</b></td><td>Dining zone</td></tr>
       <tr><td><b>K</b></td><td>Graveyard zone</td><td><b>Y</b></td><td>Depot zone</td></tr>
-      <tr><td><b>Y</b></td><td>Depot zone</td><td><b>Space</b></td><td>Pause</td></tr>
+      <tr><td><b>WASD</b> / <b>arrows</b></td><td>Pan the map</td><td><b>Space</b></td><td>Pause</td></tr>
       <tr><td><b>+</b> / <b>−</b></td><td>Game speed</td><td><b>[</b> / <b>]</b></td><td>Floor up / down</td></tr>
       <tr><td><b>⌘/Ctrl+Z</b></td><td>Undo map action</td><td><b>Esc</b></td><td>Close / pause menu</td></tr>
-    </table>`,
+    </table>
+    <p><b>WASD</b> pans the map as well as the arrow keys. Because <b>A</b>, <b>S</b> and
+    <b>D</b> used to be the ramp, stockpile and mine shortcuts, those three moved to
+    <b>N</b>, <b>I</b> and <b>M</b>. If you would rather have the old bindings back, turn
+    <b>⌨️ WASD pans</b> off in <b>⏸ Menu → 🎛 Interface</b> — the arrow keys keep panning
+    either way.</p>`,
   },
   {
     id: "glossary", icon: "📖", title: "Items & materials", cat: "Reference",

@@ -343,6 +343,8 @@ class App {
           <span class="ui-lbl">Colour-safe</span>
           <button class="spd" id="uiscale-btn" title="Interface scale" aria-label="Change the interface scale">🔍</button>
           <span class="ui-lbl" id="uiscale-lbl">Scale</span>
+          <button class="spd" id="wasd-btn" title="WASD pans the map" aria-label="Toggle WASD camera panning">⌨️</button>
+          <span class="ui-lbl" id="wasd-lbl">WASD pans</span>
           <button class="tut-btn ui-codex" id="help-btn">📖 Codex</button>
           <button class="tut-btn ui-diag" id="diag-btn" title="Write a diagnostics report to attach to playtest notes">📋 Diagnostics</button>
         </div>
@@ -400,6 +402,16 @@ class App {
       setPalette(window.__paletteSafe ? "default" : "safe");
       this.syncInterfaceToggles();
     };
+    const wasdBtn = document.getElementById("wasd-btn");
+    if (wasdBtn) wasdBtn.onclick = () => {
+      setWasdPan(!window.__wasdPan);
+      this.syncInterfaceToggles();
+      if (window.game) {
+        window.game.log(window.__wasdPan
+          ? "⌨️ WASD pans the map; mining is M, stockpile I, ramps N."
+          : "⌨️ WASD panning off — mining is D, stockpile S, ramps A again.", "colony");
+      }
+    };
     const uiBtn = document.getElementById("uiscale-btn");
     if (uiBtn) uiBtn.onclick = () => {
       const order = UI_SCALES;                       // compact -> normal -> large
@@ -414,6 +426,17 @@ class App {
   // menu is on screen, so their state is pushed in whenever it is built).
   syncInterfaceToggles() {
     if (window.sound && window.sound._reflectToggle) window.sound._reflectToggle();
+    const wasdBtn2 = document.getElementById("wasd-btn");
+    const wasdLbl = document.getElementById("wasd-lbl");
+    if (wasdBtn2) {
+      const on = !!window.__wasdPan;
+      wasdBtn2.classList.toggle("on", on);
+      wasdBtn2.title = on
+        ? "WASD pans the map (arrow keys too) — click to use A/S/D as tool keys instead"
+        : "WASD panning is off: A/S/D are tool keys — click to pan with WASD";
+      wasdBtn2.setAttribute("aria-label", wasdBtn2.title);
+      if (wasdLbl) wasdLbl.textContent = on ? "WASD pans" : "WASD off";
+    }
     const uiBtn = document.getElementById("uiscale-btn");
     const uiLbl = document.getElementById("uiscale-lbl");
     if (uiBtn) {

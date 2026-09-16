@@ -395,8 +395,8 @@ class Input {
       if (window.appMenuOpen) return; // menu swallows other keys
       this.keys.add(e.key.toLowerCase());
       if (e.key === " ") { this.keys.add(" "); g.togglePause(); e.preventDefault(); }
-      const map = { q: "select", d: "dig", c: "chop", g: "gather", p: "forest", z: "stairsdown", a: "rampdown", v: "drain", s: "stockpile", b: "build", f: "floor", e: "bed", "1": "smelter", "2": "forge", "3": "well", "4": "brewery", "5": "generator", "6": "icebox", u: "conduit", r: "bedroom", t: "dining", o: "door", y: "depot", k: "graveyard", x: "erase" };
-      if (map[e.key.toLowerCase()] && !e.repeat) { this.setTool(map[e.key.toLowerCase()]); this.closeFlyout(); }
+      const tool = this.toolForKey(e.key);
+      if (tool && !e.repeat) { this.setTool(tool); this.closeFlyout(); }
       if (e.key === "+" || e.key === "=") g.changeSpeed(1);
       if (e.key === "-" || e.key === "_") g.changeSpeed(-1);
       if (e.key === "[" || e.key === "PageUp") { g.setViewZ(g.viewZ + 1); e.preventDefault(); }
@@ -405,6 +405,22 @@ class Input {
     const undoButton = document.getElementById("undo-btn");
     if (undoButton) undoButton.addEventListener("click", () => this.undo());
     window.addEventListener("keyup", (e) => this.keys.delete(e.key.toLowerCase()));
+  }
+
+  // Which tool a key selects, or null. Mining, stockpiling and ramps live on
+  // M/I/N because A/S/D pan the map; switching WASD panning off restores the
+  // original A/S/D bindings, so nobody has to relearn anything they liked.
+  toolForKey(key) {
+    const map = {
+      q: "select", m: "dig", c: "chop", g: "gather", p: "forest",
+      z: "stairsdown", n: "rampdown", v: "drain", i: "stockpile",
+      b: "build", f: "floor", e: "bed", u: "conduit", r: "bedroom",
+      t: "dining", o: "door", y: "depot", k: "graveyard", x: "erase",
+      "1": "smelter", "2": "forge", "3": "well", "4": "brewery",
+      "5": "generator", "6": "icebox",
+    };
+    if (!window.__wasdPan) { map.a = "rampdown"; map.s = "stockpile"; map.d = "dig"; }
+    return map[String(key).toLowerCase()] || null;
   }
 
   clampCam() {

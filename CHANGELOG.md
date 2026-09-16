@@ -4,6 +4,18 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.34.0 (build 64)
+- **WASD pans the map**, alongside the arrow keys — crossing a 90x70 wood with
+  arrows alone was slow. Panning works while paused, and right-drag still works.
+- **A, S and D were already tool shortcuts** (dig ramp, stockpile, mine), so
+  rather than shadow them the three tools moved to **N**, **I** and **M**. A new
+  **⌨️ WASD pans** toggle (pause menu → Interface) switches the whole thing off
+  and restores the original bindings exactly; the arrow keys pan either way.
+- The hotkey map moved into `Input.toolForKey()`, so what a key does is now
+  testable without synthesising DOM events.
+- The codex's shortcut table is updated (and its duplicated Depot row is gone).
+- `tools/smoke.js`: 35 checks.
+
 ## v1.33.0 (build 63)
 Made for the playtest: a report a playtester can actually hand back.
 
