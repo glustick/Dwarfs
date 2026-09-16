@@ -36,6 +36,9 @@ const WEATHER_ODDS = [
 ];
 
 // Event chronicle categories (for the filterable Log panel).
+// Shared empty bucket, so a kind with no items costs nothing to look up.
+const NO_ITEMS = [];
+
 // Icons and names for the stock panel: one row per item type, with the weapon
 // subtypes spelled out so the arms ladder is legible at a glance.
 const STOCK_SUB_ICONS = {
@@ -934,6 +937,8 @@ class Game {
     if (d.hp <= 0) return; // slain — awaiting removal this frame
     const night = this.shift() === "night";
 
+    if (d.assignCd > 0) d.assignCd -= dt;
+
     // needs
     d.hunger = clamp(d.hunger + this.hungerRate() * dt, 0, 100);
     d.thirst = clamp(d.thirst + THIRST_RATE * dt, 0, 100);
@@ -1063,13 +1068,12 @@ class Game {
       this.jobs.execute(d, dt);
     } else {
       d.state = "idle";
-      // Back off between job searches. Without this, every jobless elf re-runs
-      // the full assignment chain every tick, and each failing search costs a
-      // full A* budget — see IDLE_ASSIGN_COOLDOWN in jobs.js.
-      if (d.assignCd > 0) {
-        d.assignCd -= dt;
-      } else {
-        d.assignCd = this.jobs.assign(d) ? 0 : IDLE_ASSIGN_COOLDOWN;
+      // Bound how often an elf re-decides what to do — see ASSIGN_COOLDOWN in
+      // jobs.js. Success no longer resets the timer to zero, which is what let a
+      // dwarf with a one-tick job re-run the whole chain every single tick.
+      if (d.assignCd <= 0) {
+        d.assignCd = ASSIGN_COOLDOWN;
+        this.jobs.assign(d);
       }
       if (!d.job) {
         d.idleWander -= dt;
@@ -2328,9 +2332,28 @@ class Game {
     if (arrived) this.log(`${arrived} migrant${arrived > 1 ? "s have" : " has"} arrived seeking work.`, "good", "colony");
   }
 
+  // Items bucketed by kind, so the several nearest-match scans in the job
+  // manager stop walking every item in the colony on every assignment.
+  //
+  // The cache is keyed on `items.length`. That is a sound key here because an
+  // item's kind and sub are immutable once it exists and items are never swapped
+  // in place for one of another kind — the list only ever grows or shrinks.
+  itemsOfKind(kind) {
+    if (!this._itemIdx || this._itemIdxLen !== this.items.length) {
+      const idx = Object.create(null);
+      for (const it of this.items) {
+        const bucket = idx[it.kind] || (idx[it.kind] = []);
+        bucket.push(it);
+      }
+      this._itemIdx = idx;
+      this._itemIdxLen = this.items.length;
+    }
+    return this._itemIdx[kind] || NO_ITEMS;
+  }
+
   countItems(kind, sub = null) {
     let n = 0;
-    for (const it of this.items) if (it.kind === kind && (sub === null || it.sub === sub)) n++;
+    for (const it of this.itemsOfKind(kind)) if (sub === null || it.sub === sub) n++;
     return n;
   }
 

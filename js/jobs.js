@@ -1,11 +1,17 @@
 // ---- Jobs: designations -> tasks -> dwarf AI --------------------------------
 
 const WORK_TIME = { dig: 1.6, chop: 1.8, gather: 0.9, build: 1.4, eat: 1.2, drink: 1.0, train: 2.0, socialize: 2.4, craft: 2.6, equip: 0.6, plant: 1.6, harvest: 1.3, doctor: 2.2, forest: 1.8, stairsdown: 2.2, rampdown: 1.6, drain: 4.0, tame: 2.4, checkup: 2.0 };
-// How long an elf waits before re-running the whole job search after finding
-// nothing to do. Re-assigning every tick is negligible for a handful of elves
-// and ruinous for forty: a dwarf whose target is unreachable runs an A* that
-// burns its full node budget, and at 60 ticks/second that dominated the frame.
-const IDLE_ASSIGN_COOLDOWN = 0.35;
+// How long an elf waits before re-running the whole job search — whether it
+// found something or not.
+//
+// This originally applied only to the "found nothing" case, but a dwarf whose
+// job finishes in a tick or two simply re-ran the entire chain on the next tick
+// instead: measured at twenty elves that was ~4,000 job searches per 600 ticks,
+// each one walking the colony's items. Bounding every attempt (and staggering
+// the first one per elf) costs nothing perceptible — nobody notices deciding
+// twice a second — and takes the worst case with it, which matters because a
+// search that fails outright burns the pathfinder's whole node budget.
+const ASSIGN_COOLDOWN = 0.4;
 const ENERGY_SLEEP_BED = 26;     // energy restored per second in a bed
 const ENERGY_SLEEP_GROUND = 13;  // ... on the bare ground
 
@@ -231,8 +237,8 @@ class JobManager {
   findStoredItem(kind, nearX, nearY, nearZ = 0, sub = null) {
     const g = this.game, w = g.world;
     let best = null, bd = Infinity;
-    for (const it of g.items) {
-      if (it.kind !== kind || it.hauled || (sub && it.sub !== sub)) continue;
+    for (const it of g.itemsOfKind(kind)) {
+      if (it.hauled || (sub && it.sub !== sub)) continue;
       const t = w.get(it.x, it.y, it.z);
       if (!t || !t.stockpile) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
@@ -244,8 +250,8 @@ class JobManager {
   findGroundItem(kind, nearX, nearY, nearZ = 0, sub = null) {
     const g = this.game;
     let best = null, bd = Infinity;
-    for (const it of g.items) {
-      if (it.kind !== kind || it.hauled || (sub && it.sub !== sub)) continue;
+    for (const it of g.itemsOfKind(kind)) {
+      if (it.hauled || (sub && it.sub !== sub)) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
       if (d < bd) { bd = d; best = it; }
     }
@@ -482,8 +488,8 @@ class JobManager {
     else {
       const rank = WEAPON_RANK[dwarf.weapon] ?? 0;
       let best = null, bd = Infinity;
-      for (const it of g.items) {
-        if (it.kind !== ITEM.WEAPON || it.hauled || it.sub === dwarf.weapon) continue;
+      for (const it of g.itemsOfKind(ITEM.WEAPON)) {
+        if (it.hauled || it.sub === dwarf.weapon) continue;
         if ((WEAPON_RANK[it.sub] ?? 0) <= rank) continue;
         const d = dist3(it.x, it.y, it.z || 0, dx, dy, dz || 0);
         if (d < bd) { bd = d; best = it; }
@@ -526,8 +532,8 @@ class JobManager {
   findCorpse(nearX, nearY, nearZ = 0) {
     const g = this.game;
     let best = null, bd = Infinity;
-    for (const it of g.items) {
-      if (it.kind !== ITEM.CORPSE || it.hauled) continue;
+    for (const it of g.itemsOfKind(ITEM.CORPSE)) {
+      if (it.hauled) continue;
       const d = dist3(it.x, it.y, it.z, nearX, nearY, nearZ);
       if (d < bd) { bd = d; best = it; }
     }
@@ -599,7 +605,7 @@ class JobManager {
   sellableSurplus(kind) {
     const g = this.game;
     let have = 0;
-    for (const it of g.items) if (it.kind === kind && !it.hauled) have++;
+    for (const it of g.itemsOfKind(kind)) if (!it.hauled) have++;
     const need = g.dwarves.filter(d => d.military && !(kind === ITEM.WEAPON ? d.weapon : d.armor)).length;
     return have - need;
   }

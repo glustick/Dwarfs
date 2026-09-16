@@ -320,6 +320,11 @@ actual room instead of colony-wide counters).
 
 ## Tier 8 — planned
 
+- [x] ~~Performance groundwork~~ — job searches bounded (one per elf per 0.4s,
+      staggered) and items indexed by kind. No median gain at 20–40 elves; the
+      win is a bounded worst case. See v1.30.1.
+
+
 _Requested 2026-09-15, after the playtest build went out. Not started. Ordered
 roughly as I would tackle them. Each item notes where it lands in the code, so
 the work can start without re-deriving it._

@@ -4,6 +4,23 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.30.1 (build 60)
+Performance groundwork — bounding the work, not speeding up the median.
+
+- **Job searches are bounded.** An elf now re-decides what to do at most once
+  every 0.4s, and each elf's first decision is staggered so the colony doesn't
+  re-plan in lockstep. Previously a dwarf whose job finished in a tick or two
+  re-ran the *entire* assignment chain on the very next tick: measured at twenty
+  elves that was ~4,000 searches per 600 ticks. It is now capped (~1,300).
+- **Items are indexed by kind.** The nearest-match scans in the job manager —
+  stored items, ground items, corpses, spare weapons, stock counts — no longer
+  walk every item in the colony on every assignment.
+- **Honest caveat:** neither change moved the median. At 20 and 40 elves the sim
+  runs ~0.07–0.15 ms per update (about 0.5% of a 60fps frame budget) both before
+  and after. The value is a hard bound on the worst case, because an unbounded
+  search storm is exactly what produced the 151-second run fixed in v1.28.0.
+  It is groundwork for the 40+ elf and late-game cases, not a visible speed-up.
+
 ## v1.30.0 (build 59)
 Tier 8, batch 2 — the last four items.
 

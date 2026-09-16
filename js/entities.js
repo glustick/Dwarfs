@@ -204,7 +204,9 @@ class Dwarf {
     this.weapon = null;      // equipped weapon sub (sword/axe/bow)
     this.armor = null;       // equipped armor sub (shield/mail)
     this.quiver = 0;         // arrows held by a bowman (bundles refill adds 5)
-    this.assignCd = 0;       // idle job-search throttle (see Game.updateDwarf)
+    // Job-search throttle. The random initial value staggers the colony, so the
+    // elves don't all re-plan on the same tick.
+    this.assignCd = Math.random() * ASSIGN_COOLDOWN;
     this.shiftPref = "any";  // "any" | "day" | "night" — which hours they keep
     this.inventory = [];     // persistent carried relics and other personal items
     this.attackCd = 0;       // swing cooldown
