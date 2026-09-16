@@ -85,6 +85,13 @@ const Diagnostics = {
         ` · ${g.weather || "?"} · ${g.dwarves.length} elves`);
       add("world", `${g.world.w}x${g.world.h}, seed ${g.world.seed}, z ${g.world.minZ}..0`);
       add("entities", `${g.enemies.length} hostiles · ${g.items.length} items`);
+      // History, not just the present: a report written after a disaster is far
+      // more useful if it says how far the colony got.
+      try {
+        const s = g.colonySummary();
+        add("history", `${s.day} days · peak ${s.peak} elves · ${s.techs}/${s.techTotal} techs · ${s.milestones} milestones`);
+        if (s.burials || s.graves) add("deaths", `${s.burials || 0} buried · ${s.graves || 0} graves`);
+      } catch (e) {}
       if (g.lost) add("state", "COLONY LOST");
       const fps = g.frameMs ? Math.round(1000 / g.frameMs) : 0;
       add("perf", `frame ${g.frameMs ? g.frameMs.toFixed(1) : "?"} ms (~${fps} fps)` +

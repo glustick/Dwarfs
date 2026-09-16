@@ -387,6 +387,8 @@ class App {
           <span class="ui-lbl" id="uiscale-lbl">Scale</span>
           <button class="spd" id="wasd-btn" title="WASD pans the map" aria-label="Toggle WASD camera panning">⌨️</button>
           <span class="ui-lbl" id="wasd-lbl">WASD pans</span>
+          <button class="spd" id="perf-btn" title="Performance readout" aria-label="Toggle the performance readout">📈</button>
+          <span class="ui-lbl" id="perf-lbl">Perf</span>
           <button class="tut-btn ui-codex" id="help-btn">📖 Codex</button>
           <button class="tut-btn ui-diag" id="diag-btn" title="Write a diagnostics report to attach to playtest notes">📋 Diagnostics</button>
         </div>
@@ -444,6 +446,12 @@ class App {
       setPalette(window.__paletteSafe ? "default" : "safe");
       this.syncInterfaceToggles();
     };
+    const perfBtn = document.getElementById("perf-btn");
+    if (perfBtn) perfBtn.onclick = () => {
+      setPerfBadge(!window.__perfBadge);
+      if (window.game && window.__perfBadge) window.game.updatePerfBadge();
+      this.syncInterfaceToggles();
+    };
     const wasdBtn = document.getElementById("wasd-btn");
     if (wasdBtn) wasdBtn.onclick = () => {
       setWasdPan(!window.__wasdPan);
@@ -468,6 +476,17 @@ class App {
   // menu is on screen, so their state is pushed in whenever it is built).
   syncInterfaceToggles() {
     if (window.sound && window.sound._reflectToggle) window.sound._reflectToggle();
+    const perfBtn2 = document.getElementById("perf-btn");
+    const perfLbl = document.getElementById("perf-lbl");
+    if (perfBtn2) {
+      const on = !!window.__perfBadge;
+      perfBtn2.classList.toggle("on", on);
+      perfBtn2.title = on
+        ? "Performance readout: on — click to hide it"
+        : "Show frame rate and simulation cost in the top bar";
+      perfBtn2.setAttribute("aria-label", perfBtn2.title);
+      if (perfLbl) perfLbl.textContent = on ? "Perf on" : "Perf";
+    }
     const wasdBtn2 = document.getElementById("wasd-btn");
     const wasdLbl = document.getElementById("wasd-lbl");
     if (wasdBtn2) {

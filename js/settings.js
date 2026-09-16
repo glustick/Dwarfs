@@ -61,6 +61,25 @@ const DEFAULT_SETTINGS = { difficulty: "standard", mapSize: "medium" };
 // Okabe-Ito style ramp — which colour-vision deficiency handles well — and the
 // renderer additionally gives each ore a distinct *shape*, because a palette
 // alone cannot separate kinds for every kind of colour blindness.
+// ---- performance badge ------------------------------------------------------
+// "Does a real colony stay smooth?" is one of the playtest's open questions, and
+// a player can only answer it if they can see the numbers. Off by default — the
+// HUD is busy, and a frame counter is not for everyone.
+function perfBadgeOn() {
+  try { return localStorage.getItem("ee_perf_badge") === "1"; } catch (e) { return false; }
+}
+function setPerfBadge(on) {
+  try { localStorage.setItem("ee_perf_badge", on ? "1" : "0"); } catch (e) {}
+  window.__perfBadge = !!on;
+  if (!on) {
+    try {
+      const el = document.getElementById("perf-badge");
+      if (el) el.style.display = "none";
+    } catch (e) {}
+  }
+  return !!on;
+}
+
 // ---- camera keys ------------------------------------------------------------
 // WASD pans the map, because crossing a 90x70 wood with the arrow keys alone is
 // slow. A/S/D were already tool shortcuts (ramp-down, stockpile, dig), so rather

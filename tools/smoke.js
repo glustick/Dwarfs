@@ -744,6 +744,40 @@ check("setup screen: the primary action cannot be pushed off the fold", () => {
   }
 });
 
+check("perf: the optional readout reports frame rate and simulation cost", () => {
+  const set = (on) => run("(on)=>setPerfBadge(on)", on);
+  if (run("perfBadgeOn")) throw new Error("the performance readout should default to off");
+  set(true);
+  if (!ctx.window.__perfBadge) throw new Error("setPerfBadge did not take effect");
+  if (!run("perfBadgeOn")) throw new Error("the readout setting was not stored");
+
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  gs.frameMs = 16.7; gs.updateMs = 0.09;
+  gs.updatePerfBadge();                  // no DOM here: it must not throw
+  ctx.window.game = gs;
+  gs.updatePerfBadge();
+
+  set(false);
+  if (ctx.window.__perfBadge) throw new Error("the readout did not switch off");
+  ctx.window.game = null;
+});
+
+check("diagnostics: the report carries the colony's history, not just its state", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const text = run("(g)=>Diagnostics.report(g)", gs);
+  if (text.indexOf("history") === -1) throw new Error("the report has no history line");
+  if (!/\d+ days/.test(text)) throw new Error("the history line does not say how far the colony got");
+  if (text.indexOf("peak") === -1) throw new Error("the history line does not report a peak population");
+  // and it must survive a game whose summary is unavailable
+  const broken = { settings: {}, time: 0, weather: "clear", dwarves: [], enemies: [], items: [],
+                   world: { w: 1, h: 1, seed: 1, minZ: 0 },
+                   season: () => ({ name: "Spring" }),
+                   serialize: () => "{}" };
+  if (run("(b)=>Diagnostics.report(b)", broken).indexOf("Elven Empire diagnostics") === -1) {
+    throw new Error("a game without a summary broke the report");
+  }
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

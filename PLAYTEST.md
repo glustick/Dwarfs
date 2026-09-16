@@ -67,6 +67,14 @@ before it reaches you.
 - Known cosmetic gap: the HUD text is small (9–10px) on a large display, and
   there's no UI-scale setting yet.
 
+## A performance readout, if you want one
+
+**⏸ Menu → 🎛 Interface → 📈 Perf** puts `frame rate · simulation cost` in the top
+bar, with the population in its tooltip. It is off by default — but if the game
+ever *feels* slow, turn it on and quote the numbers. "It got choppy at 40 elves,
+28 fps, 2.4 ms per step" tells me far more than "it seems fine", and real-colony
+performance is one of the things I most want judged.
+
 ## Reporting something
 
 Useful: the build number, what you did, what you expected, what happened, and —

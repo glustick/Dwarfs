@@ -372,6 +372,11 @@ held at its height, what you researched, and how many you laid to rest.
 - **📜 Log** — a filterable chronicle (orders, combat, factions, events…), and
   **🏆 Records** for milestones and every elf who has ever lived here.
 
+## Performance
+
+**⏸ Menu → 🎛 Interface → 📈 Perf** shows frame rate and simulation cost in the top
+bar (off by default). Useful when a big colony starts to feel heavy.
+
 ## Reporting a bug
 
 **⏸ Menu → 📋 Diagnostics** shows a report describing the run — build, colony,

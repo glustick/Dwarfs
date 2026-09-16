@@ -596,13 +596,19 @@ class Game {
     const gdt = this.paused ? 0 : dt * this.speed;
 
     // Exponentially weighted frame and simulation costs, for the diagnostics
-    // report — an average over frames, not the last one, so it stays honest.
+    // report and the optional perf badge — an average over frames, not the last
+    // one, so it stays honest.
     this.frameMs = this.frameMs == null ? dt * 1000 : this.frameMs * 0.95 + dt * 1000 * 0.05;
     const t0 = (typeof performance !== "undefined" && performance.now) ? performance.now() : 0;
     if (gdt > 0) this.update(gdt);
     if (t0) {
       const um = performance.now() - t0;
       this.updateMs = this.updateMs == null ? um : this.updateMs * 0.95 + um * 0.05;
+    }
+    // Twice a second is plenty for something a human reads.
+    if (window.__perfBadge) {
+      this._perfT = (this._perfT || 0) + dt;
+      if (this._perfT >= 0.5) { this._perfT = 0; this.updatePerfBadge(); }
     }
     this.renderer.draw();
     // camera keys (real-time regardless of pause)
@@ -2367,6 +2373,21 @@ class Game {
       this._itemIdxLen = this.items.length;
     }
     return this._itemIdx[kind] || NO_ITEMS;
+  }
+
+  // The optional performance readout: frame rate, simulation cost, population.
+  // Frame rate alone is misleading (a paused or hidden game reports a perfect
+  // one), so it is shown beside the sim cost and the number of elves driving it.
+  updatePerfBadge() {
+    const el = document.getElementById("perf-badge");
+    if (!el) return;
+    const fps = this.frameMs ? Math.round(1000 / this.frameMs) : 0;
+    // A paused game measures no simulation cost at all, and a flat 0.00 ms would
+    // read as a wonderful result rather than an absent measurement.
+    const paused = this.paused || this.speed === 0;
+    el.textContent = `📈 ${fps} fps · ${paused ? "paused" : (this.updateMs || 0).toFixed(2) + " ms"}`;
+    el.title = `${fps} fps · ${paused ? "the simulation is paused" : (this.updateMs || 0).toFixed(3) + " ms per simulation step"} · ${this.dwarves.length} elves`;
+    el.style.display = "";
   }
 
   // Mood is carried by colour, so the accessible palette swaps the usual

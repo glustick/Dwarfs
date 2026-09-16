@@ -4,6 +4,22 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.36.0 (build 66)
+Two things aimed at what the playtest is meant to answer.
+
+- **📈 A performance readout** (pause menu → Interface, off by default): frame
+  rate and simulation cost in the top bar, with the population in its tooltip.
+  "Does a real colony stay smooth?" is an open question, and a player can only
+  answer it if they can see the numbers. It says **paused** rather than showing a
+  flattering 0.00 ms when the simulation is stopped.
+- **The diagnostics report now carries history, not just the present state**: how
+  many days survived, the peak population, techs, milestones, and the burials and
+  graves. A report written *after* a disaster is far more useful if it says how
+  far the colony got.
+- Verified in a real browser this time: the readout, the setup-screen fix and the
+  on-screen diagnostics panel were all driven by hand.
+- `tools/smoke.js`: 38 checks.
+
 ## v1.35.0 (build 65)
 All three of these came out of finally getting the game into a real browser.
 

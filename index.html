@@ -46,6 +46,9 @@
     var wasd = true;
     try { wasd = localStorage.getItem("ee_wasd_pan") !== "0"; } catch (e) {}
     window.__wasdPan = wasd;
+    var perf = false;
+    try { perf = localStorage.getItem("ee_perf_badge") === "1"; } catch (e) {}
+    window.__perfBadge = perf;
   })();
 </script>
 </head>
@@ -64,6 +67,7 @@
       <span class="stat" id="stat-research" title="Research points">🔬 <b>0</b></span>
       <span class="stat" id="stat-outbreak" title="The outbreak escalates with your research progress" style="display:none"></span>
       <span class="stat" id="stat-threat" title="Threat · Soldiers" style="display:none;color:#e08a6a"></span>
+      <span class="stat" id="perf-badge" title="Frame rate · simulation cost · population" style="display:none"></span>
       <span id="door-ctl" style="display:none">
         <button class="spd" id="lock-doors-btn" title="Lock all doors" aria-label="Lock all doors">🔒</button>
         <button class="spd" id="unlock-doors-btn" title="Unlock all doors" aria-label="Unlock all doors">🔓</button>
