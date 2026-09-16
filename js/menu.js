@@ -236,7 +236,7 @@ class App {
 
   // ---- CODEX ----
   // A searchable handbook: category chips + entry list on the left, the article
-  // on the right. Opened from the ❓ button or the pause menu.
+  // on the right. Opened from the main menu, or from the pause menu in game.
   openCodex(entryId) {
     this.codexCat = this.codexCat || "All";
     this.codexQuery = this.codexQuery || "";

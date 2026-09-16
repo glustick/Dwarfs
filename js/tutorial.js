@@ -2,7 +2,7 @@
 
 const TUTORIAL_STEPS = [
   { icon: "🍃", title: "Welcome to Elven Empire", body:
-    "Your seven elves have just arrived. Raise a thriving woodland empire — mine, build, research, and defend against the outbreak. This quick walkthrough covers the basics; skip it any time with the ✕, or reopen it later from the <b>❓</b> button." },
+    "Your seven elves have just arrived. Raise a thriving woodland empire — mine, build, research, and defend against the outbreak. This quick walkthrough covers the basics; skip it any time with the ✕, or reopen it later from <b>☰ Menu</b> → <b>📖 Codex</b>." },
   { icon: "⛏️", title: "Designate work", body:
     "Open <b>Orders</b> (left toolbar) and drag over trees, bushes, or grey stone to mark them for chopping, gathering, or mining. Elves pick up marked jobs on their own." },
   { icon: "📦", title: "Stockpiles", body:

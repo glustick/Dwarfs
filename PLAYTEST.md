@@ -26,9 +26,11 @@ before it reaches you.
 1. **New Game** → pick a difficulty and map size (**Standard / Greenwood** is the
    tuned baseline). The last choice is remembered.
 2. The tutorial runs automatically the first time — it's skippable, and the
-   **Codex** (❓, or from the main menu) covers everything in more depth.
-3. Chop a few trees (**C**) and mine some stone (**D**), then paint a
-   **Stockpile** (**S**) so the goods actually get carried.
+   **Codex** (from the main menu, or **☰ Menu → 📖 Codex** in game) covers
+   everything in more depth.
+3. Chop a few trees (**C**) and mine some stone (**M**), then paint a
+   **Stockpile** (**I**) so the goods actually get carried. (**WASD** pans the map
+   — which is why the old **D**/**S**/**A** tool keys are now **M**/**I**/**N**.)
 4. Research **Crafting Basics**, build a **Crafting Bench**, and queue clubs or
    stone knives — see *Arming your elves* below.
 5. Beds in a **Bedroom** zone, then a **Well**, then look at the **📦 Stock** tab
@@ -61,11 +63,13 @@ before it reaches you.
   slowdown, note roughly how many elves and how long the colony had been running.
 - **The balance of the late tech tree** — rifles, lasers and the essence branch
   have had little attention.
-- **Save robustness.** Saves live in browser local storage, are tied to that
-  browser, and there is no migration path if the save format changes. Export a
-  slot to a file if a colony matters.
-- Known cosmetic gap: the HUD text is small (9–10px) on a large display, and
-  there's no UI-scale setting yet.
+- **Save robustness.** Saves live in browser local storage and are tied to that
+  browser. The format is versioned and old saves are migrated forward, and a save
+  from a *newer* build is refused with a reason rather than half-loaded — but
+  export a slot to a file if a colony matters to you.
+- The HUD text is small (9–10px) on a large display: there is a **compact /
+  normal / large** interface scale in **⏸ Menu → 🎛 Interface**, and a
+  **colour-safe palette** beside it. If you use either, say whether it helped.
 
 ## A performance readout, if you want one
 
@@ -99,7 +103,7 @@ report is worth writing.
 Before handing a build over, run:
 
 ```bash
-node tools/smoke.js        # 23 checks: systems, save/load, the burial pipeline
+node tools/smoke.js        # 38 checks: systems, save/load, burial, diagnostics
 node tools/smoke-audio.js  # 6 checks: the audio graph and every sound mapping
 node tools/soak.js 15 20   # 15 days of chaotic play, asserting invariants
 node tools/stress.js       # load/timing; PROFILE=1 for the hot-method breakdown

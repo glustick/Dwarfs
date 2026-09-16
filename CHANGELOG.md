@@ -4,6 +4,23 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.36.2 (build 68)
+Two stale controls in the playtest guide, found by checking it against the build.
+
+- **The guide told the playtester to mine with `D` and stockpile with `S`** — but
+  since v1.34.0 those two keys pan the map (mining is `M`, stockpiling `I`). A
+  tester following it would have pressed `D`, watched the camera slide, and had no
+  reason to think the game was doing anything but ignoring them. Fixed, with a note
+  explaining why the keys moved.
+- **The tutorial told the player to reopen it from a "❓ button" that does not
+  exist** — there has never been one; the Codex is reached from the main menu or
+  **☰ Menu → 📖 Codex**. The guide repeated the same claim. Both now point at the
+  real control.
+- Three more claims the guide had outgrown: it still said there was **no save
+  migration path** (there is, since v1.32.0) and **no UI-scale setting** (there is,
+  with the colour-safe palette beside it), and it quoted the simulation suite at
+  **23 checks** when it runs 38.
+
 ## v1.36.1 (build 67)
 Developer tooling only — the game itself is unchanged.
 
