@@ -318,73 +318,49 @@ actual room instead of colony-wide counters).
       a vampire sting, cave-ins, floods, milestones, undo, zone stamps,
       autosave, load, equip and trade.
 
-## Tier 8 — planned
+## Tier 8 — playtest feedback (complete)
 
-- [x] ~~Taming hotspot~~ — `assignTame` was 98.7% of the simulation; it now
-      re-checks live state, remembers unreachable animals and uses a short path
-      budget. Measured ~86x on the whole run. See v1.31.0.
+_Requested 2026-09-15, after the playtest build went out. All seven items shipped,
+followed by the performance work they prompted. Kept as the record._
+
+- [x] ~~Volume mining (layered designations)~~ — `tile.digQueue` marks the depth
+      and `jobs.reindex` holds a queued tile back until the layer above it is
+      cleared, so a block comes out one layer at a time. (v1.30.0)
+- [x] ~~Precious ore hidden until dug~~ — `tile.revealed` starts false for gold and
+      marble, is honoured by rendering and the inspector, and is set when a
+      neighbouring tile is dug. (v1.30.0)
+- [x] ~~A work scheduler with day and night shifts~~ — `dwarf.shiftPref`
+      ("any" | "day" | "night") per elf in the Schedule tab, applied in
+      `resolveActivity`. (v1.30.0)
+- [x] ~~Starting weapons, equipable per elf~~ — a new colony starts with stone
+      knives, spears, short bows with arrows and a cloak, and the inspector's
+      **Equipment** picker hands a chosen weapon to a chosen elf. (v1.29.0)
+- [x] ~~Collapsible research tiers~~ — each tier is an accordion showing
+      `done/total`; finished tiers start collapsed and the state is remembered.
+      (v1.29.0)
+- [x] ~~Real tier gating~~ — `TIER_GATES` + `tierGateMet` feed `techPrereqsMet`,
+      and the tier header shows a 🔒 until the structure is built. (v1.30.0)
+- [x] ~~Colony bar: shrink or expand~~ — the 👥 button cycles full → compact →
+      hidden, and the mode is remembered. (v1.29.0)
 - [x] ~~Performance groundwork~~ — job searches bounded (one per elf per 0.4s,
       staggered) and items indexed by kind. No median gain at 20–40 elves; the
-      win is a bounded worst case. See v1.30.1.
-
-
-_Requested 2026-09-15, after the playtest build went out. Not started. Ordered
-roughly as I would tackle them. Each item notes where it lands in the code, so
-the work can start without re-deriving it._
-
-- [x] ~~Volume mining (layered designations)~~ — `tile.digQueue` marks the depth; `jobs.reindex` holds a queued tile back until the layer above is cleared. (Originally:) A mining designation should cover a
-      volume, not just the layer you drew on: dragging selects the same footprint
-      through the levels below, elves clear the **outermost layer first**, then the
-      next, until the whole selected block is gone. Today `tile.designation` is a
-      single flag on one tile, so this needs a designation to own an ordered queue
-      of tiles (`jobs.js` mine job + `world.js` tile fields; serialization must
-      stay append-only).
-- [x] ~~Precious ore hidden until dug~~ — `tile.revealed` starts false for gold and marble, is honoured by rendering and the inspector, and is set when a neighbouring tile is dug. (Originally:) Gold and the rarer metals should not be
-      visible — or selectable — until the rock in front of them has been worked.
-      You should *discover* them by mining, not by looking. Once revealed they
-      render and can be designated like any other vein. Iron and coal can stay
-      visible as the common case. Needs a per-tile `revealed` flag, set when a
-      neighbouring tile is mined, consulted by rendering, the hover tip and the
-      inspector, and carried in the save.
-- [x] ~~A work scheduler with day and night shifts~~ — `dwarf.shiftPref` ("any" | "day" | "night"), set per elf in the Schedule tab, applied in `resolveActivity`. (Originally:) Every elf currently sleeps
-      and wakes together, so a colony can't run around the clock. Add a shift
-      setting (day / night / flexible) per elf or per group, driven from the
-      Schedule tab, so some elves work the day and others the night. Touches
-      `dwarf.activity`, `assignSleep` and the global day/night clock
-      (`dayFraction`); think about lighting, mood and the socialising behaviour
-      that assumes everyone is awake together.
-- [x] ~~Starting weapons, equipable per elf~~ — a new colony starts with three
-      stone knives, two spears, two short bows with arrows and a cloak (no
-      research), and the inspector's **Equipment** picker hands a chosen weapon to
-      a chosen elf, dropping their old one where they stand.
-- [x] ~~Collapsible research tiers~~ — each tier is an accordion showing
-      `done/total`, finished tiers start collapsed, and the state is remembered.
-- [x] ~~Real tier gating~~ — `TIER_GATES` + `tierGateMet` feed `techPrereqsMet`; the tier header shows a 🔒 until the structure exists. (Originally:) Give each tier more prerequisites, and gate the *next*
-      tier behind a **structure built at the current tier** — you research your way
-      to a building, then building it opens the next tier — rather than points
-      alone. Touches `TECHS[].requires`, `techPrereqsMet` and the build system
-      (structures need to be visible in the Research tab as the thing that unlocks
-      the tier).
-- [x] ~~Colony bar: shrink or expand~~ — the 👥 button cycles full → compact →
-      hidden. Compact drops the names and tightens the portraits; the mode is
-      remembered.
+      win is a bounded worst case. (v1.30.1)
+- [x] ~~Taming hotspot~~ — `assignTame` was 98.7% of the simulation at 7.84 ms per
+      call. It now re-checks live state, remembers an animal whose approach failed
+      and uses a short path budget. Measured ~86x on the whole run. (v1.31.0)
 
 ---
 
 ### Notes
-
-- **Tiers 1–6 are complete, and every Tier 7 (presentation) item has shipped**
-  through **v1.28.0** — the playtest build: interface modernization (v1.22.0),
-  colony setup & difficulty (v1.23.0), the in-game codex (v1.24.0), the arms
-  ladder and tech-tree fix (v1.25.0), the Stock panel and tab layout (v1.26.0),
-  death, graves and remembrance (v1.27.0) and playtest readiness (v1.28.0), on
-  top of adaptive audio round 2 (v1.21.0).
+- **Every tier on this roadmap is complete** as of **v1.31.0** — Tiers 1–6, all of
+  Tier 7 (presentation), and all of Tier 8 (the playtest feedback list above),
+  plus the performance work those prompted.
 - **What comes next is not another feature round — it is a human playtest.** See
   `PLAYTEST.md`: the open questions are difficulty balance, whether the crude
-  weapons make the Day 4 outbreak survivable, and performance in a real colony
-  (the measured hot path is fixed, but only on a synthetic one).
-- **Tier 8 lists what is planned next** — volume mining, hidden precious ore, day
-  and night shifts, starting weapons equipable per elf, collapsible research tiers,
-  structure-gated tiers, and a shrunken colony bar. See the section above.
-- Parked until after that: a UI-scale setting, a colourblind-safe palette, and
-  save-format versioning/migration.
+  weapons make the Day 4 outbreak survivable, and performance in a real colony.
+- **One loose thread from the performance work:** at 40 elves the sim still shows
+  occasional brief episodes of ~2.4 ms/update (down from ~17.8) with no single
+  dominant method behind them. `PROFILE=1 node tools/stress.js` is the instrument
+  for chasing them.
+- Parked, and never actually requested: a UI-scale setting, a colourblind-safe
+  palette, and save-format versioning/migration.
