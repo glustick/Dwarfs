@@ -473,6 +473,7 @@ the ambience) and SFX separately from the **⏸ Menu → Audio** sliders.
 |---|---|
 | Designate / build | Left-drag with a tool selected |
 | Pan camera | **WASD** or arrow keys, or right-drag |
+| Soldier orders | Drag a box to select elves → **⚔ Enlist** the group → **right-click** open ground to march them there, **right-click an enemy** to attack it |
 | Zoom | Mouse wheel |
 | Pause / resume | Space, or the ⏸ button |
 | Game speed | `+` / `-`, or the ▶ ⏩ ⏭ buttons |

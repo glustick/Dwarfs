@@ -321,6 +321,8 @@ class Input {
       c.setPointerCapture(e.pointerId);
       if (e.button === 2 || e.button === 1 || this.keys.has(" ")) {
         this.panning = true;
+        this.panButton = e.button;
+        this.panStart = { x: e.clientX, y: e.clientY };
         this.panLast = { x: e.clientX, y: e.clientY };
         return;
       }
@@ -347,7 +349,16 @@ class Input {
     });
 
     const endDrag = (e) => {
-      if (this.panning) { this.panning = false; return; }
+      if (this.panning) {
+        // A right-click that did not drag is an order, not a camera pan — the RTS
+        // convention most players already have in their fingers. Right-*drag*
+        // still pans, which is why the two are separated by distance moved.
+        const moved = this.panStart ? Math.hypot(e.clientX - this.panStart.x, e.clientY - this.panStart.y) : 99;
+        const wasRight = this.panButton === 2;
+        this.panning = false; this.panButton = null; this.panStart = null;
+        if (wasRight && moved < 5) this.rightClickOrder(this.tileAt(e));
+        return;
+      }
       if (this.dragStart && this.dragCur) {
         if (this.tool === "select") this.handleSelectDrag(this.dragStart, this.dragCur, e);
         else this.applyTool(this.dragStart, this.dragCur);
@@ -513,8 +524,48 @@ class Input {
 
   issueMoveOrder(squad, x, y, z) {
     const g = this.game;
-    for (const d of squad) d.manualOrder = { x, y, z };
+    for (const d of squad) { d.manualOrder = { x, y, z }; d.attackOrder = null; }
     g.log(`Move order given to ${squad.length} soldier${squad.length > 1 ? "s" : ""}.`, "", "order");
+  }
+
+  // Right-click. A hostile under the cursor is attacked; open ground is marched
+  // to. Your own elves and animals are deliberately not testable here, so a
+  // mis-aimed right-click on a colonist can only ever mean "go there".
+  rightClickOrder(t) {
+    const g = this.game;
+    if (!t) return;
+    const z = g.viewZ || 0;
+    const squad = (g.selectedSquad || []).filter(d => d.military && (d.z || 0) === z);
+    if (!squad.length) {
+      // Say why nothing happened rather than appearing broken.
+      if ((g.selectedSquad || []).length) g.log("Only enlisted elves take orders — enlist the group first.", "", "order");
+      return;
+    }
+    const foe = this.enemyAt(t);
+    if (foe) { this.issueAttackOrder(squad, foe); return; }
+    if (!g.world.isWalkable(t.x, t.y, z)) {
+      g.log("Soldiers cannot be stationed there — pick open ground.", "", "order");
+      return;
+    }
+    this.issueMoveOrder(squad, t.x, t.y, z);
+  }
+
+  // The nearest hostile to a tile, looking only at `enemies`.
+  enemyAt(t) {
+    const g = this.game;
+    const z = g.viewZ || 0;
+    let best = null, bd = 0.9;
+    for (const e of g.enemies) {
+      if ((e.z || 0) !== z) continue;
+      const dd = Math.hypot(e.x + 0.5 - (t.x + 0.5), e.y + 0.5 - (t.y + 0.5));
+      if (dd < bd) { bd = dd; best = e; }
+    }
+    return best;
+  }
+
+  issueAttackOrder(squad, foe) {
+    for (const d of squad) { d.attackOrder = foe; d.manualOrder = null; }
+    this.game.log(`${squad.length} soldier${squad.length > 1 ? "s" : ""} ordered to attack the ${foe.kind || "enemy"}.`, "", "order");
   }
 
   applyTool(a, b) {

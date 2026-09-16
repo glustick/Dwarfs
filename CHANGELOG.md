@@ -4,6 +4,25 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.38.0 (build 70)
+Direct control, as asked for: the RTS conventions, applied to your warband.
+
+- **Right-click gives orders.** Right-click open ground and the selected soldiers
+  march there and hold; right-click an enemy and they charge *that* one rather than
+  whichever raider happens to be nearest. Right-*drag* still pans the camera — the two
+  are told apart by whether the pointer moved, so neither loses its key.
+- **A whole group can be enlisted at once.** Drag a box over your elves and the
+  inspector offers **⚔ Enlist** for the group (and **Return all to civilian life**
+  once they are in). Previously enlisting was one elf at a time from their own panel,
+  which made a squad of six a chore.
+- **They never attack your own side.** Only entities in the game's enemy list can be
+  named as an attack target — a right-click on a colonist or an animal is a move
+  order, and that is structural rather than a check that could be forgotten.
+- **An attack order is dropped when its target dies.** Found by the new test: the
+  cleanup lived behind the same gate as the order, so a dead target left the elf
+  claiming to attack something that no longer existed.
+- `tools/smoke.js`: 42 checks.
+
 ## v1.37.0 (build 69)
 Two things that were broken in play, both reported from an actual colony.
 

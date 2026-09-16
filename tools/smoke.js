@@ -794,6 +794,84 @@ check("command: an enlisted elf obeys a move order in a quiet colony", () => {
   }
 });
 
+check("command: right-click marches a squad and names a target to attack", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const w = gs.world;
+  const squad = gs.dwarves.slice(0, 3);
+  for (const d of squad) d.military = true;
+  gs.selectedSquad = squad.slice();
+
+  // right-click open ground -> every selected elf gets the move order
+  let target = null;
+  for (let r = 3; r < 7 && !target; r++) {
+    for (const [dx, dy] of [[r, 0], [-r, 0], [0, r], [0, -r]]) {
+      const x = squad[0].tileX + dx, y = squad[0].tileY + dy;
+      if (x > 0 && y > 0 && x < w.w && y < w.h && w.isWalkable(x, y, 0)) { target = { x, y }; break; }
+    }
+  }
+  if (!target) throw new Error("no open ground to order them to");
+  gs.input.rightClickOrder(target);
+  for (const d of squad) {
+    if (!d.manualOrder) throw new Error(`${d.name} did not receive the group move order`);
+    if (d.attackOrder) throw new Error("a move order left an attack order standing");
+  }
+
+  // right-click an enemy -> an attack order naming that enemy
+  const d0 = squad[0];
+  const foe = run("(k,x,y,z)=>new Enemy(k,x,y,z)", "zombie", d0.tileX + 1, d0.tileY, 0);
+  gs.enemies.push(foe);
+  const ft = { x: Math.floor(foe.x), y: Math.floor(foe.y) };
+  gs.input.rightClickOrder(ft);
+  for (const d of squad) {
+    if (d.attackOrder !== foe) throw new Error("the attack order did not name the target");
+    if (d.manualOrder) throw new Error("an attack order left a move order standing");
+  }
+  if (!/attack/.test(gs.log ? "" : "")) { /* log is DOM-side; nothing to assert */ }
+
+  // and it routes into combat: an adjacent target takes a hit
+  const hp0 = foe.hp;
+  for (let i = 0; i < 120; i++) gs.update(1 / 60);
+  if (!(foe.hp < hp0)) throw new Error("the ordered attack never landed a blow");
+
+  // the order is dropped once the target is dead, rather than chasing a corpse
+  foe.hp = 0;
+  gs.update(1 / 60);
+  for (const d of squad) if (d.attackOrder) throw new Error("the attack order outlived its target");
+
+  // right-clicking a COLONIST must never be an attack
+  gs.enemies.length = 0;
+  const mate = gs.dwarves.find(x => x !== d0);
+  mate.military = false;
+  const mateT = { x: mate.tileX, y: mate.tileY };
+  w.get(mateT.x, mateT.y, 0).kind = w.get(mateT.x, mateT.y, 0).kind === "stone" ? "floor" : w.get(mateT.x, mateT.y, 0).kind;
+  gs.input.rightClickOrder(mateT);
+  for (const d of squad) {
+    if (d.attackOrder) throw new Error("a colonist could be ordered as an attack target");
+  }
+
+  // nothing selected: it must do nothing at all, not throw
+  gs.selectedSquad = [];
+  gs.input.rightClickOrder({ x: 5, y: 5 });
+});
+
+check("command: a multi-selection offers a group enlist", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const squad = gs.dwarves.slice(0, 3);
+  for (const d of squad) d.military = false;
+  gs.selectedSquad = squad.slice(); gs.selectedDwarf = null;
+
+  const civilianView = gs.inspectorHTML();
+  if (civilianView.indexOf("insp-squad-enlist") === -1) throw new Error("a group of civilians had no enlist control");
+  if (civilianView.indexOf("insp-squad-release") !== -1) throw new Error("a group of civilians was offered release-to-AI");
+
+  for (const d of squad) d.military = true;
+  const soldierView = gs.inspectorHTML();
+  if (soldierView.indexOf("insp-squad-release") === -1) throw new Error("an enlisted group had no release control");
+  if (soldierView.indexOf("insp-squad-discharge") === -1) throw new Error("an enlisted group could not be stood down in bulk");
+  if (soldierView.indexOf("insp-squad-enlist") !== -1) throw new Error("an all-soldier group still offered enlist");
+  if (soldierView.indexOf("Right-click") === -1) throw new Error("the group panel does not explain right-click orders");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

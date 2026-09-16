@@ -1089,7 +1089,13 @@ class Game {
     // to open the door as well, not just `enemies.length`. Behind that gate an
     // enlisted elf standing in a quiet colony simply ignored the click: the
     // order was recorded, and never once looked at.
-    if ((this.enemies.length || d.manualOrder) && this.handleCombat(d, dt)) return;
+    // An attack order counts even once its target is gone: handleCombat is where a
+    // dead target is dropped, so without this the order outlived the enemy and the
+    // elf went on claiming to be attacking something that no longer existed.
+    // An attack order counts even once its target is gone: handleCombat is where a
+    // dead target is dropped, so without this the order outlived the enemy and the
+    // elf went on claiming to be attacking something that no longer existed.
+    if ((this.enemies.length || d.manualOrder || d.attackOrder) && this.handleCombat(d, dt)) return;
 
     if (d.job) {
       this.jobs.execute(d, dt);
@@ -1545,7 +1551,16 @@ class Game {
   // Returns true if combat took control of this dwarf this frame.
   handleCombat(d, dt) {
     const dz = d.z || 0;
-    const foe = this.nearestEnemy(d.x, d.y, dz);
+    // An explicit attack order names the target, and is dropped the moment that
+    // enemy dies so nobody charges a corpse. Only entities in `enemies` can ever
+    // be named — your own elves and animals are not in that list, which is what
+    // makes it structurally impossible to order an attack on a colonist.
+    let foe = null;
+    if (d.attackOrder) {
+      foe = (this.enemies.includes(d.attackOrder) && d.attackOrder.hp > 0) ? d.attackOrder : null;
+      if (!foe) d.attackOrder = null;
+    }
+    if (!foe) foe = this.nearestEnemy(d.x, d.y, dz);
 
     if (d.military) {
       if (d.job && d.job.type === "equip") { this.jobs.execute(d, dt); return true; } // finish arming
@@ -3039,8 +3054,28 @@ class Game {
     const squadRelease = c.querySelector("#insp-squad-release");
     if (squadRelease) {
       squadRelease.onclick = () => {
-        for (const d of this.selectedSquad) d.manualOrder = null;
+        for (const d of this.selectedSquad) { d.manualOrder = null; d.attackOrder = null; }
         this.log(`Squad released to automatic AI.`, "", "combat");
+        this.updatePanel();
+      };
+    }
+    const squadEnlist = c.querySelector("#insp-squad-enlist");
+    if (squadEnlist) {
+      squadEnlist.onclick = () => {
+        const n = this.selectedSquad.filter(d => !d.military).length;
+        for (const d of this.selectedSquad) { d.military = true; if (d.job) this.jobs.cancel(d); }
+        this.log(`${n} elf${n === 1 ? "" : "ves"} enlisted — right-click the ground to send the group.`, "", "combat");
+        this.updatePanel();
+      };
+    }
+    const squadDischarge = c.querySelector("#insp-squad-discharge");
+    if (squadDischarge) {
+      squadDischarge.onclick = () => {
+        for (const d of this.selectedSquad) {
+          d.military = false; d.manualOrder = null; d.attackOrder = null;
+          if (d.job) this.jobs.cancel(d);
+        }
+        this.log(`Squad returned to civilian life.`, "", "combat");
         this.updatePanel();
       };
     }
@@ -3124,9 +3159,14 @@ class Game {
       }).join("");
       return `<b>Group selected</b> <span class="tag">👥 ${group.length} elves</span>${soldiers ? ` <span class="tag" style="background:#6b2f2f">⚔ ${soldiers} soldier${soldiers > 1 ? "s" : ""}</span>` : ""}<br/>
         <div class="mini">${this.escapeHtml(names)}</div>
-        ${allMilitary ? `<div class="mini" style="opacity:.75">Click anywhere on the ground to send them there — they'll hold that
-        position and fight anything that comes adjacent, instead of chasing the nearest raider on their own.</div>
-        <button class="mini-btn" id="insp-squad-release">Release to automatic AI</button>` : ""}
+        ${allMilitary ? `<div class="mini" style="opacity:.75"><b>Right-click</b> the ground to send the group there, or
+        <b>right-click an enemy</b> to send them at it. They take direct control instead of chasing the nearest raider on
+        their own, and they will never attack each other.</div>
+        <button class="mini-btn" id="insp-squad-release">Release to automatic AI</button>
+        <button class="mini-btn" id="insp-squad-discharge">Return all ${group.length} to civilian life</button>`
+        : `<div class="mini" style="opacity:.75">Drag a box over your elves to select them, then enlist the group to take
+        direct control — their right-click orders work from then on.</div>
+        <button class="mini-btn" id="insp-squad-enlist">⚔ Enlist ${group.length - soldiers === group.length ? "all " + group.length : "the other " + (group.length - soldiers)}</button>`}
         <div class="mini2">Labors · applies to all ${group.length} selected elves</div>
         <div class="sd-labors">${chips}</div>
         <div class="mini" style="opacity:.6">Click a labor to cycle its priority (off → 1 → 2 → 3) for the whole group.</div>`;
@@ -3181,7 +3221,7 @@ class Game {
           ${equipSubs.map(([subId, n]) => `<button class="recipe-btn${d.weapon === subId ? " on" : ""}" data-equip="${subId}">${gearNames[subId] || subId}${n > 1 ? ` ×${n}` : ""}</button>`).join("")}
         </div>
         <button class="mini-btn" id="insp-military">${d.military ? "Stand down" : "⚔ Enlist as soldier"}</button>
-        ${d.military && d.manualOrder ? `<div class="mini">🎯 Holding a manual position order</div><button class="mini-btn" id="insp-order-release">Release to automatic AI</button>` : ""}
+        ${d.military && (d.manualOrder || d.attackOrder) ? `<div class="mini">${d.attackOrder ? "⚔ Attacking the target you picked" : "🎯 Holding a manual position order"}</div><button class="mini-btn" id="insp-order-release">Release to automatic AI</button>` : ""}
         <div class="mini2">Relationships</div>${this.relationshipsHTML(d)}
         <div class="mini2">Skills</div>${sk}`;
     }

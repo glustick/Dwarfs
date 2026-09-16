@@ -251,7 +251,16 @@ const CODEX_ENTRIES = [
     id: "combat", icon: "⚔️", title: "Combat & soldiers", cat: "Threats",
     tags: "combat soldier enlist weapon armour armor bow rifle laser arrow bullet watchtower trap defence",
     body: `<p>Enlist elves as soldiers from the inspector (<b>⚔ Enlist</b>). They'll train, arm themselves from your stores, and intercept threats.</p>
-      <p><b>Taking direct control.</b> Select an enlisted elf — click them, or pick them from the inspector — then click an open tile. They drop what they are doing, march there, and hold that spot. The inspector's <b>Release to automatic AI</b> button hands them back to the AI. Only enlisted elves take orders this way; civilians stay on their own schedule.</p>
+      <p><b>Taking direct control.</b> Drag a box over your elves to select them, then <b>⚔ Enlist</b> the group in the
+      inspector. From then on you can order them around like any warband:</p>
+      <ul>
+        <li><b>Right-click open ground</b> — march there and hold that spot.</li>
+        <li><b>Right-click an enemy</b> — charge that one specifically, rather than whichever raider happens to be nearest.</li>
+      </ul>
+      <p>Orders are right-click because right-<i>drag</i> is still the camera. Your elves never attack each other or
+      anybody else on your side — only hostile creatures can be named as a target. The inspector's
+      <b>Release to automatic AI</b> button hands them back to their own judgement, and civilians stay on their
+      schedule the whole time.</p>
       <p>You can't armour an elf with nothing, so the ladder starts cheap: <b>wooden club</b> → <b>stone knife</b> → <b>stone spear</b> (all from a Crafting Bench), then a <b>short bow</b> with <b>Fletching</b> — a real ranged weapon available while the forge is still a research project.</p>
       <ul>
         <li><b>Melee</b> — clubs, knives and spears early, then iron swords and axes; short reach, solid damage.</li>
