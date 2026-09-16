@@ -1000,3 +1000,24 @@ button.tech-tier:hover { color: var(--text); }
 .tech-tier .tt-gate { margin-left: auto; font-size: 9.5px; letter-spacing: .04em; color: var(--warn); text-transform: none; }
 .tech-tier.gated { color: var(--muted-2); }
 .sd-shifts select.sd-shift { max-width: 104px; }
+
+/* ---- accessibility palette (pause menu -> Interface) ---- */
+html[data-palette="safe"] {
+  --ok: #56b4e9;
+  --warn: #e69f00;
+  --bad: #d55e00;
+  --ok-bg: rgba(86, 180, 233, .12);
+  --ok-line: rgba(86, 180, 233, .34);
+  --bad-bg: rgba(213, 94, 0, .12);
+  --bad-line: rgba(213, 94, 0, .34);
+  --info: #56b4e9;
+}
+
+/* ---- interface scale (pause menu -> Interface) ---- */
+:root { --ui-scale: 1; }
+html[data-ui="compact"] { --ui-scale: 0.9; }
+html[data-ui="large"] { --ui-scale: 1.15; }
+#topbar, #panel, #log, #colonistbar, #archbar, #flyout, #overlay, #toast,
+#tutorial-card, #hover-tip { zoom: var(--ui-scale); }
+/* `zoom` scales an element's own used lengths too, so the chrome's anchors and
+   the variables that position it stay consistent without double-counting. */

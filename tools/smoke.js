@@ -581,6 +581,63 @@ check("research: tiers are gated behind a built structure", () => {
   if (!gs.techPrereqsMet(tech)) throw new Error("the tech is still gated after the bench was built");
 });
 
+check("saves: a versioned save migrates, and a future one is refused", () => {
+  const migrate = (d) => run("(d)=>migrateSave(d)", d);
+  const SAVE_VERSION = run("SAVE_VERSION");
+  if (SAVE_VERSION < 6) throw new Error("the save format should now be versioned at 6+");
+
+  const old = { version: 5, world: { w: 10, h: 10 } };
+  const m = migrate(old);
+  if (!m.ok) throw new Error("a v5 save did not migrate: " + m.reason);
+  if (m.data.version !== SAVE_VERSION) throw new Error("migration did not stamp the new version");
+  if (!m.applied.length) throw new Error("migration was not recorded");
+
+  const future = migrate({ version: SAVE_VERSION + 5 });
+  if (future.ok) throw new Error("a save from a newer build should be refused");
+  if (!/newer build/.test(future.reason)) throw new Error("unhelpful reason: " + future.reason);
+
+  if (migrate(null).ok) throw new Error("null should not migrate");
+  if (migrate([1, 2, 3]).ok) throw new Error("an array should not migrate");
+
+  // end to end: a save written without a version still loads
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const data = JSON.parse(JSON.stringify(gs.serialize()));
+  delete data.version;
+  const back = run("(d)=>migrateSave(d)", data);
+  if (!back.ok || back.data.version !== SAVE_VERSION) throw new Error("a version-less save did not migrate");
+  const g2 = run("(d)=>new Game(d)", back.data);
+  if (g2.dwarves.length !== gs.dwarves.length) throw new Error("the migrated save lost its colony");
+});
+
+check("accessibility: the colour-safe palette is complete and switchable", () => {
+  const ORE = run("ORE_COLOR"), SAFE = run("ORE_COLOR_SAFE");
+  for (const ore of ["iron", "gold", "coal", "marble"]) {
+    if (!ORE[ore]) throw new Error("no default colour for " + ore);
+    if (!SAFE[ore]) throw new Error("no colour-safe colour for " + ore);
+    if (SAFE[ore] === ORE[ore]) throw new Error(ore + " is identical in both palettes");
+  }
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const before = gs.moodColor(80);
+  run("setPalette", "safe");
+  if (!ctx.window.__paletteSafe) throw new Error("setPalette did not take effect");
+  if (gs.moodColor(80) === before) throw new Error("mood colour does not change with the palette");
+  run("setPalette", "default");
+  if (ctx.window.__paletteSafe) throw new Error("setPalette did not switch back");
+});
+
+check("accessibility: the interface scale is remembered and applied", () => {
+  const set = (m) => run("(m)=>setUiScale(m)", m);
+  const get = () => run("()=>uiScaleMode()");
+  if (get() !== "normal") throw new Error("the interface scale should default to normal");
+  set("large");
+  if (get() !== "large") throw new Error("the scale was not stored");
+  if (documentStub.documentElement.getAttribute("data-ui") !== "large") throw new Error("data-ui was not set");
+  set("compact");
+  if (get() !== "compact") throw new Error("the scale did not change");
+  set("nonsense");
+  if (get() !== "normal") throw new Error("an unknown scale should fall back to normal");
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

@@ -2,7 +2,51 @@
 
 const SAVE_PREFIX = "df_save_";
 const AUTOSAVE_NAME = "Autosave";
-const SAVE_VERSION = 5;
+const SAVE_VERSION = 6;
+
+// ---- save migrations --------------------------------------------------------
+// Each entry upgrades a save by exactly one version, and they run in order, so a
+// v3 save is brought forward by running 3→4, 4→5 and 5→6.
+//
+// Every format change so far has been additive — new keys on objects, new fields
+// appended to the tile tuple — and `Game.restore` defaults anything missing, so
+// these steps are mostly a *record* of what changed rather than a transform. The
+// framework exists so that the first genuinely breaking change has somewhere
+// honest to live, instead of being papered over by "version mismatch tolerated".
+const SAVE_MIGRATIONS = {
+  5: (d) => {
+    // v6 collects everything added since the format was last stamped: faction
+    // reputation, the Storyteller's state, colony settings (difficulty/map),
+    // grave markers, dig queues, hidden ore and per-elf shift preference. All of
+    // them are optional and defaulted in restore(), so nothing is rewritten here.
+    d.version = 6;
+    return d;
+  },
+};
+
+// Bring a parsed save up to the current version. Never throws: a save that cannot
+// be read is reported, not crashed on.
+function migrateSave(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return { ok: false, reason: "not a save file" };
+  }
+  // Saves written before the version was stamped behave as the format they were.
+  const from = typeof data.version === "number" ? data.version : 5;
+  if (from > SAVE_VERSION) {
+    return { ok: false, reason: `made by a newer build (v${from})`, from };
+  }
+  let v = from;
+  const applied = [];
+  while (v < SAVE_VERSION) {
+    const step = SAVE_MIGRATIONS[v];
+    if (!step) return { ok: false, reason: `no migration route from v${v}`, from };
+    data = step(data);
+    applied.push(`v${v}->v${v + 1}`);
+    v++;
+  }
+  if (typeof data.version !== "number") data.version = SAVE_VERSION;
+  return { ok: true, data, from, applied };
+}
 
 const SaveManager = {
   key(name) { return SAVE_PREFIX + name; },
@@ -23,22 +67,39 @@ const SaveManager = {
   load(name) {
     const raw = localStorage.getItem(this.key(name));
     if (!raw) return null;
+    this.lastError = null;
     try {
-      const data = JSON.parse(raw);
-      if (!data || data.version !== SAVE_VERSION) {
-        // still attempt to load; version mismatch tolerated for now
+      const parsed = JSON.parse(raw);
+      const m = migrateSave(parsed);
+      if (!m.ok) {
+        // Previously this was silently tolerated, which meant a save from a
+        // newer build could be loaded into a half-broken colony.
+        this.lastError = m.reason;
+        return null;
       }
-      return data;
+      if (m.applied.length) m.data._migratedFrom = m.from;
+      return m.data;
     } catch (e) {
+      this.lastError = "the save file is corrupt";
       return null;
     }
+  },
+
+  // Exposed so the UI and the test harness can ask what a file actually is.
+  inspect(name) {
+    const raw = localStorage.getItem(this.key(name));
+    if (!raw) return { ok: false, reason: "no such save" };
+    try { return migrateSave(JSON.parse(raw)); }
+    catch (e) { return { ok: false, reason: "the save file is corrupt" }; }
   },
 
   // Store already-parsed save data (e.g. from an imported file) as-is,
   // without needing a live Game instance to serialize — see App.importFromFile.
   saveRaw(name, data) {
     try {
-      const json = JSON.stringify({ ...data, name });
+      const m = migrateSave(data);
+      if (!m.ok) return { ok: false, error: `cannot import: ${m.reason}` };
+      const json = JSON.stringify({ ...m.data, name });
       localStorage.setItem(this.key(name), json);
       return { ok: true, bytes: json.length };
     } catch (e) {

@@ -34,6 +34,14 @@
     var saved = "greenwood";
     try { saved = localStorage.getItem("ee_theme") || "greenwood"; } catch (e) {}
     window.setTheme(saved);
+    // ...and the accessibility palette, so there is no flash of the wrong one.
+    var safe = false;
+    try { safe = localStorage.getItem("ee_palette") === "safe"; } catch (e) {}
+    window.__paletteSafe = safe;
+    document.documentElement.setAttribute("data-palette", safe ? "safe" : "default");
+    var ui = "normal";
+    try { ui = localStorage.getItem("ee_uiscale") || "normal"; } catch (e) {}
+    document.documentElement.setAttribute("data-ui", ["compact", "normal", "large"].includes(ui) ? ui : "normal");
   })();
 </script>
 </head>

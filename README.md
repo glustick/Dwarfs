@@ -372,6 +372,20 @@ held at its height, what you researched, and how many you laid to rest.
 - **📜 Log** — a filterable chronicle (orders, combat, factions, events…), and
   **🏆 Records** for milestones and every elf who has ever lived here.
 
+## Accessibility
+
+Two settings live in **⏸ Menu → 🎛 Interface**:
+
+- **🎨 Colour-safe palette.** Ore is normally told apart by colour alone. This
+  swaps in a colour-blind-safe ramp and gives each ore its own *shape* as well
+  (iron speckle, coal blobs, gold rings, marble squares), and recolours mood bars
+  and status colours to match.
+- **🔍 Interface scale** — compact / normal / large, for the small HUD type on a
+  big display. Defaults to normal.
+
+Saves are versioned: an old save is migrated forward and tells you so, and a save
+from a newer build is refused with a reason rather than half-loaded.
+
 ## Help & the codex
 
 Press **❓** (top bar) or **⏸ Menu → 📖 Codex & Help** for the in-game handbook:

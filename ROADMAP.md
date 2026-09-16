@@ -362,5 +362,7 @@ followed by the performance work they prompted. Kept as the record._
   occasional brief episodes of ~2.4 ms/update (down from ~17.8) with no single
   dominant method behind them. `PROFILE=1 node tools/stress.js` is the instrument
   for chasing them.
-- Parked, and never actually requested: a UI-scale setting, a colourblind-safe
-  palette, and save-format versioning/migration.
+- ~~Parked: a UI-scale setting, a colourblind-safe palette, and save-format
+  versioning/migration~~ — **all three shipped in v1.32.0**: the palette and the
+  interface scale are in the pause menu's Interface row, and saves are versioned
+  with a migration chain that refuses a newer format instead of half-loading it.

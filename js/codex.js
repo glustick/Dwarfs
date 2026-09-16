@@ -42,10 +42,11 @@ const CODEX_ENTRIES = [
   },
   {
     id: "saving", icon: "💾", title: "Saving & loading", cat: "Basics",
-    tags: "save load slot export import autosave storage",
+    tags: "save load slot export import autosave storage version migrate accessibility palette scale colourblind",
     body: `<p>Saves live in your <b>browser's local storage</b> — they survive closing the tab, but not clearing site data or switching browsers.</p>
       <p>The pause menu has <b>Save</b> and <b>Load</b>: named slots, plus an automatic <b>Autosave</b>. Slots can be <b>exported</b> to a file and imported again, which is the sane way to move a colony between machines.</p>
-      <p>A save records the map, every elf, stockpiles, research, reputation, the Storyteller's state and your difficulty.</p>`,
+      <p>A save records the map, every elf, stockpiles, research, reputation, the Storyteller's state and your difficulty. Saves are **versioned**: an older one is brought up to date when you load it (and says so), and one written by a newer build is refused with a reason rather than loaded half-broken.</p>
+      <p>In **⏸ Menu → 🎛 Interface** you'll also find a **colour-safe palette** (ore gets a distinct shape as well as a colour) and a **compact / normal / large interface scale**.</p>`,
   },
 
   // ---------------------------------------------------------------- Work

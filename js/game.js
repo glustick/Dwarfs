@@ -2353,6 +2353,13 @@ class Game {
     return this._itemIdx[kind] || NO_ITEMS;
   }
 
+  // Mood is carried by colour, so the accessible palette swaps the usual
+  // green/amber/red ramp for one colour blindness handles.
+  moodColor(hap) {
+    if (window.__paletteSafe) return hap > 60 ? "#56b4e9" : hap > 35 ? "#e69f00" : "#d55e00";
+    return hap > 60 ? "#7ec86a" : hap > 35 ? "#e0b158" : "#e08a6a";
+  }
+
   countItems(kind, sub = null) {
     let n = 0;
     for (const it of this.itemsOfKind(kind)) if (sub === null || it.sub === sub) n++;
@@ -2934,7 +2941,7 @@ class Game {
     let html = `<h2>Colony · ${this.dwarves.length}</h2>${status}<div id="dwarf-list">`;
     this.dwarves.forEach((d, i) => {
       const hap = d.happiness != null ? d.happiness : 60;
-      const hapColor = hap > 60 ? "#7ec86a" : hap > 35 ? "#e0b158" : "#e08a6a";
+      const hapColor = this.moodColor(hap);
       const face = hap > 70 ? "😀" : hap > 45 ? "🙂" : hap > 25 ? "😕" : "😣";
       const sel = (this.selectedDwarf === d || this.selectedSquad.includes(d)) ? " sel" : "";
       html += `

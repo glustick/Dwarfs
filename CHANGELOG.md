@@ -4,6 +4,26 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.32.0 (build 62)
+The three parked items: accessibility and save robustness.
+
+- **A colour-safe palette** (pause menu → Interface, 🎨). Ore types used to be
+  told apart by colour alone, which colour-vision deficiency defeats. The safe
+  palette swaps in an Okabe-Ito style ramp **and** gives each ore its own shape —
+  iron a fine speckle, coal heavy blobs, gold rings, marble a square — because a
+  palette on its own cannot separate kinds for every kind of colour blindness.
+  Mood bars, status colours and the interface's ok/warn/bad ramp follow suit.
+- **An interface scale** (pause menu → Interface, 🔍): compact / normal / large,
+  so the 9-10px HUD type is readable on a large display. Defaults to normal, so
+  nothing changes unless it is chosen.
+- **Saves are versioned and migrated.** The format is now stamped (v6) and a
+  migration chain exists, so the first genuinely breaking change has somewhere to
+  live instead of "version mismatch tolerated". A save from a **newer** build is
+  refused with a clear reason rather than loaded half-broken, importing an
+  unreadable file says why, and a migrated save tells you it was upgraded. Also
+  fixed: clicking **Continue** with an unreadable save used to silently start a
+  new colony.
+
 ## v1.31.0 (build 61)
 Taming was eating the frame.
 

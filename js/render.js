@@ -375,12 +375,23 @@ class Renderer {
     ctx.stroke();
     // ore flecks
     if (t.ore && t.revealed) {
-      ctx.fillStyle = ORE_COLOR[t.ore];
-      for (let i = 0; i < 5; i++) {
-        const rx = sx + ((h >> (i * 2)) % 100) / 100 * s * 0.8 + s * 0.1;
-        const ry = sy + ((h >> (i * 2 + 1)) % 100) / 100 * s * 0.8 + s * 0.1;
-        const r = Math.max(1, s * 0.07);
-        ctx.beginPath(); ctx.arc(rx, ry, r, 0, 7); ctx.fill();
+      const safe = !!window.__paletteSafe;
+      ctx.fillStyle = (safe ? ORE_COLOR_SAFE : ORE_COLOR)[t.ore] || "#ffffff";
+      const rx = (i) => sx + ((h >> (i * 2)) % 100) / 100 * s * 0.8 + s * 0.1;
+      const ry = (i) => sy + ((h >> (i * 2 + 1)) % 100) / 100 * s * 0.8 + s * 0.1;
+      const dot = (i, r) => { ctx.beginPath(); ctx.arc(rx(i), ry(i), Math.max(1, r), 0, 7); ctx.fill(); };
+      if (!safe) {
+        for (let i = 0; i < 5; i++) dot(i, s * 0.07);
+      } else if (t.ore === "iron") {
+        for (let i = 0; i < 5; i++) dot(i, s * 0.06);            // fine speckle
+      } else if (t.ore === "coal") {
+        for (let i = 0; i < 2; i++) dot(i, s * 0.14);            // heavy blobs
+      } else if (t.ore === "gold") {
+        ctx.lineWidth = Math.max(1, s * 0.05);
+        ctx.strokeStyle = ctx.fillStyle;
+        for (let i = 0; i < 2; i++) { ctx.beginPath(); ctx.arc(rx(i), ry(i), s * 0.11, 0, 7); ctx.stroke(); }  // rings
+      } else {
+        ctx.fillRect(rx(0) - s * 0.08, ry(0) - s * 0.08, s * 0.16, s * 0.16);   // square
       }
     }
   }

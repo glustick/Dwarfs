@@ -24,6 +24,9 @@ const F = {
 // Ores (and marble, a decorative stone) embedded in solid rock
 const ORES = ["iron", "gold", "coal", "marble"];
 const ORE_COLOR = { iron: "#b8b0a0", gold: "#ffd34d", coal: "#3a3a3a", marble: "#e8e2d8" };
+// Colour-vision-safe ore colours (Okabe-Ito), used with the per-kind shapes in
+// render.js — the shape is what actually separates them; the colour corroborates.
+const ORE_COLOR_SAFE = { iron: "#bbbbbb", gold: "#e69f00", coal: "#444444", marble: "#56b4e9" };
 // Veins of these are not visible (or selectable) until the rock in front of them
 // has been worked: you should discover treasure by digging, not by looking.
 // Iron and coal stay visible as the common case.

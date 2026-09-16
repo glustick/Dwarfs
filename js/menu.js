@@ -55,7 +55,12 @@ class App {
     window.game = new Game(saveData, settings);
     this.inGame = true;
     this.hide();
-    this.toast(saveData ? "Game loaded" : "A new elven empire is founded!");
+    if (saveData && saveData._migratedFrom) {
+      // Say so rather than silently upgrading someone's colony.
+      this.toast(`Loaded a v${saveData._migratedFrom} save and brought it up to date`);
+    } else {
+      this.toast(saveData ? "Game loaded" : "A new elven empire is founded!");
+    }
     if (!saveData && window.tutorial && window.tutorial.shouldAutoShow()) window.tutorial.open();
   }
 
@@ -112,7 +117,12 @@ class App {
         <div class="menu-version">v${RELEASE_VERSION} · build ${BUILD_NUMBER}</div>
       </div>`, "main");
 
-    if (recent) document.getElementById("mm-continue").onclick = () => this.startGame(SaveManager.load(recent.name));
+    if (recent) document.getElementById("mm-continue").onclick = () => {
+      // Never fall through to a new game when the save will not load.
+      const data = SaveManager.load(recent.name);
+      if (data) this.startGame(data);
+      else this.toast(`Cannot load that save — ${SaveManager.lastError || "it is corrupt"}.`);
+    };
     document.getElementById("mm-new").onclick = () => this.openNewGameDialog(false);
     document.getElementById("mm-codex").onclick = () => this.openCodex();
     // Always reachable, even with zero saves — that's also where importing a
@@ -327,6 +337,10 @@ class App {
           <span class="ui-lbl">Sound</span>
           <button class="spd" id="autopause-btn" title="Auto-pause on crises (raid, death, starvation, dehydration)" aria-label="Disable auto-pause on crises">🔔</button>
           <span class="ui-lbl">Auto-pause</span>
+          <button class="spd" id="palette-btn" title="Colour-safe palette" aria-label="Toggle the colour-safe palette">🎨</button>
+          <span class="ui-lbl">Colour-safe</span>
+          <button class="spd" id="uiscale-btn" title="Interface scale" aria-label="Change the interface scale">🔍</button>
+          <span class="ui-lbl" id="uiscale-lbl">Scale</span>
           <button class="tut-btn ui-codex" id="help-btn">📖 Codex</button>
         </div>
         <div class="menu-section-title">🎨 Theme</div>
@@ -376,6 +390,18 @@ class App {
     };
     const codexBtn = document.getElementById("help-btn");
     if (codexBtn) codexBtn.onclick = () => this.openCodex();
+    const palBtn = document.getElementById("palette-btn");
+    if (palBtn) palBtn.onclick = () => {
+      setPalette(window.__paletteSafe ? "default" : "safe");
+      this.syncInterfaceToggles();
+    };
+    const uiBtn = document.getElementById("uiscale-btn");
+    if (uiBtn) uiBtn.onclick = () => {
+      const order = UI_SCALES;                       // compact -> normal -> large
+      const next = order[(order.indexOf(uiScaleMode()) + 1) % order.length];
+      setUiScale(next);
+      this.syncInterfaceToggles();
+    };
     this.syncInterfaceToggles();
   }
 
@@ -383,6 +409,22 @@ class App {
   // menu is on screen, so their state is pushed in whenever it is built).
   syncInterfaceToggles() {
     if (window.sound && window.sound._reflectToggle) window.sound._reflectToggle();
+    const uiBtn = document.getElementById("uiscale-btn");
+    const uiLbl = document.getElementById("uiscale-lbl");
+    if (uiBtn) {
+      const mode = uiScaleMode();
+      uiBtn.classList.toggle("on", mode !== "normal");
+      uiBtn.title = `Interface scale: ${mode} — click for the next size`;
+      uiBtn.setAttribute("aria-label", uiBtn.title);
+      if (uiLbl) uiLbl.textContent = mode === "normal" ? "Scale" : mode;
+    }
+    const palBtn = document.getElementById("palette-btn");
+    if (palBtn) {
+      const safe = !!window.__paletteSafe;
+      palBtn.classList.toggle("on", safe);
+      palBtn.title = safe ? "Colour-safe palette: on — click for the default" : "Colour-safe palette: off — click to enable";
+      palBtn.setAttribute("aria-label", palBtn.title);
+    }
     const g = window.game;
     const apBtn = document.getElementById("autopause-btn");
     if (apBtn && g) {
@@ -484,7 +526,7 @@ class App {
         row.querySelector(".slot-main").onclick = () => {
           const data = SaveManager.load(s.name);
           if (data) this.startGame(data);
-          else this.toast("That save is corrupt.");
+          else this.toast(`Cannot load that save — ${SaveManager.lastError || "it is corrupt"}.`);
         };
         row.querySelector(".slot-export").onclick = (e) => {
           e.stopPropagation();

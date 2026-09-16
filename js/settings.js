@@ -55,6 +55,43 @@ const MAP_SIZES = [
 ];
 
 const DEFAULT_SETTINGS = { difficulty: "standard", mapSize: "medium" };
+
+// ---- accessibility palette --------------------------------------------------
+// The game leans on colour for ore types and for mood. "safe" swaps in an
+// Okabe-Ito style ramp — which colour-vision deficiency handles well — and the
+// renderer additionally gives each ore a distinct *shape*, because a palette
+// alone cannot separate kinds for every kind of colour blindness.
+// ---- interface scale --------------------------------------------------------
+// The HUD type is small at 9-10px, which is uncomfortable on a large display.
+// The chrome is scaled with `zoom`, which magnifies a fixed-position element and
+// its contents together, so anchors stay anchored. Normal is the default, so
+// nothing changes unless it is chosen.
+const UI_SCALES = ["compact", "normal", "large"];
+function uiScaleMode() {
+  try {
+    const m = localStorage.getItem("ee_uiscale");
+    return UI_SCALES.includes(m) ? m : "normal";
+  } catch (e) { return "normal"; }
+}
+function setUiScale(mode) {
+  const m = UI_SCALES.includes(mode) ? mode : "normal";
+  try { localStorage.setItem("ee_uiscale", m); } catch (e) {}
+  try { document.documentElement.setAttribute("data-ui", m); } catch (e) {}
+  return m;
+}
+
+const PALETTES = ["default", "safe"];
+function paletteMode() {
+  try { return localStorage.getItem("ee_palette") === "safe" ? "safe" : "default"; }
+  catch (e) { return "default"; }
+}
+function setPalette(mode) {
+  const m = PALETTES.includes(mode) ? mode : "default";
+  try { localStorage.setItem("ee_palette", m); } catch (e) {}
+  window.__paletteSafe = (m === "safe");
+  try { document.documentElement.setAttribute("data-palette", m); } catch (e) {}
+  return m;
+}
 const NEWGAME_PREF_KEY = "ee_newgame"; // remembered defaults for the next colony
 
 function difficultyById(id) {
