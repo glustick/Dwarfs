@@ -273,6 +273,21 @@ class Dwarf {
   move(dt) {
     if (!this.path || this.pathIdx >= this.path.length) return true;
     const step = this.path[this.pathIdx];
+    // One elf to a square. Two elves sharing a tile is not cosmetic: a merged
+    // colony cannot be selected apart, and that cost a player their whole colony.
+    // Waiting for ever would freeze a one-wide corridor, so a blocked step is
+    // abandoned instead — the elf stops, and the AI re-decides next tick (a job
+    // whose tile it cannot reach is cancelled and re-offered). Blocking *through*
+    // the other elf was the easy escape valve, and would have quietly restored the
+    // bug this exists to prevent.
+    if (this.game && this.game.tileOccupiedByOther(step.x, step.y, step.z, this)) {
+      this.blockedFor = (this.blockedFor || 0) + dt;
+      if (this.blockedFor < 0.6) return false;      // wait, they may move on
+      this.blockedFor = 0;
+      this.path = null;                             // give up the step, not the rule
+      return true;
+    }
+    this.blockedFor = 0;
     const dx = step.x - this.x, dy = step.y - this.y;
     const d = Math.hypot(dx, dy);
     if (d < 0.02) {

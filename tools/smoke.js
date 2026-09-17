@@ -1002,6 +1002,62 @@ check("rout: fleeing civilians scatter instead of all running for one tile", () 
   }
 });
 
+check("movement: one elf per square, and it must not freeze anyone", () => {
+  const gs = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  const w = gs.world, a = gs.dwarves[0], b = gs.dwarves[1];
+
+  // a walkable square with a walkable neighbour
+  let T = null;
+  for (let y = 2; y < w.h - 2 && !T; y++) for (let x = 2; x < w.w - 2 && !T; x++) {
+    if (w.isWalkable(x, y, 0) && w.isWalkable(x + 1, y, 0)) T = { x, y };
+  }
+  if (!T) throw new Error("no open ground to test with");
+
+  gs.update(1 / 60);                       // builds the occupancy map and d.game
+  const park = () => {
+    b.x = T.x; b.y = T.y; b.z = 0;
+    a.x = T.x + 1; a.y = T.y; a.z = 0;
+    gs._occupied.set(T.x + "," + T.y + ",0", b);   // b holds the square
+    a.path = [{ x: T.x, y: T.y, z: 0 }]; a.pathIdx = 0; a.blockedFor = 0;
+  };
+
+  // 1. it will not step onto a square another elf holds
+  park();
+  a.move(1 / 60);
+  if (a.tileX === T.x && a.tileY === T.y) throw new Error("an elf stepped onto a square another elf was standing on");
+
+  // 2. and it does not force its way in later either — the escape valve gives up
+  //    the step rather than the rule
+  let abandoned = false;
+  for (let i = 0; i < 120; i++) { a.move(1 / 60); if (!a.path) { abandoned = true; break; } }
+  if (a.tileX === T.x && a.tileY === T.y) throw new Error("a blocked elf eventually forced its way onto the occupied square");
+  if (!abandoned) throw new Error("a blocked elf waited for ever instead of giving up the step");
+
+  // 3. the rule lifts the moment the square is free
+  gs._occupied.delete(T.x + "," + T.y + ",0");
+  b.x = T.x + 2; b.y = T.y + 2;
+  park(); gs._occupied.delete(T.x + "," + T.y + ",0");
+  for (let i = 0; i < 400 && !(a.tileX === T.x && a.tileY === T.y); i++) a.move(1 / 60);
+  if (!(a.tileX === T.x && a.tileY === T.y)) throw new Error("a free square became unreachable — the rule is over-blocking");
+
+  // 4. a monster on a square must NOT stop an elf walking through it
+  const foe = run("(k,x,y,z)=>new Enemy(k,x,y,z)", "zombie", T.x, T.y, 0);
+  gs.enemies.push(foe);
+  if (gs.tileOccupiedByOther(T.x, T.y, 0, a)) throw new Error("an enemy counted as an elf holding a square");
+  gs.enemies.length = 0;
+
+  // 5. a fresh colony starts with nobody sharing a square (its own game, because
+  //    the elves above have been teleported around by this check)
+  const fresh = run("(o)=>new Game(null,o)", { difficulty: "gentle", mapSize: "small" });
+  fresh.update(1 / 60);
+  const seen = new Set();
+  for (const d of fresh.dwarves) {
+    const key = (d.tileX || 0) + "," + (d.tileY || 0) + "," + (d.z || 0);
+    if (seen.has(key)) throw new Error("two elves started on one square: " + key);
+    seen.add(key);
+  }
+});
+
 // ---------------------------------------------------------------- report
 let bad = 0;
 for (const [st, name] of results) {

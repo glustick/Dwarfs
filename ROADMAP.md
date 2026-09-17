@@ -162,12 +162,13 @@ _Live-play feedback, 2026-09-16 — filed from an actual colony._
       spots near the entrance, and clicking a shared square **cycles** through the elves
       standing on it, so a stack is never a selection dead end. **v1.41.0.**
 - [x] ~~Hunting as a labour and skill~~ — a tenth labour. **v1.40.0.**
-- [ ] **One elf to a square, enforced in movement.** The rout above was fixed at its
-      cause (a shared destination) and by making a shared square selectable, but
-      `move()` still has no occupancy check: two elves routed to the same tile by some
-      other means can still overlap. A hard rule wants a wait-on-blocked movement step
-      with an escape valve so a one-wide corridor cannot deadlock — worth doing
-      carefully rather than at the end of a long day.
+- [x] ~~One elf to a square, enforced in movement~~ — `Dwarf.move()` now refuses to step
+      into a square another elf holds. The escape valve is the interesting part: rather
+      than waiting for ever (which would freeze a one-wide corridor) or barging through
+      (which would restore the very bug), a blocked elf **gives up the step** after 0.6s
+      and lets the AI re-decide — a job it cannot reach is cancelled and re-offered.
+      Monsters are deliberately not counted, so a zombie on a square never blocks an elf
+      walking through it. **v1.42.0.**
 - [x] ~~Furniture and workshops on a finished floor~~ — every build required bare
       ground, so flooring a tile made it permanently unfurnishable: you paid for a
       floor and then could not put a bed on it. Furniture and workshops now accept a

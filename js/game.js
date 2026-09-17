@@ -724,6 +724,15 @@ class Game {
       }
     }
 
+    // One elf to a square. The map is rebuilt here, once a tick, because it is
+    // what Dwarf.move() consults before stepping into a tile — and the same loop
+    // hands each dwarf the game reference it has no other way to reach from there.
+    this._occupied = new Map();
+    for (const d of this.dwarves) {
+      d.game = this;
+      this._occupied.set((d.tileX || 0) + "," + (d.tileY || 0) + "," + (d.z || 0), d);
+    }
+
     // dwarves
     for (const d of this.dwarves) this.updateDwarf(d, dt);
     this.flushRemovals();
@@ -1661,6 +1670,15 @@ class Game {
     }
     d.fleeing = false;
     return false;
+  }
+
+  // Is this square held by a different elf? Only elves are counted — this is about
+  // the colony not stacking on top of itself, not about blocking monsters, and an
+  // enemy standing on a tile must not stop an elf walking through it.
+  tileOccupiedByOther(x, y, z, self) {
+    if (!this._occupied) return false;
+    const holder = this._occupied.get(x + "," + y + "," + (z || 0));
+    return !!holder && holder !== self;
   }
 
   // A free tile to flee to: the nearest walkable ground around the colony's

@@ -4,6 +4,22 @@ Version shown on the main/pause menu as `vRELEASE · build N`. **Release**
 bumps for a named feature round (see `ROADMAP.md`); **build** bumps by 1 on
 every commit, independent of release. Both live in `js/version.js`.
 
+## v1.42.0 (build 74)
+The open roadmap item, closed: **one elf to a square, enforced in movement.**
+
+- `Dwarf.move()` now refuses to step into a square another elf is holding, so the colony
+  can no longer stack itself however the AI behaves — by fleeing, converging on a job, or
+  anything else. The occupancy map is rebuilt once a tick, and only *elves* count:
+  a monster standing on a square never blocks anyone walking through it.
+- **The escape valve is the part that needed care.** Waiting for ever would freeze a
+  one-wide corridor; barging through after a timeout would quietly restore the very bug
+  this exists to prevent. So a blocked elf waits 0.6 s, then **gives up the step** rather
+  than the rule — it stops, and the AI re-decides next tick. A job whose tile it cannot
+  reach is cancelled and re-offered, which is self-healing.
+- `tools/smoke.js`: 47 checks — including that the rule blocks, that it does not
+  over-block (a free square is still reachable), that the valve fires rather than
+  deadlocking, and that a monster is not treated as an occupant.
+
 ## v1.41.0 (build 73)
 A colony wipe, reported from play, and the two things that made it possible.
 
